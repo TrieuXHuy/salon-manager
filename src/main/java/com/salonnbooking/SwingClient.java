@@ -5,6 +5,8 @@ import javax.swing.*;
 import com.salonnbooking.ui.MainDashboard;
 import com.salonnbooking.ui.panel.AppointmentPanel;
 import com.salonnbooking.ui.panel.CustomerPanel;
+import com.salonnbooking.ui.panel.DashboardPanel;
+import com.salonnbooking.ui.panel.ReportPanel;
 import com.salonnbooking.ui.panel.ServicePanel;
 import com.formdev.flatlaf.FlatLaf;
 import com.formdev.flatlaf.intellijthemes.FlatDarkPurpleIJTheme;
@@ -32,18 +34,22 @@ public class SwingClient {
 				MainDashboard dashboard = new MainDashboard();
 
 				// Tạo các panel
+				DashboardPanel dashboardPanel = new DashboardPanel();
 				CustomerPanel customerPanel = new CustomerPanel();
 				AppointmentPanel appointmentPanel = new AppointmentPanel();
 				ServicePanel servicePanel = new ServicePanel();
+				ReportPanel reportPanel = new ReportPanel();
 
 				// Thêm các panel vào dashboard
+				dashboard.addPanel(MainDashboard.PANEL_DASHBOARD, dashboardPanel);
 				dashboard.addPanel(MainDashboard.PANEL_CUSTOMER, customerPanel);
 				dashboard.addPanel(MainDashboard.PANEL_APPOINTMENT, appointmentPanel);
 				dashboard.addPanel(MainDashboard.PANEL_SERVICE, servicePanel);
+				dashboard.addPanel(MainDashboard.PANEL_REPORT, reportPanel);
 
 				// Hiển thị dashboard
 				dashboard.setVisible(true);
-				dashboard.showPanel(MainDashboard.PANEL_CUSTOMER);
+				dashboard.showPanel(MainDashboard.PANEL_DASHBOARD);
 
 			} catch (Exception e) {
 				e.printStackTrace();

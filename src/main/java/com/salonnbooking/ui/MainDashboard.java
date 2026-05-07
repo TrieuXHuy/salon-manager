@@ -52,11 +52,11 @@ public class MainDashboard extends JFrame {
 		contentPanel.setBackground(UIManager.getColor("Panel.background"));
 
 		// Placeholder panels (sẽ được thay thế bằng các Panel thực tế)
-		contentPanel.add(createPlaceholderPanel("Dashboard"), PANEL_DASHBOARD);
-		contentPanel.add(createPlaceholderPanel("Customer Management"), PANEL_CUSTOMER);
-		contentPanel.add(createPlaceholderPanel("Appointment Booking"), PANEL_APPOINTMENT);
-		contentPanel.add(createPlaceholderPanel("Service Management"), PANEL_SERVICE);
-		contentPanel.add(createPlaceholderPanel("Reports"), PANEL_REPORT);
+		contentPanel.add(createPlaceholderPanel("Dashboard", PANEL_DASHBOARD), PANEL_DASHBOARD);
+		contentPanel.add(createPlaceholderPanel("Customer Management", PANEL_CUSTOMER), PANEL_CUSTOMER);
+		contentPanel.add(createPlaceholderPanel("Appointment Booking", PANEL_APPOINTMENT), PANEL_APPOINTMENT);
+		contentPanel.add(createPlaceholderPanel("Service Management", PANEL_SERVICE), PANEL_SERVICE);
+		contentPanel.add(createPlaceholderPanel("Reports", PANEL_REPORT), PANEL_REPORT);
 
 		mainContainer.add(contentPanel, BorderLayout.CENTER);
 
@@ -117,7 +117,7 @@ public class MainDashboard extends JFrame {
 		btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
 		btn.addActionListener((ActionEvent e) -> {
-			cardLayout.show(contentPanel, panelName);
+			showPanel(panelName);
 		});
 
 		return btn;
@@ -126,8 +126,9 @@ public class MainDashboard extends JFrame {
 	/**
 	 * Tạo panel placeholder tạm thời
 	 */
-	private JPanel createPlaceholderPanel(String title) {
+	private JPanel createPlaceholderPanel(String title, String panelName) {
 		JPanel panel = new JPanel(new BorderLayout());
+		panel.setName(panelName);
 		panel.setBackground(UIManager.getColor("Panel.background"));
 
 		JLabel label = new JLabel(title, SwingConstants.CENTER);
@@ -141,15 +142,17 @@ public class MainDashboard extends JFrame {
 	 * Thay thế panel tạm thời bằng panel thực tế
 	 */
 	public void addPanel(String panelName, JPanel panel) {
-		// Xóa component cũ nếu tồn tại
+		panel.setName(panelName);
 		Component[] components = contentPanel.getComponents();
 		for (Component comp : components) {
-			if (contentPanel.getComponent(0) instanceof JLabel) {
+			if (panelName.equals(comp.getName())) {
 				contentPanel.remove(comp);
 				break;
 			}
 		}
 		contentPanel.add(panel, panelName);
+		contentPanel.revalidate();
+		contentPanel.repaint();
 	}
 
 	/**
@@ -157,6 +160,17 @@ public class MainDashboard extends JFrame {
 	 */
 	public void showPanel(String panelName) {
 		cardLayout.show(contentPanel, panelName);
+		updateNavSelection(panelName);
+	}
+
+	private void updateNavSelection(String panelName) {
+		String[] panelNames = { PANEL_DASHBOARD, PANEL_CUSTOMER, PANEL_APPOINTMENT, PANEL_SERVICE, PANEL_REPORT };
+		if (navButtons == null) {
+			return;
+		}
+		for (int i = 0; i < navButtons.length; i++) {
+			navButtons[i].putClientProperty("JButton.buttonType", panelNames[i].equals(panelName) ? "default" : null);
+		}
 	}
 
 	/**

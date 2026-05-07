@@ -6,6 +6,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import com.google.gson.Gson;
@@ -14,11 +17,11 @@ import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
+import com.google.gson.JsonSerializer;
 import com.salonnbooking.api.dto.AppointmentRequests;
 import com.salonnbooking.api.dto.CustomerRequests;
-
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import com.salonnbooking.api.dto.DashboardRequests;
+import com.salonnbooking.api.dto.ReportRequests;
 
 /**
  * HTTP Client để gọi API Spring Boot Backend
@@ -32,17 +35,55 @@ public class ApiClient {
 	static {
 		// Cấu hình Gson với custom deserializer cho LocalDateTime
 		GsonBuilder gsonBuilder = new GsonBuilder();
-		gsonBuilder.registerTypeAdapter(LocalDateTime.class, new JsonDeserializer<LocalDateTime>() {
-			@Override
-			public LocalDateTime deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
-					throws JsonParseException {
-				String dateStr = json.getAsString();
-				DateTimeFormatter formatter = DateTimeFormatter
-						.ofPattern("yyyy-MM-dd'T'HH:mm:ss[.SSSSSSSSS]");
-				return LocalDateTime.parse(dateStr, formatter);
-			}
-		});
+		gsonBuilder.registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter());
+		gsonBuilder.registerTypeAdapter(LocalDate.class, new LocalDateAdapter());
 		gson = gsonBuilder.create();
+	}
+
+	private static class LocalDateTimeAdapter
+			implements JsonDeserializer<LocalDateTime>, JsonSerializer<LocalDateTime> {
+		@Override
+		public LocalDateTime deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
+				throws JsonParseException {
+			String dateStr = json.getAsString();
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss[.SSSSSSSSS]");
+			return LocalDateTime.parse(dateStr, formatter);
+		}
+
+		@Override
+		public JsonElement serialize(LocalDateTime src, Type typeOfSrc,
+				com.google.gson.JsonSerializationContext context) {
+			return context.serialize(src.toString());
+		}
+	}
+
+	private static class LocalDateAdapter
+			implements JsonDeserializer<LocalDate>, JsonSerializer<LocalDate> {
+		@Override
+		public LocalDate deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
+				throws JsonParseException {
+			return LocalDate.parse(json.getAsString());
+		}
+
+		@Override
+		public JsonElement serialize(LocalDate src, Type typeOfSrc,
+				com.google.gson.JsonSerializationContext context) {
+			return context.serialize(src.toString());
+		}
+	}
+
+	private static HttpResponse<String> sendGet(String path) throws IOException, InterruptedException {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(BASE_URL + path))
+				.GET()
+				.build();
+		return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+	}
+
+	private static void requireStatus(HttpResponse<String> response, int expectedStatus, String action) {
+		if (response.statusCode() != expectedStatus) {
+			throw new RuntimeException("Failed to " + action + ": " + response.body());
+		}
 	}
 
 	// ==================== CUSTOMER API ====================
@@ -400,5 +441,64 @@ public class ApiClient {
 		if (response.statusCode() != 204) {
 			throw new RuntimeException("Failed to delete service: " + response.body());
 		}
+	}
+
+	// ==================== DASHBOARD API ====================
+
+	public static DashboardRequests.DashboardResponse getDashboard() throws Exception {
+		HttpResponse<String> response = sendGet("/dashboard");
+		requireStatus(response, 200, "fetch dashboard");
+		return gson.fromJson(response.body(), DashboardRequests.DashboardResponse.class);
+	}
+
+	public static DashboardRequests.QuickStatsResponse getQuickStats() throws Exception {
+		HttpResponse<String> response = sendGet("/dashboard/quick-stats");
+		requireStatus(response, 200, "fetch quick stats");
+		return gson.fromJson(response.body(), DashboardRequests.QuickStatsResponse.class);
+	}
+
+	// ==================== REPORT API ====================
+
+	public static List<ReportRequests.DailyRevenueResponse> getDailyRevenueReport(
+			LocalDate startDate, LocalDate endDate) throws Exception {
+		HttpResponse<String> response = sendGet("/reports/daily-revenue?startDate=" + startDate + "&endDate=" + endDate);
+		requireStatus(response, 200, "fetch daily revenue report");
+
+		var list = new java.util.ArrayList<ReportRequests.DailyRevenueResponse>();
+		var jsonArray = com.google.gson.JsonParser.parseString(response.body()).getAsJsonArray();
+		for (var element : jsonArray) {
+			list.add(gson.fromJson(element, ReportRequests.DailyRevenueResponse.class));
+		}
+		return list;
+	}
+
+	public static List<ReportRequests.ServiceRevenueResponse> getServiceRevenueReport() throws Exception {
+		HttpResponse<String> response = sendGet("/reports/service-revenue");
+		requireStatus(response, 200, "fetch service revenue report");
+
+		var list = new java.util.ArrayList<ReportRequests.ServiceRevenueResponse>();
+		var jsonArray = com.google.gson.JsonParser.parseString(response.body()).getAsJsonArray();
+		for (var element : jsonArray) {
+			list.add(gson.fromJson(element, ReportRequests.ServiceRevenueResponse.class));
+		}
+		return list;
+	}
+
+	public static List<ReportRequests.PaymentMethodResponse> getPaymentMethodReport() throws Exception {
+		HttpResponse<String> response = sendGet("/reports/payment-methods");
+		requireStatus(response, 200, "fetch payment method report");
+
+		var list = new java.util.ArrayList<ReportRequests.PaymentMethodResponse>();
+		var jsonArray = com.google.gson.JsonParser.parseString(response.body()).getAsJsonArray();
+		for (var element : jsonArray) {
+			list.add(gson.fromJson(element, ReportRequests.PaymentMethodResponse.class));
+		}
+		return list;
+	}
+
+	public static ReportRequests.AppointmentStatsResponse getAppointmentStats() throws Exception {
+		HttpResponse<String> response = sendGet("/reports/appointment-stats");
+		requireStatus(response, 200, "fetch appointment stats");
+		return gson.fromJson(response.body(), ReportRequests.AppointmentStatsResponse.class);
 	}
 }
