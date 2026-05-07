@@ -30,21 +30,21 @@ DBCC CHECKIDENT ('sms_logs', RESEED, 0);
 -- Insert Sample Customers
 -- =====================================================
 INSERT INTO customers (full_name, phone, email, gender, created_at) VALUES
-(N'Nguyễn Văn An', '0901234567', 'an.nguyen@email.com', N'MALE', GETDATE()),
-(N'Trần Thị Bích', '0902345678', 'bich.tran@email.com', N'FEMALE', GETDATE()),
-(N'Phạm Văn Chung', '0903456789', 'chung.pham@email.com', N'MALE', GETDATE()),
-(N'Hoàng Thị Diễm', '0904567890', 'diem.hoang@email.com', N'FEMALE', GETDATE()),
-(N'Lê Văn Em', '0905678901', 'em.le@email.com', N'MALE', GETDATE()),
-(N'Vũ Thị Hương', '0906789012', 'huong.vu@email.com', N'FEMALE', GETDATE()),
-(N'Đặng Văn Khang', '0907890123', 'khang.dang@email.com', N'MALE', GETDATE()),
-(N'Cao Thị Linh', '0908901234', 'linh.cao@email.com', N'FEMALE', GETDATE()),
-(N'Tô Văn Minh', '0909012345', 'minh.to@email.com', N'MALE', GETDATE()),
-(N'Đỗ Thị Nhi', '0910123456', 'nhi.do@email.com', N'FEMALE', GETDATE()),
-(N'Bùi Văn Phát', '0911234567', 'phat.bui@email.com', N'MALE', GETDATE()),
-(N'Lý Thị Quỳnh', '0912345678', 'quynh.ly@email.com', N'FEMALE', GETDATE()),
-(N'Ngô Văn Rồng', '0913456789', 'rong.ngo@email.com', N'MALE', GETDATE()),
-(N'Dương Thị Sương', '0914567890', 'suong.duong@email.com', N'FEMALE', GETDATE()),
-(N'Hà Văn Tùng', '0915678901', 'tung.ha@email.com', N'MALE', GETDATE());
+(N'Nguyễn Văn An', '0901234567', 'an.nguyen@email.com', N'male', GETDATE()),
+(N'Trần Thị Bích', '0902345678', 'bich.tran@email.com', N'female', GETDATE()),
+(N'Phạm Văn Chung', '0903456789', 'chung.pham@email.com', N'male', GETDATE()),
+(N'Hoàng Thị Diễm', '0904567890', 'diem.hoang@email.com', N'female', GETDATE()),
+(N'Lê Văn Em', '0905678901', 'em.le@email.com', N'male', GETDATE()),
+(N'Vũ Thị Hương', '0906789012', 'huong.vu@email.com', N'female', GETDATE()),
+(N'Đặng Văn Khang', '0907890123', 'khang.dang@email.com', N'male', GETDATE()),
+(N'Cao Thị Linh', '0908901234', 'linh.cao@email.com', N'female', GETDATE()),
+(N'Tô Văn Minh', '0909012345', 'minh.to@email.com', N'male', GETDATE()),
+(N'Đỗ Thị Nhi', '0910123456', 'nhi.do@email.com', N'female', GETDATE()),
+(N'Bùi Văn Phát', '0911234567', 'phat.bui@email.com', N'male', GETDATE()),
+(N'Lý Thị Quỳnh', '0912345678', 'quynh.ly@email.com', N'female', GETDATE()),
+(N'Ngô Văn Rồng', '0913456789', 'rong.ngo@email.com', N'male', GETDATE()),
+(N'Dương Thị Sương', '0914567890', 'suong.duong@email.com', N'female', GETDATE()),
+(N'Hà Văn Tùng', '0915678901', 'tung.ha@email.com', N'male', GETDATE());
 
 -- =====================================================
 -- Insert Sample Services
@@ -130,15 +130,15 @@ INSERT INTO appointments (customer_id, service_id, appointment_time, status, not
 -- Insert Sample Payments
 -- =====================================================
 INSERT INTO payments (appointment_id, amount, payment_method, payment_status, paid_at) VALUES
-(1, 150000.00, N'CASH', N'paid', '2026-05-10 09:45:00'),
-(3, 200000.00, N'CARD', N'paid', '2026-05-08 14:30:00'),
-(4, 350000.00, N'CASH', N'paid', '2026-05-12 11:45:00'),
-(6, 150000.00, N'CARD', N'paid', '2026-05-09 09:15:00'),
-(8, 200000.00, N'CASH', N'unpaid', '2026-05-18 09:30:00'),
-(10, 150000.00, N'CARD', N'paid', '2026-05-11 10:45:00'),
-(12, 350000.00, N'CASH', N'paid', '2026-05-13 11:00:00'),
-(14, 150000.00, N'CARD', N'paid', '2026-05-14 14:45:00'),
-(16, 200000.00, N'CASH', N'paid', '2026-05-19 13:30:00');
+(1, 150000.00, N'cash', N'paid', '2026-05-10 09:45:00'),
+(3, 200000.00, N'card', N'paid', '2026-05-08 14:30:00'),
+(4, 350000.00, N'cash', N'paid', '2026-05-12 11:45:00'),
+(6, 150000.00, N'card', N'paid', '2026-05-09 09:15:00'),
+(8, 200000.00, N'cash', N'unpaid', '2026-05-18 09:30:00'),
+(10, 150000.00, N'card', N'paid', '2026-05-11 10:45:00'),
+(12, 350000.00, N'cash', N'paid', '2026-05-13 11:00:00'),
+(14, 150000.00, N'card', N'paid', '2026-05-14 14:45:00'),
+(16, 200000.00, N'cash', N'paid', '2026-05-19 13:30:00');
 
 -- =====================================================
 -- Insert Sample SMS Logs
