@@ -33,7 +33,7 @@ public class ReportPanel extends JPanel {
 
 	private final JTextField startDateField = new JTextField(LocalDate.now().minusDays(30).toString(), 10);
 	private final JTextField endDateField = new JTextField(LocalDate.now().toString(), 10);
-	private final JLabel statusLabel = new JLabel("Ready");
+	private final JLabel statusLabel = new JLabel("Sẵn sàng");
 	private final JLabel totalAppointmentsValue = new JLabel("-");
 	private final JLabel pendingValue = new JLabel("-");
 	private final JLabel confirmedValue = new JLabel("-");
@@ -41,11 +41,11 @@ public class ReportPanel extends JPanel {
 	private final JLabel cancelledValue = new JLabel("-");
 
 	private final DefaultTableModel dailyRevenueModel = readOnlyModel(
-			"Date", "Revenue", "Appointments", "Completed");
+			"Ngày", "Doanh thu", "Lịch hẹn", "Hoàn thành");
 	private final DefaultTableModel serviceRevenueModel = readOnlyModel(
-			"Service", "Appointments", "Total revenue", "Average revenue");
+			"Dịch vụ", "Lịch hẹn", "Tổng doanh thu", "Doanh thu trung bình");
 	private final DefaultTableModel paymentMethodModel = readOnlyModel(
-			"Payment method", "Count", "Total amount", "Percentage");
+			"Phương thức thanh toán", "Số lượng", "Tổng tiền", "Tỷ lệ");
 
 	public ReportPanel() {
 		setLayout(new BorderLayout(16, 16));
@@ -88,9 +88,9 @@ public class ReportPanel extends JPanel {
 		content.add(createStatsPanel(), BorderLayout.NORTH);
 
 		JTabbedPane tabs = new JTabbedPane();
-		tabs.addTab("Daily revenue", createTable(dailyRevenueModel));
-		tabs.addTab("Service revenue", createTable(serviceRevenueModel));
-		tabs.addTab("Payment methods", createTable(paymentMethodModel));
+		tabs.addTab("Doanh thu ngày", createTable(dailyRevenueModel));
+		tabs.addTab("Doanh thu dịch vụ", createTable(serviceRevenueModel));
+		tabs.addTab("Thanh toán", createTable(paymentMethodModel));
 		content.add(tabs, BorderLayout.CENTER);
 
 		return content;
@@ -99,11 +99,11 @@ public class ReportPanel extends JPanel {
 	private JPanel createStatsPanel() {
 		JPanel panel = new JPanel(new GridLayout(1, 5, 10, 0));
 		panel.setOpaque(false);
-		panel.add(createStat("Total", totalAppointmentsValue));
-		panel.add(createStat("Pending", pendingValue));
-		panel.add(createStat("Confirmed", confirmedValue));
-		panel.add(createStat("Completed", completedValue));
-		panel.add(createStat("Cancelled", cancelledValue));
+		panel.add(createStat("Tổng số", totalAppointmentsValue));
+		panel.add(createStat("Chờ xử lý", pendingValue));
+		panel.add(createStat("Đã xác nhận", confirmedValue));
+		panel.add(createStat("Hoàn thành", completedValue));
+		panel.add(createStat("Đã hủy", cancelledValue));
 		return panel;
 	}
 
@@ -149,12 +149,12 @@ public class ReportPanel extends JPanel {
 			endDate = LocalDate.parse(endDateField.getText().trim());
 		} catch (Exception e) {
 			JOptionPane.showMessageDialog(this,
-					"Dates must use yyyy-MM-dd format.",
-					"Invalid Date", JOptionPane.WARNING_MESSAGE);
+					"Ngày phải nhập theo định dạng yyyy-MM-dd.",
+					"Ngày không hợp lệ", JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 
-		statusLabel.setText("Loading reports...");
+		statusLabel.setText("Đang tải báo cáo...");
 		SwingWorker<ReportData, Void> worker = new SwingWorker<>() {
 			@Override
 			protected ReportData doInBackground() throws Exception {
@@ -169,12 +169,12 @@ public class ReportPanel extends JPanel {
 			protected void done() {
 				try {
 					applyData(get());
-					statusLabel.setText("Updated");
+					statusLabel.setText("Đã cập nhật");
 				} catch (Exception e) {
-					statusLabel.setText("Could not load reports");
+					statusLabel.setText("Không tải được báo cáo");
 					JOptionPane.showMessageDialog(ReportPanel.this,
-							"Error loading reports: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+							"Lỗi tải báo cáo: " + e.getMessage(),
+							"Lỗi", JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		};

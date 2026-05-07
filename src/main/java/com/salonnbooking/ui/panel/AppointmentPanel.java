@@ -100,7 +100,7 @@ public class AppointmentPanel extends JPanel {
 		panel.add(btnPanel, BorderLayout.WEST);
 
 		// Status label
-		lblStatus = new JLabel("Ready");
+		lblStatus = new JLabel("Sẵn sàng");
 		lblStatus.setFont(new Font("Segoe UI", Font.PLAIN, 10));
 		panel.add(lblStatus, BorderLayout.EAST);
 
@@ -113,9 +113,9 @@ public class AppointmentPanel extends JPanel {
 	private JPanel createTablePanel() {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
-		panel.setBorder(BorderFactory.createTitledBorder("Appointment List"));
+		panel.setBorder(BorderFactory.createTitledBorder("Danh sách lịch hẹn"));
 
-		String[] columnNames = { "ID", "Customer", "Service", "Date/Time", "Status", "Note" };
+		String[] columnNames = { "ID", "Khách hàng", "Dịch vụ", "Ngày giờ", "Trạng thái", "Ghi chú" };
 		tableModel = new DefaultTableModel(columnNames, 0) {
 			private static final long serialVersionUID = 1L;
 
@@ -155,7 +155,7 @@ public class AppointmentPanel extends JPanel {
 	 * Load dữ liệu ban đầu (Customers, Services, Appointments)
 	 */
 	private void loadInitialData() {
-		setStatus("Loading initial data...");
+		setStatus("Đang tải dữ liệu...");
 		disableButtons();
 
 		SwingWorker<Void, Void> worker = new SwingWorker<>() {
@@ -172,8 +172,8 @@ public class AppointmentPanel extends JPanel {
 					get();
 					loadAppointments();
 				} catch (Exception e) {
-					handleException("Error loading initial data", e);
-					setStatus("Error");
+					handleException("Lỗi tải dữ liệu ban đầu", e);
+					setStatus("Lỗi");
 					enableButtons();
 				}
 			}
@@ -186,7 +186,7 @@ public class AppointmentPanel extends JPanel {
 	 * Load danh sách lịch hẹn từ API (Non-blocking)
 	 */
 	private void loadAppointments() {
-		setStatus("Loading appointments...");
+		setStatus("Đang tải lịch hẹn...");
 
 		SwingWorker<List<AppointmentRequests.Response>, Void> worker = new SwingWorker<>() {
 			@Override
@@ -199,11 +199,11 @@ public class AppointmentPanel extends JPanel {
 				try {
 					appointments = get();
 					refreshTable(appointments);
-					setStatus("Ready - " + appointments.size() + " appointments");
+					setStatus("Sẵn sàng - " + appointments.size() + " lịch hẹn");
 					enableButtons();
 				} catch (Exception e) {
-					handleException("Error loading appointments", e);
-					setStatus("Error loading data");
+					handleException("Lỗi tải lịch hẹn", e);
+					setStatus("Lỗi tải dữ liệu");
 				}
 			}
 		};
@@ -222,13 +222,13 @@ public class AppointmentPanel extends JPanel {
 					.filter(c -> c.id().equals(apt.customerId()))
 					.map(CustomerRequests.Response::fullName)
 					.findFirst()
-					.orElse("Unknown");
+					.orElse("Không rõ");
 
 			String serviceName = services.stream()
 					.filter(s -> s.id().equals(apt.serviceId()))
 					.map(ServiceRequests.Response::name)
 					.findFirst()
-					.orElse("Unknown");
+					.orElse("Không rõ");
 
 			tableModel.addRow(new Object[] {
 					apt.id(),
@@ -307,8 +307,8 @@ public class AppointmentPanel extends JPanel {
 		}
 
 		int confirm = JOptionPane.showConfirmDialog(this,
-				"Are you sure you want to delete this appointment?",
-				"Confirm Delete", JOptionPane.YES_NO_OPTION);
+				"Bạn chắc chắn muốn xóa lịch hẹn này?",
+				"Xác nhận xóa", JOptionPane.YES_NO_OPTION);
 
 		if (confirm == JOptionPane.YES_OPTION) {
 			deleteAppointment(selectedAppointmentId);
@@ -321,7 +321,7 @@ public class AppointmentPanel extends JPanel {
 	 * Thêm lịch hẹn mới (Non-blocking)
 	 */
 	private void addAppointment(AppointmentRequests.Create createReq) {
-		setStatus("Creating appointment...");
+		setStatus("Đang tạo lịch hẹn...");
 		disableButtons();
 
 		SwingWorker<AppointmentRequests.Response, Void> worker = new SwingWorker<>() {
@@ -336,12 +336,12 @@ public class AppointmentPanel extends JPanel {
 					get();
 					JOptionPane.showMessageDialog(AppointmentPanel.this,
 								"Lịch hẹn được tạo thành công!",
-							"Success", JOptionPane.INFORMATION_MESSAGE);
+							"Thành công", JOptionPane.INFORMATION_MESSAGE);
 					loadAppointments();
 				} catch (Exception e) {
-					handleException("Error creating appointment", e);
+					handleException("Lỗi tạo lịch hẹn", e);
 					enableButtons();
-					setStatus("Error");
+					setStatus("Lỗi");
 				}
 			}
 		};
@@ -353,7 +353,7 @@ public class AppointmentPanel extends JPanel {
 	 * Cập nhật lịch hẹn (Non-blocking)
 	 */
 	private void updateAppointment(Integer appointmentId, AppointmentRequests.Update updateReq) {
-		setStatus("Updating appointment...");
+		setStatus("Đang cập nhật lịch hẹn...");
 		disableButtons();
 
 		SwingWorker<AppointmentRequests.Response, Void> worker = new SwingWorker<>() {
@@ -368,12 +368,12 @@ public class AppointmentPanel extends JPanel {
 					get();
 					JOptionPane.showMessageDialog(AppointmentPanel.this,
 								"Lịch hẹn được cập nhật thành công!",
-							"Success", JOptionPane.INFORMATION_MESSAGE);
+							"Thành công", JOptionPane.INFORMATION_MESSAGE);
 					loadAppointments();
 				} catch (Exception e) {
-					handleException("Error updating appointment", e);
+					handleException("Lỗi cập nhật lịch hẹn", e);
 					enableButtons();
-					setStatus("Error");
+					setStatus("Lỗi");
 				}
 			}
 		};
@@ -385,7 +385,7 @@ public class AppointmentPanel extends JPanel {
 	 * Xóa lịch hẹn (Non-blocking)
 	 */
 	private void deleteAppointment(Integer appointmentId) {
-		setStatus("Deleting appointment...");
+		setStatus("Đang xóa lịch hẹn...");
 		disableButtons();
 
 		SwingWorker<Void, Void> worker = new SwingWorker<>() {
@@ -401,12 +401,12 @@ public class AppointmentPanel extends JPanel {
 					get();
 					JOptionPane.showMessageDialog(AppointmentPanel.this,
 								"Lịch hẹn được xóa thành công!",
-							"Success", JOptionPane.INFORMATION_MESSAGE);
+							"Thành công", JOptionPane.INFORMATION_MESSAGE);
 					loadAppointments();
 				} catch (Exception e) {
-					handleException("Error deleting appointment", e);
+					handleException("Lỗi xóa lịch hẹn", e);
 					enableButtons();
-					setStatus("Error");
+					setStatus("Lỗi");
 				}
 			}
 		};
@@ -427,14 +427,14 @@ public class AppointmentPanel extends JPanel {
 
 		JOptionPane.showMessageDialog(this,
 				title + ": " + message,
-				"Error", JOptionPane.ERROR_MESSAGE);
+				"Lỗi", JOptionPane.ERROR_MESSAGE);
 	}
 
 	/**
 	 * Hiển thị thông báo lỗi
 	 */
 	private void showError(String message) {
-		JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
+		JOptionPane.showMessageDialog(this, message, "Lỗi", JOptionPane.ERROR_MESSAGE);
 	}
 
 	/**

@@ -8,8 +8,7 @@ import com.salonnbooking.ui.panel.CustomerPanel;
 import com.salonnbooking.ui.panel.DashboardPanel;
 import com.salonnbooking.ui.panel.ReportPanel;
 import com.salonnbooking.ui.panel.ServicePanel;
-import com.formdev.flatlaf.FlatLaf;
-import com.formdev.flatlaf.intellijthemes.FlatDarkPurpleIJTheme;
+import com.formdev.flatlaf.FlatLightLaf;
 
 /**
  * SwingClient - Entry point của ứng dụng Java Swing
@@ -24,8 +23,13 @@ import com.formdev.flatlaf.intellijthemes.FlatDarkPurpleIJTheme;
 public class SwingClient {
 
 	public static void main(String[] args) {
+		// Cấu hình UTF-8 encoding cho JVM
+		System.setProperty("file.encoding", "UTF-8");
+		System.setProperty("sun.jnu.encoding", "UTF-8");
+		
 		// Setup FlatLaf theme trước khi tạo UI
-		FlatDarkPurpleIJTheme.setup();
+		FlatLightLaf.setup();
+		configureLightPalette();
 
 		// Chạy UI trên Event Dispatch Thread
 		SwingUtilities.invokeLater(() -> {
@@ -54,10 +58,23 @@ public class SwingClient {
 			} catch (Exception e) {
 				e.printStackTrace();
 				JOptionPane.showMessageDialog(null,
-						"Error initializing application: " + e.getMessage(),
-						"Startup Error", JOptionPane.ERROR_MESSAGE);
+						"Lỗi khởi động ứng dụng: " + e.getMessage(),
+						"Lỗi khởi động", JOptionPane.ERROR_MESSAGE);
 				System.exit(1);
 			}
 		});
+	}
+
+	private static void configureLightPalette() {
+		UIManager.put("Panel.background", new java.awt.Color(248, 250, 252));
+		UIManager.put("Table.background", java.awt.Color.WHITE);
+		UIManager.put("Table.alternateRowColor", new java.awt.Color(245, 247, 250));
+		UIManager.put("Table.selectionBackground", new java.awt.Color(219, 234, 254));
+		UIManager.put("Table.selectionForeground", new java.awt.Color(15, 23, 42));
+		UIManager.put("TableHeader.background", new java.awt.Color(239, 246, 255));
+		UIManager.put("TableHeader.foreground", new java.awt.Color(30, 41, 59));
+		UIManager.put("Component.borderColor", new java.awt.Color(203, 213, 225));
+		UIManager.put("Button.arc", 8);
+		UIManager.put("Component.arc", 8);
 	}
 }

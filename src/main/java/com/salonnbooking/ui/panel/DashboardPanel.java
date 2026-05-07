@@ -46,9 +46,9 @@ public class DashboardPanel extends JPanel {
 	private final JLabel topServiceValue = new JLabel("-");
 	private final JLabel quickStatsValue = new JLabel("-");
 	private final JLabel completionRateValue = new JLabel("-");
-	private final JLabel statusLabel = new JLabel("Ready");
+	private final JLabel statusLabel = new JLabel("Sẵn sàng");
 	private final DefaultTableModel todayTableModel = new DefaultTableModel(
-			new String[] { "Time", "Customer", "Service", "Status", "Note" }, 0) {
+			new String[] { "Thời gian", "Khách hàng", "Dịch vụ", "Trạng thái", "Ghi chú" }, 0) {
 		private static final long serialVersionUID = 1L;
 
 		@Override
@@ -138,7 +138,7 @@ public class DashboardPanel extends JPanel {
 	}
 
 	private void loadDashboard() {
-		statusLabel.setText("Loading dashboard...");
+		statusLabel.setText("Đang tải tổng quan...");
 
 		SwingWorker<DashboardData, Void> worker = new SwingWorker<>() {
 			@Override
@@ -155,12 +155,12 @@ public class DashboardPanel extends JPanel {
 			protected void done() {
 				try {
 					applyData(get());
-					statusLabel.setText("Updated");
+					statusLabel.setText("Đã cập nhật");
 				} catch (Exception e) {
-					statusLabel.setText("Could not load dashboard");
+					statusLabel.setText("Không tải được tổng quan");
 					JOptionPane.showMessageDialog(DashboardPanel.this,
-							"Error loading dashboard: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+							"Lỗi tải tổng quan: " + e.getMessage(),
+							"Lỗi", JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		};
@@ -177,8 +177,8 @@ public class DashboardPanel extends JPanel {
 		pendingAppointmentsValue.setText(String.valueOf(dashboard.pendingAppointments()));
 		todayRevenueValue.setText(formatCurrency(dashboard.todayRevenue()));
 		monthlyRevenueValue.setText(formatCurrency(dashboard.monthlyRevenue()));
-		topServiceValue.setText(dashboard.topServiceName() == null ? "No data" : dashboard.topServiceName());
-		quickStatsValue.setText(quickStats.appointmentsThisMonth() + " bookings");
+		topServiceValue.setText(dashboard.topServiceName() == null ? "Chưa có dữ liệu" : dashboard.topServiceName());
+		quickStatsValue.setText(quickStats.appointmentsThisMonth() + " lịch hẹn");
 		completionRateValue.setText(formatPercent(dashboard.appointmentCompletionRate()));
 
 		todayTableModel.setRowCount(0);
@@ -195,7 +195,7 @@ public class DashboardPanel extends JPanel {
 				}));
 
 		if (todayTableModel.getRowCount() == 0) {
-			todayTableModel.addRow(new Object[] { "", "No appointments today", "", "", "" });
+			todayTableModel.addRow(new Object[] { "", "Hôm nay chưa có lịch hẹn", "", "", "" });
 		}
 	}
 
@@ -204,7 +204,7 @@ public class DashboardPanel extends JPanel {
 				.filter(c -> c.id().equals(id))
 				.map(CustomerRequests.Response::fullName)
 				.findFirst()
-				.orElse("Unknown");
+				.orElse("Không rõ");
 	}
 
 	private String findServiceName(List<ServiceRequests.Response> services, Integer id) {
@@ -212,7 +212,7 @@ public class DashboardPanel extends JPanel {
 				.filter(s -> s.id().equals(id))
 				.map(ServiceRequests.Response::name)
 				.findFirst()
-				.orElse("Unknown");
+				.orElse("Không rõ");
 	}
 
 	private String formatCurrency(BigDecimal value) {

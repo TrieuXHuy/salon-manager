@@ -153,8 +153,8 @@ public class ServicePanel extends JPanel {
 					refreshTable(services);
 				} catch (Exception e) {
 					JOptionPane.showMessageDialog(ServicePanel.this,
-							"Error loading services: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+							"Lỗi tải dịch vụ: " + e.getMessage(),
+							"Lỗi", JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		};
@@ -212,14 +212,14 @@ public class ServicePanel extends JPanel {
 				try {
 					get();
 					JOptionPane.showMessageDialog(ServicePanel.this,
-							"Service added successfully!", "Success",
+							"Thêm dịch vụ thành công!", "Thành công",
 							JOptionPane.INFORMATION_MESSAGE);
 					clearForm();
 					loadServices();
 				} catch (Exception e) {
 					JOptionPane.showMessageDialog(ServicePanel.this,
-							"Error adding service: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+							"Lỗi thêm dịch vụ: " + e.getMessage(),
+							"Lỗi", JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		};
@@ -229,8 +229,8 @@ public class ServicePanel extends JPanel {
 
 	private void updateService() {
 		if (selectedServiceId == null) {
-			JOptionPane.showMessageDialog(this, "Please select a service to update",
-					"Warning", JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showMessageDialog(this, "Vui lòng chọn một dịch vụ để cập nhật",
+					"Cảnh báo", JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 
@@ -258,14 +258,14 @@ public class ServicePanel extends JPanel {
 				try {
 					get();
 					JOptionPane.showMessageDialog(ServicePanel.this,
-							"Service updated successfully!", "Success",
+							"Cập nhật dịch vụ thành công!", "Thành công",
 							JOptionPane.INFORMATION_MESSAGE);
 					clearForm();
 					loadServices();
 				} catch (Exception e) {
 					JOptionPane.showMessageDialog(ServicePanel.this,
-							"Error updating service: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+							"Lỗi cập nhật dịch vụ: " + e.getMessage(),
+							"Lỗi", JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		};
@@ -275,14 +275,14 @@ public class ServicePanel extends JPanel {
 
 	private void deleteService() {
 		if (selectedServiceId == null) {
-			JOptionPane.showMessageDialog(this, "Please select a service to delete",
-					"Warning", JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showMessageDialog(this, "Vui lòng chọn một dịch vụ để xóa",
+					"Cảnh báo", JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 
 		int confirm = JOptionPane.showConfirmDialog(this,
-				"Are you sure you want to delete this service?",
-				"Confirm Delete", JOptionPane.YES_NO_OPTION);
+				"Bạn chắc chắn muốn xóa dịch vụ này?",
+				"Xác nhận xóa", JOptionPane.YES_NO_OPTION);
 
 		if (confirm != JOptionPane.YES_OPTION) {
 			return;
@@ -302,14 +302,14 @@ public class ServicePanel extends JPanel {
 				try {
 					get();
 					JOptionPane.showMessageDialog(ServicePanel.this,
-							"Service deleted successfully!", "Success",
+							"Xóa dịch vụ thành công!", "Thành công",
 							JOptionPane.INFORMATION_MESSAGE);
 					clearForm();
 					loadServices();
 				} catch (Exception e) {
 					JOptionPane.showMessageDialog(ServicePanel.this,
-							"Error deleting service: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+							"Lỗi xóa dịch vụ: " + e.getMessage(),
+							"Lỗi", JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		};
@@ -329,7 +329,7 @@ public class ServicePanel extends JPanel {
 
 	private boolean validateForm() {
 		if (tfName.getText().trim().isEmpty()) {
-			JOptionPane.showMessageDialog(this, "Service name is required", "Validation Error",
+			JOptionPane.showMessageDialog(this, "Tên dịch vụ là bắt buộc", "Lỗi kiểm tra",
 					JOptionPane.WARNING_MESSAGE);
 			return false;
 		}
@@ -337,7 +337,7 @@ public class ServicePanel extends JPanel {
 		try {
 			new BigDecimal(tfPrice.getText().trim());
 		} catch (NumberFormatException e) {
-			JOptionPane.showMessageDialog(this, "Price must be a valid number", "Validation Error",
+			JOptionPane.showMessageDialog(this, "Giá phải là số hợp lệ", "Lỗi kiểm tra",
 					JOptionPane.WARNING_MESSAGE);
 			return false;
 		}
@@ -345,8 +345,8 @@ public class ServicePanel extends JPanel {
 		try {
 			Integer.parseInt(tfDuration.getText().trim());
 		} catch (NumberFormatException e) {
-			JOptionPane.showMessageDialog(this, "Duration must be a valid number",
-					"Validation Error", JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showMessageDialog(this, "Thời gian phải là số hợp lệ",
+					"Lỗi kiểm tra", JOptionPane.WARNING_MESSAGE);
 			return false;
 		}
 

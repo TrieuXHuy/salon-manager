@@ -90,11 +90,11 @@ public class CustomerPanel extends JPanel {
 		gbc.fill = GridBagConstraints.HORIZONTAL;
 
 		// Row 1: Full Name & Phone
-		addLabel(panel, "Full Name:", 0, 0, gbc);
+		addLabel(panel, "Họ và tên:", 0, 0, gbc);
 		tfFullName = new JTextField(20);
 		panel.add(tfFullName, setPosition(gbc, 1, 0));
 
-		addLabel(panel, "Phone:", 2, 0, gbc);
+		addLabel(panel, "Số điện thoại:", 2, 0, gbc);
 		tfPhone = new JTextField(15);
 		panel.add(tfPhone, setPosition(gbc, 3, 0));
 

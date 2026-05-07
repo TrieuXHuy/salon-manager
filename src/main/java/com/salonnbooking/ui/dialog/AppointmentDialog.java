@@ -238,12 +238,12 @@ public class AppointmentDialog extends JDialog {
 	 */
 	private boolean validateForm() {
 		if (cbCustomer.getSelectedIndex() < 0) {
-			showError("Please select a customer");
+			showError("Vui lòng chọn khách hàng");
 			return false;
 		}
 
 		if (cbService.getSelectedIndex() < 0) {
-			showError("Please select a service");
+			showError("Vui lòng chọn dịch vụ");
 			return false;
 		}
 

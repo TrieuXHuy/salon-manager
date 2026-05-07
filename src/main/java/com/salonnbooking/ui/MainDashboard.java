@@ -5,8 +5,7 @@ import java.awt.event.ActionEvent;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
-import com.formdev.flatlaf.FlatLaf;
-import com.formdev.flatlaf.intellijthemes.FlatDarkPurpleIJTheme;
+import com.formdev.flatlaf.FlatLightLaf;
 
 /**
  * MainDashboard - Khung sườn chính của ứng dụng Salon Booking
@@ -30,7 +29,7 @@ public class MainDashboard extends JFrame {
 
 	public MainDashboard() {
 		// Setup FlatLaf Theme
-		FlatDarkPurpleIJTheme.setup();
+		configureLightPalette();
 
 		setTitle("Hệ thống đặt lịch salon");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -173,10 +172,25 @@ public class MainDashboard extends JFrame {
 		}
 	}
 
+	private static void configureLightPalette() {
+		UIManager.put("Panel.background", new Color(248, 250, 252));
+		UIManager.put("Table.background", Color.WHITE);
+		UIManager.put("Table.alternateRowColor", new Color(245, 247, 250));
+		UIManager.put("Table.selectionBackground", new Color(219, 234, 254));
+		UIManager.put("Table.selectionForeground", new Color(15, 23, 42));
+		UIManager.put("TableHeader.background", new Color(239, 246, 255));
+		UIManager.put("TableHeader.foreground", new Color(30, 41, 59));
+		UIManager.put("Component.borderColor", new Color(203, 213, 225));
+		UIManager.put("Button.arc", 8);
+		UIManager.put("Component.arc", 8);
+	}
+
 	/**
 	 * Main method
 	 */
 	public static void main(String[] args) {
+		FlatLightLaf.setup();
+		configureLightPalette();
 		SwingUtilities.invokeLater(() -> {
 			MainDashboard frame = new MainDashboard();
 			frame.setVisible(true);
