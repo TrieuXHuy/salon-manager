@@ -2,8 +2,9 @@ package com.salonnbooking.ui.dialog;
 
 import java.awt.*;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
+import java.time.ZoneId;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -19,12 +20,10 @@ import com.salonnbooking.domain.AppointmentStatus;
  */
 public class AppointmentDialog extends JDialog {
 	private static final long serialVersionUID = 1L;
-	private static final DateTimeFormatter DATE_FORMATTER = 
-			DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
 	private JComboBox<ComboBoxItem> cbCustomer;
 	private JComboBox<ComboBoxItem> cbService;
-	private JTextField tfDateTime;
+	private JSpinner spDateTime;
 	private JComboBox<AppointmentStatus> cbStatus;
 	private JTextArea taNote;
 	private JButton btnSave;
@@ -129,11 +128,10 @@ public class AppointmentDialog extends JDialog {
 		gbc.weightx = 0;
 		panel.add(new JLabel("Ngày/Giờ:"), gbc);
 
-		tfDateTime = new JTextField();
-		tfDateTime.setToolTipText("Format: yyyy-MM-dd HH:mm (e.g., 2026-12-31 14:30)");
+		// Chọn ngày giờ bằng spinner thay vì bắt người dùng gõ đúng format.
 		gbc.gridx = 1;
 		gbc.weightx = 1;
-		panel.add(tfDateTime, gbc);
+		panel.add(createDateTimePicker(), gbc);
 
 		// Status ComboBox
 		gbc.gridx = 0;
@@ -162,6 +160,36 @@ public class AppointmentDialog extends JDialog {
 		gbc.weighty = 1;
 		panel.add(scrollPane, gbc);
 
+		return panel;
+	}
+
+	private JPanel createDateTimePicker() {
+		JPanel panel = new JPanel(new BorderLayout(6, 0));
+		panel.setOpaque(false);
+
+		spDateTime = new JSpinner(new SpinnerDateModel(
+				Date.from(defaultAppointmentTime().atZone(ZoneId.systemDefault()).toInstant()),
+				null,
+				null,
+				Calendar.MINUTE));
+		JSpinner.DateEditor editor = new JSpinner.DateEditor(spDateTime, "dd/MM/yyyy HH:mm");
+		spDateTime.setEditor(editor);
+		spDateTime.setToolTipText("Chọn ngày giờ, ví dụ 10/05/2026 09:00");
+		panel.add(spDateTime, BorderLayout.CENTER);
+
+		JPanel quickButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+		quickButtons.setOpaque(false);
+
+		JButton nowButton = new JButton("Bây giờ");
+		nowButton.addActionListener(e -> spDateTime.setValue(new Date()));
+		quickButtons.add(nowButton);
+
+		JButton plus30Button = new JButton("+30 phút");
+		plus30Button.addActionListener(e -> spDateTime.setValue(Date.from(
+				getSelectedAppointmentTime().plusMinutes(30).atZone(ZoneId.systemDefault()).toInstant())));
+		quickButtons.add(plus30Button);
+
+		panel.add(quickButtons, BorderLayout.EAST);
 		return panel;
 	}
 
@@ -210,7 +238,7 @@ public class AppointmentDialog extends JDialog {
 		}
 
 		// Set datetime
-		tfDateTime.setText(apt.appointmentTime().format(DATE_FORMATTER));
+		spDateTime.setValue(Date.from(apt.appointmentTime().atZone(ZoneId.systemDefault()).toInstant()));
 
 		// Set status
 		cbStatus.setSelectedItem(apt.status());
@@ -247,19 +275,6 @@ public class AppointmentDialog extends JDialog {
 			return false;
 		}
 
-		String dateTimeStr = tfDateTime.getText().trim();
-		if (dateTimeStr.isEmpty()) {
-			showError("Please enter appointment date/time");
-			return false;
-		}
-
-		try {
-			LocalDateTime.parse(dateTimeStr, DATE_FORMATTER);
-		} catch (DateTimeParseException e) {
-			showError("Invalid date/time format.\nExpected: yyyy-MM-dd HH:mm\nExample: 2026-12-31 14:30");
-			return false;
-		}
-
 		return true;
 	}
 
@@ -277,7 +292,7 @@ public class AppointmentDialog extends JDialog {
 	public AppointmentRequests.Create getAppointmentCreateRequest() {
 		ComboBoxItem customer = (ComboBoxItem) cbCustomer.getSelectedItem();
 		ComboBoxItem service = (ComboBoxItem) cbService.getSelectedItem();
-		LocalDateTime dateTime = LocalDateTime.parse(tfDateTime.getText(), DATE_FORMATTER);
+		LocalDateTime dateTime = getSelectedAppointmentTime();
 
 		return new AppointmentRequests.Create(
 				customer.getId(),
@@ -293,7 +308,7 @@ public class AppointmentDialog extends JDialog {
 	public AppointmentRequests.Update getAppointmentUpdateRequest() {
 		ComboBoxItem customer = (ComboBoxItem) cbCustomer.getSelectedItem();
 		ComboBoxItem service = (ComboBoxItem) cbService.getSelectedItem();
-		LocalDateTime dateTime = LocalDateTime.parse(tfDateTime.getText(), DATE_FORMATTER);
+		LocalDateTime dateTime = getSelectedAppointmentTime();
 
 		return new AppointmentRequests.Update(
 				customer.getId(),
@@ -308,6 +323,22 @@ public class AppointmentDialog extends JDialog {
 	 */
 	public boolean isApproved() {
 		return approved;
+	}
+
+	private LocalDateTime getSelectedAppointmentTime() {
+		Date selectedDate = (Date) spDateTime.getValue();
+		return LocalDateTime.ofInstant(selectedDate.toInstant(), ZoneId.systemDefault())
+				.withSecond(0)
+				.withNano(0);
+	}
+
+	private LocalDateTime defaultAppointmentTime() {
+		LocalDateTime now = LocalDateTime.now().withSecond(0).withNano(0);
+		int minutesToAdd = 30 - (now.getMinute() % 30);
+		if (minutesToAdd == 30) {
+			minutesToAdd = 0;
+		}
+		return now.plusMinutes(minutesToAdd);
 	}
 
 	/**

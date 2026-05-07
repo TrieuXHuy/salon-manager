@@ -3,10 +3,13 @@ package com.salonnbooking.ui.panel;
 import java.awt.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 
 import com.salonnbooking.api.dto.AppointmentRequests;
 import com.salonnbooking.api.dto.CustomerRequests;
@@ -129,11 +132,16 @@ public class AppointmentPanel extends JPanel {
 		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		table.setRowHeight(25);
 		table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+		table.setAutoCreateRowSorter(true);
+		TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(tableModel);
+		sorter.setComparator(3, Comparator.comparing(value -> LocalDateTime.parse(value.toString(), DATE_FORMATTER)));
+		table.setRowSorter(sorter);
 
 		// Row selection listener
 		table.getSelectionModel().addListSelectionListener(e -> {
 			if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1) {
-				selectedAppointmentId = (Integer) tableModel.getValueAt(table.getSelectedRow(), 0);
+				int modelRow = table.convertRowIndexToModel(table.getSelectedRow());
+				selectedAppointmentId = (Integer) tableModel.getValueAt(modelRow, 0);
 				btnEdit.setEnabled(true);
 				btnDelete.setEnabled(true);
 			} else {
@@ -197,7 +205,7 @@ public class AppointmentPanel extends JPanel {
 			@Override
 			protected void done() {
 				try {
-					appointments = get();
+					appointments = sortByAppointmentTime(get());
 					refreshTable(appointments);
 					setStatus("Sẵn sàng - " + appointments.size() + " lịch hẹn");
 					enableButtons();
@@ -245,6 +253,14 @@ public class AppointmentPanel extends JPanel {
 		table.clearSelection();
 		btnEdit.setEnabled(false);
 		btnDelete.setEnabled(false);
+	}
+
+	private List<AppointmentRequests.Response> sortByAppointmentTime(List<AppointmentRequests.Response> source) {
+		List<AppointmentRequests.Response> sorted = new ArrayList<>(source);
+		sorted.sort(Comparator
+				.comparing(AppointmentRequests.Response::appointmentTime)
+				.thenComparing(AppointmentRequests.Response::id));
+		return sorted;
 	}
 
 	// ========== BUTTON CLICK HANDLERS ==========
