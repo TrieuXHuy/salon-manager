@@ -12,13 +12,14 @@ import com.salonnbooking.api.dto.AppointmentRequests;
 import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.api.dto.ServiceRequests;
 import com.salonnbooking.client.ApiClient;
-import com.salonnbooking.domain.AppointmentStatus;
+import com.salonnbooking.ui.dialog.AppointmentDialog;
 
 /**
  * AppointmentPanel - Quản lý lịch hẹn
  * 
- * Tích hợp SwingWorker để gọi API không làm block EDT
- * Xử lý LocalDateTime cho appointment time
+ * Tích hợp SwingWorker để gọi API không làm block EDT (Non-blocking UI)
+ * Sử dụng AppointmentDialog cho form nhập liệu
+ * Xử lý Exception & User Feedback toàn diện
  */
 public class AppointmentPanel extends JPanel {
 	private static final long serialVersionUID = 1L;
@@ -26,17 +27,19 @@ public class AppointmentPanel extends JPanel {
 			DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
 	// UI Components
-	private JComboBox<ComboBoxCustomer> cbCustomer;
-	private JComboBox<ComboBoxService> cbService;
-	private JTextField tfAppointmentDateTime;
-	private JComboBox<AppointmentStatus> cbStatus;
-	private JTextArea taNote;
+	private JButton btnAdd;
+	private JButton btnEdit;
+	private JButton btnDelete;
+	private JButton btnRefresh;
 	private JTable table;
 	private DefaultTableModel tableModel;
+	private JLabel lblStatus;
 
+	// Data
 	private Integer selectedAppointmentId = null;
 	private List<CustomerRequests.Response> customers;
 	private List<ServiceRequests.Response> services;
+	private List<AppointmentRequests.Response> appointments;
 
 	public AppointmentPanel() {
 		setLayout(new BorderLayout(10, 10));
@@ -46,8 +49,11 @@ public class AppointmentPanel extends JPanel {
 		// Header
 		add(createHeaderPanel(), BorderLayout.NORTH);
 
-		// Main Content
-		add(createMainPanel(), BorderLayout.CENTER);
+		// Main Content (Table)
+		add(createTablePanel(), BorderLayout.CENTER);
+
+		// Toolbar
+		add(createToolbarPanel(), BorderLayout.SOUTH);
 
 		// Load dữ liệu ban đầu
 		loadInitialData();
@@ -68,84 +74,35 @@ public class AppointmentPanel extends JPanel {
 	}
 
 	/**
-	 * Tạo panel chính
+	 * Tạo toolbar với các button
 	 */
-	private JPanel createMainPanel() {
-		JPanel main = new JPanel(new BorderLayout(10, 10));
-		main.setOpaque(false);
-
-		// Form Panel
-		main.add(createFormPanel(), BorderLayout.NORTH);
-
-		// Table Panel
-		main.add(createTablePanel(), BorderLayout.CENTER);
-
-		return main;
-	}
-
-	/**
-	 * Tạo form input
-	 */
-	private JPanel createFormPanel() {
-		JPanel panel = new JPanel();
-		panel.setLayout(new GridBagLayout());
+	private JPanel createToolbarPanel() {
+		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
-		panel.setBorder(BorderFactory.createTitledBorder("Appointment Information"));
 
-		GridBagConstraints gbc = new GridBagConstraints();
-		gbc.insets = new Insets(5, 5, 5, 5);
-		gbc.fill = GridBagConstraints.HORIZONTAL;
-
-		// Row 1: Customer & Service
-		addLabel(panel, "Customer:", 0, 0, gbc);
-		cbCustomer = new JComboBox<>();
-		cbCustomer.setPreferredSize(new Dimension(200, 30));
-		panel.add(cbCustomer, setPosition(gbc, 1, 0));
-
-		addLabel(panel, "Service:", 2, 0, gbc);
-		cbService = new JComboBox<>();
-		cbService.setPreferredSize(new Dimension(200, 30));
-		panel.add(cbService, setPosition(gbc, 3, 0));
-
-		// Row 2: Date/Time & Status
-		addLabel(panel, "Appointment Date/Time:", 0, 1, gbc);
-		tfAppointmentDateTime = new JTextField(20);
-		tfAppointmentDateTime.setToolTipText("Format: yyyy-MM-dd HH:mm");
-		panel.add(tfAppointmentDateTime, setPosition(gbc, 1, 1));
-
-		addLabel(panel, "Status:", 2, 1, gbc);
-		cbStatus = new JComboBox<>(AppointmentStatus.values());
-		cbStatus.setPreferredSize(new Dimension(100, 30));
-		panel.add(cbStatus, setPosition(gbc, 3, 1));
-
-		// Row 3: Notes
-		addLabel(panel, "Notes:", 0, 2, gbc);
-		taNote = new JTextArea(3, 40);
-		taNote.setLineWrap(true);
-		taNote.setWrapStyleWord(true);
-		JScrollPane scrollPane = new JScrollPane(taNote);
-		panel.add(scrollPane, setPosition(gbc, 1, 2));
-
-		// Buttons
 		JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
 		btnPanel.setOpaque(false);
 
-		JButton btnAdd = createButton("Add", e -> addAppointment());
-		JButton btnUpdate = createButton("Update", e -> updateAppointment());
-		JButton btnDelete = createButton("Delete", e -> deleteAppointment());
-		JButton btnClear = createButton("Clear", e -> clearForm());
-		JButton btnRefresh = createButton("Refresh", e -> loadAppointments());
+		btnAdd = createButton("Add", e -> onAddButtonClicked());
+		btnEdit = createButton("Edit", e -> onEditButtonClicked());
+		btnDelete = createButton("Delete", e -> onDeleteButtonClicked());
+		btnRefresh = createButton("Refresh", e -> loadAppointments());
+
+		btnAdd.setEnabled(false);
+		btnEdit.setEnabled(false);
+		btnDelete.setEnabled(false);
 
 		btnPanel.add(btnAdd);
-		btnPanel.add(btnUpdate);
+		btnPanel.add(btnEdit);
 		btnPanel.add(btnDelete);
-		btnPanel.add(btnClear);
 		btnPanel.add(btnRefresh);
 
-		gbc.gridx = 0;
-		gbc.gridy = 3;
-		gbc.gridwidth = 4;
-		panel.add(btnPanel, gbc);
+		panel.add(btnPanel, BorderLayout.WEST);
+
+		// Status label
+		lblStatus = new JLabel("Ready");
+		lblStatus.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+		panel.add(lblStatus, BorderLayout.EAST);
 
 		return panel;
 	}
@@ -164,7 +121,7 @@ public class AppointmentPanel extends JPanel {
 
 			@Override
 			public boolean isCellEditable(int row, int column) {
-				return false;
+				return false; // Read-only table
 			}
 		};
 
@@ -173,9 +130,16 @@ public class AppointmentPanel extends JPanel {
 		table.setRowHeight(25);
 		table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
 
+		// Row selection listener
 		table.getSelectionModel().addListSelectionListener(e -> {
 			if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1) {
-				loadFormFromTable();
+				selectedAppointmentId = (Integer) tableModel.getValueAt(table.getSelectedRow(), 0);
+				btnEdit.setEnabled(true);
+				btnDelete.setEnabled(true);
+			} else {
+				selectedAppointmentId = null;
+				btnEdit.setEnabled(false);
+				btnDelete.setEnabled(false);
 			}
 		});
 
@@ -185,10 +149,15 @@ public class AppointmentPanel extends JPanel {
 		return panel;
 	}
 
+	// ========== DATA LOADING METHODS ==========
+
 	/**
-	 * Load dữ liệu ban đầu (Customers, Services)
+	 * Load dữ liệu ban đầu (Customers, Services, Appointments)
 	 */
 	private void loadInitialData() {
+		setStatus("Loading initial data...");
+		disableButtons();
+
 		SwingWorker<Void, Void> worker = new SwingWorker<>() {
 			@Override
 			protected Void doInBackground() throws Exception {
@@ -201,19 +170,11 @@ public class AppointmentPanel extends JPanel {
 			protected void done() {
 				try {
 					get();
-					// Populate ComboBoxes
-					for (CustomerRequests.Response c : customers) {
-						cbCustomer.addItem(new ComboBoxCustomer(c.id(), c.fullName()));
-					}
-					for (ServiceRequests.Response s : services) {
-						cbService.addItem(new ComboBoxService(s.id(), s.name()));
-					}
-					// Load appointments
 					loadAppointments();
 				} catch (Exception e) {
-					JOptionPane.showMessageDialog(AppointmentPanel.this,
-							"Error loading initial data: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+					handleException("Error loading initial data", e);
+					setStatus("Error");
+					enableButtons();
 				}
 			}
 		};
@@ -222,9 +183,11 @@ public class AppointmentPanel extends JPanel {
 	}
 
 	/**
-	 * Load danh sách lịch hẹn từ API
+	 * Load danh sách lịch hẹn từ API (Non-blocking)
 	 */
 	private void loadAppointments() {
+		setStatus("Loading appointments...");
+
 		SwingWorker<List<AppointmentRequests.Response>, Void> worker = new SwingWorker<>() {
 			@Override
 			protected List<AppointmentRequests.Response> doInBackground() throws Exception {
@@ -234,12 +197,13 @@ public class AppointmentPanel extends JPanel {
 			@Override
 			protected void done() {
 				try {
-					List<AppointmentRequests.Response> appointments = get();
+					appointments = get();
 					refreshTable(appointments);
+					setStatus("Ready - " + appointments.size() + " appointments");
+					enableButtons();
 				} catch (Exception e) {
-					JOptionPane.showMessageDialog(AppointmentPanel.this,
-							"Error loading appointments: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+					handleException("Error loading appointments", e);
+					setStatus("Error loading data");
 				}
 			}
 		};
@@ -248,7 +212,7 @@ public class AppointmentPanel extends JPanel {
 	}
 
 	/**
-	 * Làm mới bảng
+	 * Làm mới bảng từ danh sách appointments
 	 */
 	private void refreshTable(List<AppointmentRequests.Response> appointments) {
 		tableModel.setRowCount(0);
@@ -272,47 +236,112 @@ public class AppointmentPanel extends JPanel {
 					serviceName,
 					apt.appointmentTime().format(DATE_FORMATTER),
 					apt.status(),
-					apt.note()
+					apt.note() != null ? apt.note() : ""
 			});
 		}
+
+		// Clear selection
+		selectedAppointmentId = null;
+		table.clearSelection();
+		btnEdit.setEnabled(false);
+		btnDelete.setEnabled(false);
 	}
 
+	// ========== BUTTON CLICK HANDLERS ==========
+
 	/**
-	 * Load form từ hàng được chọn
+	 * Xử lý button Add
 	 */
-	private void loadFormFromTable() {
-		int row = table.getSelectedRow();
-		if (row >= 0) {
-			selectedAppointmentId = (Integer) tableModel.getValueAt(row, 0);
-			// Load appointment detail
-			loadAppointmentDetail(selectedAppointmentId);
+	private void onAddButtonClicked() {
+		AppointmentDialog dialog = new AppointmentDialog(
+				SwingUtilities.getWindowAncestor(this),
+				customers, services);
+		dialog.setVisible(true);
+
+		if (dialog.isApproved()) {
+			addAppointment(dialog.getAppointmentCreateRequest());
 		}
 	}
 
 	/**
-	 * Load chi tiết appointment từ API
+	 * Xử lý button Edit
 	 */
-	private void loadAppointmentDetail(Integer appointmentId) {
+	private void onEditButtonClicked() {
+		if (selectedAppointmentId == null) {
+			JOptionPane.showMessageDialog(this,
+					"Please select an appointment to edit",
+					"No Selection", JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+
+		// Find the appointment
+		AppointmentRequests.Response selectedApt = appointments.stream()
+				.filter(a -> a.id().equals(selectedAppointmentId))
+				.findFirst()
+				.orElse(null);
+
+		if (selectedApt == null) {
+			showError("Appointment not found");
+			return;
+		}
+
+		AppointmentDialog dialog = new AppointmentDialog(
+				SwingUtilities.getWindowAncestor(this),
+				customers, services, selectedApt);
+		dialog.setVisible(true);
+
+		if (dialog.isApproved()) {
+			updateAppointment(selectedAppointmentId, dialog.getAppointmentUpdateRequest());
+		}
+	}
+
+	/**
+	 * Xử lý button Delete
+	 */
+	private void onDeleteButtonClicked() {
+		if (selectedAppointmentId == null) {
+			JOptionPane.showMessageDialog(this,
+					"Please select an appointment to delete",
+					"No Selection", JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+
+		int confirm = JOptionPane.showConfirmDialog(this,
+				"Are you sure you want to delete this appointment?",
+				"Confirm Delete", JOptionPane.YES_NO_OPTION);
+
+		if (confirm == JOptionPane.YES_OPTION) {
+			deleteAppointment(selectedAppointmentId);
+		}
+	}
+
+	// ========== CRUD OPERATIONS (Non-blocking with SwingWorker) ==========
+
+	/**
+	 * Thêm lịch hẹn mới (Non-blocking)
+	 */
+	private void addAppointment(AppointmentRequests.Create createReq) {
+		setStatus("Creating appointment...");
+		disableButtons();
+
 		SwingWorker<AppointmentRequests.Response, Void> worker = new SwingWorker<>() {
 			@Override
 			protected AppointmentRequests.Response doInBackground() throws Exception {
-				return ApiClient.getAppointment(appointmentId);
+				return ApiClient.createAppointment(createReq);
 			}
 
 			@Override
 			protected void done() {
 				try {
-					AppointmentRequests.Response apt = get();
-					// Populate form fields
-					cbCustomer.setSelectedItem(new ComboBoxCustomer(apt.customerId(), ""));
-					cbService.setSelectedItem(new ComboBoxService(apt.serviceId(), ""));
-					tfAppointmentDateTime.setText(apt.appointmentTime().format(DATE_FORMATTER));
-					cbStatus.setSelectedItem(apt.status());
-					taNote.setText(apt.note());
-				} catch (Exception e) {
+					get();
 					JOptionPane.showMessageDialog(AppointmentPanel.this,
-							"Error loading appointment detail: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+							"Appointment created successfully!",
+							"Success", JOptionPane.INFORMATION_MESSAGE);
+					loadAppointments();
+				} catch (Exception e) {
+					handleException("Error creating appointment", e);
+					enableButtons();
+					setStatus("Error");
 				}
 			}
 		};
@@ -321,136 +350,43 @@ public class AppointmentPanel extends JPanel {
 	}
 
 	/**
-	 * Thêm lịch hẹn mới
+	 * Cập nhật lịch hẹn (Non-blocking)
 	 */
-	private void addAppointment() {
-		if (!validateForm()) {
-			return;
-		}
+	private void updateAppointment(Integer appointmentId, AppointmentRequests.Update updateReq) {
+		setStatus("Updating appointment...");
+		disableButtons();
 
-		try {
-			ComboBoxCustomer selectedCustomer = (ComboBoxCustomer) cbCustomer.getSelectedItem();
-			ComboBoxService selectedService = (ComboBoxService) cbService.getSelectedItem();
-			LocalDateTime appointmentTime = LocalDateTime.parse(tfAppointmentDateTime.getText(),
-					DATE_FORMATTER);
+		SwingWorker<AppointmentRequests.Response, Void> worker = new SwingWorker<>() {
+			@Override
+			protected AppointmentRequests.Response doInBackground() throws Exception {
+				return ApiClient.updateAppointment(appointmentId, updateReq);
+			}
 
-			var createReq = new AppointmentRequests.Create(
-					selectedCustomer.getId(),
-					selectedService.getId(),
-					appointmentTime,
-					(AppointmentStatus) cbStatus.getSelectedItem(),
-					taNote.getText());
-
-			SwingWorker<AppointmentRequests.Response, Void> worker = new SwingWorker<>() {
-				@Override
-				protected AppointmentRequests.Response doInBackground() throws Exception {
-					return ApiClient.createAppointment(createReq);
+			@Override
+			protected void done() {
+				try {
+					get();
+					JOptionPane.showMessageDialog(AppointmentPanel.this,
+							"Appointment updated successfully!",
+							"Success", JOptionPane.INFORMATION_MESSAGE);
+					loadAppointments();
+				} catch (Exception e) {
+					handleException("Error updating appointment", e);
+					enableButtons();
+					setStatus("Error");
 				}
+			}
+		};
 
-				@Override
-				protected void done() {
-					try {
-						get();
-						JOptionPane.showMessageDialog(AppointmentPanel.this,
-								"Appointment created successfully!", "Success",
-								JOptionPane.INFORMATION_MESSAGE);
-						clearForm();
-						loadAppointments();
-					} catch (Exception e) {
-						JOptionPane.showMessageDialog(AppointmentPanel.this,
-								"Error creating appointment: " + e.getMessage(),
-								"Error", JOptionPane.ERROR_MESSAGE);
-					}
-				}
-			};
-
-			worker.execute();
-		} catch (Exception e) {
-			JOptionPane.showMessageDialog(this,
-					"Invalid date format. Use: yyyy-MM-dd HH:mm",
-					"Validation Error", JOptionPane.WARNING_MESSAGE);
-		}
+		worker.execute();
 	}
 
 	/**
-	 * Cập nhật lịch hẹn
+	 * Xóa lịch hẹn (Non-blocking)
 	 */
-	private void updateAppointment() {
-		if (selectedAppointmentId == null) {
-			JOptionPane.showMessageDialog(this, "Please select an appointment to update",
-					"Warning", JOptionPane.WARNING_MESSAGE);
-			return;
-		}
-
-		if (!validateForm()) {
-			return;
-		}
-
-		try {
-			ComboBoxCustomer selectedCustomer = (ComboBoxCustomer) cbCustomer.getSelectedItem();
-			ComboBoxService selectedService = (ComboBoxService) cbService.getSelectedItem();
-			LocalDateTime appointmentTime = LocalDateTime.parse(tfAppointmentDateTime.getText(),
-					DATE_FORMATTER);
-
-			var updateReq = new AppointmentRequests.Update(
-					selectedCustomer.getId(),
-					selectedService.getId(),
-					appointmentTime,
-					(AppointmentStatus) cbStatus.getSelectedItem(),
-					taNote.getText());
-
-			int appointmentId = selectedAppointmentId;
-
-			SwingWorker<AppointmentRequests.Response, Void> worker = new SwingWorker<>() {
-				@Override
-				protected AppointmentRequests.Response doInBackground() throws Exception {
-					return ApiClient.updateAppointment(appointmentId, updateReq);
-				}
-
-				@Override
-				protected void done() {
-					try {
-						get();
-						JOptionPane.showMessageDialog(AppointmentPanel.this,
-								"Appointment updated successfully!", "Success",
-								JOptionPane.INFORMATION_MESSAGE);
-						clearForm();
-						loadAppointments();
-					} catch (Exception e) {
-						JOptionPane.showMessageDialog(AppointmentPanel.this,
-								"Error updating appointment: " + e.getMessage(),
-								"Error", JOptionPane.ERROR_MESSAGE);
-					}
-				}
-			};
-
-			worker.execute();
-		} catch (Exception e) {
-			JOptionPane.showMessageDialog(this,
-					"Invalid date format. Use: yyyy-MM-dd HH:mm",
-					"Validation Error", JOptionPane.WARNING_MESSAGE);
-		}
-	}
-
-	/**
-	 * Xóa lịch hẹn
-	 */
-	private void deleteAppointment() {
-		if (selectedAppointmentId == null) {
-			JOptionPane.showMessageDialog(this, "Please select an appointment to delete",
-					"Warning", JOptionPane.WARNING_MESSAGE);
-			return;
-		}
-
-		int confirm = JOptionPane.showConfirmDialog(this,
-				"Are you sure you want to delete this appointment?",
-				"Confirm Delete", JOptionPane.YES_NO_OPTION);
-
-		if (confirm != JOptionPane.YES_OPTION) {
-			return;
-		}
-
-		int appointmentId = selectedAppointmentId;
+	private void deleteAppointment(Integer appointmentId) {
+		setStatus("Deleting appointment...");
+		disableButtons();
 
 		SwingWorker<Void, Void> worker = new SwingWorker<>() {
 			@Override
@@ -464,14 +400,13 @@ public class AppointmentPanel extends JPanel {
 				try {
 					get();
 					JOptionPane.showMessageDialog(AppointmentPanel.this,
-							"Appointment deleted successfully!", "Success",
-							JOptionPane.INFORMATION_MESSAGE);
-					clearForm();
+							"Appointment deleted successfully!",
+							"Success", JOptionPane.INFORMATION_MESSAGE);
 					loadAppointments();
 				} catch (Exception e) {
-					JOptionPane.showMessageDialog(AppointmentPanel.this,
-							"Error deleting appointment: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+					handleException("Error deleting appointment", e);
+					enableButtons();
+					setStatus("Error");
 				}
 			}
 		};
@@ -479,132 +414,62 @@ public class AppointmentPanel extends JPanel {
 		worker.execute();
 	}
 
+	// ========== HELPER METHODS ==========
+
 	/**
-	 * Xóa form
+	 * Xử lý exception và hiển thị thông báo lỗi
 	 */
-	private void clearForm() {
-		cbCustomer.setSelectedIndex(0);
-		cbService.setSelectedIndex(0);
-		tfAppointmentDateTime.setText("");
-		cbStatus.setSelectedIndex(0);
-		taNote.setText("");
-		selectedAppointmentId = null;
-		table.clearSelection();
+	private void handleException(String title, Exception e) {
+		String message = e.getMessage();
+		if (message == null || message.isEmpty()) {
+			message = e.getClass().getSimpleName();
+		}
+
+		JOptionPane.showMessageDialog(this,
+				title + ": " + message,
+				"Error", JOptionPane.ERROR_MESSAGE);
 	}
 
 	/**
-	 * Kiểm tra tính hợp lệ form
+	 * Hiển thị thông báo lỗi
 	 */
-	private boolean validateForm() {
-		if (cbCustomer.getSelectedIndex() < 0) {
-			JOptionPane.showMessageDialog(this, "Please select a customer", "Validation Error",
-					JOptionPane.WARNING_MESSAGE);
-			return false;
-		}
-
-		if (cbService.getSelectedIndex() < 0) {
-			JOptionPane.showMessageDialog(this, "Please select a service", "Validation Error",
-					JOptionPane.WARNING_MESSAGE);
-			return false;
-		}
-
-		if (tfAppointmentDateTime.getText().trim().isEmpty()) {
-			JOptionPane.showMessageDialog(this, "Please enter appointment date/time",
-					"Validation Error", JOptionPane.WARNING_MESSAGE);
-			return false;
-		}
-
-		return true;
+	private void showError(String message) {
+		JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
 	}
 
-	// ========== HELPER CLASSES & METHODS ==========
+	/**
+	 * Cập nhật status label
+	 */
+	private void setStatus(String status) {
+		lblStatus.setText(status);
+	}
 
 	/**
-	 * Wrapper class cho ComboBox Customer
+	 * Disable tất cả buttons
 	 */
-	private static class ComboBoxCustomer {
-		private final Integer id;
-		private final String name;
+	private void disableButtons() {
+		btnAdd.setEnabled(false);
+		btnEdit.setEnabled(false);
+		btnDelete.setEnabled(false);
+		btnRefresh.setEnabled(false);
+	}
 
-		public ComboBoxCustomer(Integer id, String name) {
-			this.id = id;
-			this.name = name;
-		}
-
-		public Integer getId() {
-			return id;
-		}
-
-		@Override
-		public String toString() {
-			return name;
-		}
-
-		@Override
-		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (!(o instanceof ComboBoxCustomer)) return false;
-			ComboBoxCustomer that = (ComboBoxCustomer) o;
-			return id.equals(that.id);
-		}
-
-		@Override
-		public int hashCode() {
-			return id.hashCode();
+	/**
+	 * Enable tất cả buttons
+	 */
+	private void enableButtons() {
+		btnAdd.setEnabled(true);
+		btnRefresh.setEnabled(true);
+		// Edit và Delete chỉ enable khi có selection
+		if (selectedAppointmentId != null) {
+			btnEdit.setEnabled(true);
+			btnDelete.setEnabled(true);
 		}
 	}
 
 	/**
-	 * Wrapper class cho ComboBox Service
+	 * Tạo button với listener
 	 */
-	private static class ComboBoxService {
-		private final Integer id;
-		private final String name;
-
-		public ComboBoxService(Integer id, String name) {
-			this.id = id;
-			this.name = name;
-		}
-
-		public Integer getId() {
-			return id;
-		}
-
-		@Override
-		public String toString() {
-			return name;
-		}
-
-		@Override
-		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (!(o instanceof ComboBoxService)) return false;
-			ComboBoxService that = (ComboBoxService) o;
-			return id.equals(that.id);
-		}
-
-		@Override
-		public int hashCode() {
-			return id.hashCode();
-		}
-	}
-
-	private void addLabel(JPanel panel, String text, int x, int y, GridBagConstraints gbc) {
-		gbc.gridx = x;
-		gbc.gridy = y;
-		gbc.gridwidth = 1;
-		gbc.weightx = 0;
-		panel.add(new JLabel(text), gbc);
-	}
-
-	private GridBagConstraints setPosition(GridBagConstraints gbc, int x, int y) {
-		gbc.gridx = x;
-		gbc.gridy = y;
-		gbc.gridwidth = 1;
-		gbc.weightx = 1;
-		return gbc;
-	}
-
 	private JButton createButton(String label, java.awt.event.ActionListener listener) {
 		JButton btn = new JButton(label);
 		btn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
