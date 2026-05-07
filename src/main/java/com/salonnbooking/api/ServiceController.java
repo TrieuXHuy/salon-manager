@@ -12,67 +12,54 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.salonnbooking.api.dto.ServiceRequests;
 import com.salonnbooking.domain.ServiceEntity;
-import com.salonnbooking.repository.ServiceRepository;
+import com.salonnbooking.service.ServiceService;
 
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/services")
 public class ServiceController {
-	private final ServiceRepository serviceRepository;
+	private final ServiceService serviceService;
 
-	public ServiceController(ServiceRepository serviceRepository) {
-		this.serviceRepository = serviceRepository;
+	public ServiceController(ServiceService serviceService) {
+		this.serviceService = serviceService;
 	}
 
 	@GetMapping
 	public List<ServiceRequests.Response> list() {
-		return serviceRepository.findAll().stream().map(ServiceRequests.Response::from).toList();
+		return serviceService.findAll().stream().map(ServiceRequests.Response::from).toList();
+	}
+
+	@GetMapping("/active")
+	public List<ServiceRequests.Response> listActive() {
+		return serviceService.findAllActive().stream().map(ServiceRequests.Response::from).toList();
 	}
 
 	@GetMapping("/{id}")
 	public ServiceRequests.Response get(@PathVariable Integer id) {
-		ServiceEntity service = serviceRepository.findById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Service not found"));
+		ServiceEntity service = serviceService.findById(id);
 		return ServiceRequests.Response.from(service);
 	}
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public ServiceRequests.Response create(@Valid @RequestBody ServiceRequests.Create req) {
-		ServiceEntity service = new ServiceEntity();
-		service.setName(req.name());
-		service.setPrice(req.price());
-		service.setDurationMinutes(req.durationMinutes());
-		service.setDescription(req.description());
-		if (req.isActive() != null) {
-			service.setIsActive(req.isActive());
-		}
-		return ServiceRequests.Response.from(serviceRepository.save(service));
+		ServiceEntity service = serviceService.save(req);
+		return ServiceRequests.Response.from(service);
 	}
 
 	@PutMapping("/{id}")
 	public ServiceRequests.Response update(@PathVariable Integer id, @Valid @RequestBody ServiceRequests.Update req) {
-		ServiceEntity service = serviceRepository.findById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Service not found"));
-		service.setName(req.name());
-		service.setPrice(req.price());
-		service.setDurationMinutes(req.durationMinutes());
-		service.setDescription(req.description());
-		service.setIsActive(req.isActive() != null ? req.isActive() : Boolean.TRUE);
-		return ServiceRequests.Response.from(serviceRepository.save(service));
+		ServiceEntity service = serviceService.update(id, req);
+		return ServiceRequests.Response.from(service);
 	}
 
 	@DeleteMapping("/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(@PathVariable Integer id) {
-		if (!serviceRepository.existsById(id)) {
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Service not found");
-		}
-		serviceRepository.deleteById(id);
+		serviceService.delete(id);
 	}
 }
