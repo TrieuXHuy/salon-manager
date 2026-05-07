@@ -21,6 +21,7 @@ import com.google.gson.JsonSerializer;
 import com.salonnbooking.api.dto.AppointmentRequests;
 import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.api.dto.DashboardRequests;
+import com.salonnbooking.api.dto.PaymentRequests;
 import com.salonnbooking.api.dto.ReportRequests;
 
 /**
@@ -46,8 +47,7 @@ public class ApiClient {
 		public LocalDateTime deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
 				throws JsonParseException {
 			String dateStr = json.getAsString();
-			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss[.SSSSSSSSS]");
-			return LocalDateTime.parse(dateStr, formatter);
+			return LocalDateTime.parse(dateStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 		}
 
 		@Override
@@ -500,5 +500,21 @@ public class ApiClient {
 		HttpResponse<String> response = sendGet("/reports/appointment-stats");
 		requireStatus(response, 200, "fetch appointment stats");
 		return gson.fromJson(response.body(), ReportRequests.AppointmentStatsResponse.class);
+	}
+
+	// ==================== PAYMENT API ====================
+
+	public static PaymentRequests.Response createPayment(PaymentRequests.Create createReq) throws Exception {
+		String json = gson.toJson(createReq);
+
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(BASE_URL + "/payments"))
+				.header("Content-Type", "application/json")
+				.POST(HttpRequest.BodyPublishers.ofString(json))
+				.build();
+
+		HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+		requireStatus(response, 201, "create payment");
+		return gson.fromJson(response.body(), PaymentRequests.Response.class);
 	}
 }

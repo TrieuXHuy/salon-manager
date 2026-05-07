@@ -1,6 +1,7 @@
 package com.salonnbooking.ui.panel;
 
 import java.awt.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -13,9 +14,13 @@ import javax.swing.table.TableRowSorter;
 
 import com.salonnbooking.api.dto.AppointmentRequests;
 import com.salonnbooking.api.dto.CustomerRequests;
+import com.salonnbooking.api.dto.PaymentRequests;
 import com.salonnbooking.api.dto.ServiceRequests;
 import com.salonnbooking.client.ApiClient;
+import com.salonnbooking.domain.PaymentMethod;
+import com.salonnbooking.domain.PaymentStatus;
 import com.salonnbooking.ui.dialog.AppointmentDialog;
+import com.salonnbooking.ui.dialog.PaymentSimulationDialog;
 
 /**
  * AppointmentPanel - Quản lý lịch hẹn
@@ -33,6 +38,7 @@ public class AppointmentPanel extends JPanel {
 	private JButton btnAdd;
 	private JButton btnEdit;
 	private JButton btnDelete;
+	private JButton btnPay;
 	private JButton btnRefresh;
 	private JTable table;
 	private DefaultTableModel tableModel;
@@ -94,10 +100,13 @@ public class AppointmentPanel extends JPanel {
 		btnAdd.setEnabled(false);
 		btnEdit.setEnabled(false);
 		btnDelete.setEnabled(false);
+		btnPay = createButton("Thanh toán", e -> onPayButtonClicked());
+		btnPay.setEnabled(false);
 
 		btnPanel.add(btnAdd);
 		btnPanel.add(btnEdit);
 		btnPanel.add(btnDelete);
+		btnPanel.add(btnPay);
 		btnPanel.add(btnRefresh);
 
 		panel.add(btnPanel, BorderLayout.WEST);
@@ -144,10 +153,12 @@ public class AppointmentPanel extends JPanel {
 				selectedAppointmentId = (Integer) tableModel.getValueAt(modelRow, 0);
 				btnEdit.setEnabled(true);
 				btnDelete.setEnabled(true);
+				btnPay.setEnabled(true);
 			} else {
 				selectedAppointmentId = null;
 				btnEdit.setEnabled(false);
 				btnDelete.setEnabled(false);
+				btnPay.setEnabled(false);
 			}
 		});
 
@@ -253,6 +264,7 @@ public class AppointmentPanel extends JPanel {
 		table.clearSelection();
 		btnEdit.setEnabled(false);
 		btnDelete.setEnabled(false);
+		btnPay.setEnabled(false);
 	}
 
 	private List<AppointmentRequests.Response> sortByAppointmentTime(List<AppointmentRequests.Response> source) {
@@ -328,6 +340,34 @@ public class AppointmentPanel extends JPanel {
 
 		if (confirm == JOptionPane.YES_OPTION) {
 			deleteAppointment(selectedAppointmentId);
+		}
+	}
+
+	private void onPayButtonClicked() {
+		AppointmentRequests.Response selectedApt = getSelectedAppointment();
+		if (selectedApt == null) {
+			JOptionPane.showMessageDialog(this,
+					"Vui lòng chọn một lịch hẹn để thanh toán",
+					"Không có lựa chọn", JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+
+		ServiceRequests.Response service = findService(selectedApt.serviceId());
+		String customerName = findCustomerName(selectedApt.customerId());
+		String serviceName = service != null ? service.name() : "Không rõ";
+		BigDecimal amount = service != null ? service.price() : BigDecimal.ZERO;
+
+		PaymentSimulationDialog dialog = new PaymentSimulationDialog(
+				SwingUtilities.getWindowAncestor(this),
+				selectedApt.id(),
+				customerName,
+				serviceName,
+				amount,
+				"QR / chuyển khoản");
+		dialog.setVisible(true);
+
+		if (dialog.isPaid()) {
+			createSimulatedPayment(selectedApt.id(), amount, PaymentMethod.bank_transfer);
 		}
 	}
 
@@ -430,7 +470,75 @@ public class AppointmentPanel extends JPanel {
 		worker.execute();
 	}
 
+	private void createSimulatedPayment(Integer appointmentId, BigDecimal amount, PaymentMethod paymentMethod) {
+		setStatus("Đang ghi nhận thanh toán...");
+		disableButtons();
+
+		PaymentRequests.Create request = new PaymentRequests.Create(
+				appointmentId,
+				amount,
+				paymentMethod,
+				PaymentStatus.paid,
+				LocalDateTime.now());
+
+		SwingWorker<Void, Void> worker = new SwingWorker<>() {
+			@Override
+			protected Void doInBackground() throws Exception {
+				ApiClient.createPayment(request);
+				return null;
+			}
+
+			@Override
+			protected void done() {
+				try {
+					get();
+					JOptionPane.showMessageDialog(AppointmentPanel.this,
+							"Thanh toán mô phỏng thành công!",
+							"Thành công", JOptionPane.INFORMATION_MESSAGE);
+					loadAppointments();
+				} catch (Exception e) {
+					handleException("Lỗi ghi nhận thanh toán", e);
+					enableButtons();
+					setStatus("Lỗi");
+				}
+			}
+		};
+
+		worker.execute();
+	}
+
 	// ========== HELPER METHODS ==========
+
+	private AppointmentRequests.Response getSelectedAppointment() {
+		if (selectedAppointmentId == null || appointments == null) {
+			return null;
+		}
+		return appointments.stream()
+				.filter(a -> a.id().equals(selectedAppointmentId))
+				.findFirst()
+				.orElse(null);
+	}
+
+	private ServiceRequests.Response findService(Integer serviceId) {
+		if (services == null) {
+			return null;
+		}
+		return services.stream()
+				.filter(s -> s.id().equals(serviceId))
+				.findFirst()
+				.orElse(null);
+	}
+
+	private String findCustomerName(Integer customerId) {
+		if (customers == null) {
+			return "Không rõ";
+		}
+		return customers.stream()
+				.filter(c -> c.id().equals(customerId))
+				.map(CustomerRequests.Response::fullName)
+				.findFirst()
+				.orElse("Không rõ");
+	}
 
 	/**
 	 * Xử lý exception và hiển thị thông báo lỗi
@@ -467,6 +575,7 @@ public class AppointmentPanel extends JPanel {
 		btnAdd.setEnabled(false);
 		btnEdit.setEnabled(false);
 		btnDelete.setEnabled(false);
+		btnPay.setEnabled(false);
 		btnRefresh.setEnabled(false);
 	}
 
@@ -480,6 +589,7 @@ public class AppointmentPanel extends JPanel {
 		if (selectedAppointmentId != null) {
 			btnEdit.setEnabled(true);
 			btnDelete.setEnabled(true);
+			btnPay.setEnabled(true);
 		}
 	}
 
