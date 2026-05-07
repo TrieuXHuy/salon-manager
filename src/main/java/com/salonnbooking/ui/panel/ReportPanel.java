@@ -63,18 +63,18 @@ public class ReportPanel extends JPanel {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
 
-		JLabel title = new JLabel("Reports");
+		JLabel title = new JLabel("Báo cáo");
 		title.setFont(new Font("Segoe UI", Font.BOLD, 24));
 		panel.add(title, BorderLayout.WEST);
 
 		JPanel controls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
 		controls.setOpaque(false);
-		controls.add(new JLabel("From"));
+		controls.add(new JLabel("Từ ngày"));
 		controls.add(startDateField);
-		controls.add(new JLabel("To"));
+		controls.add(new JLabel("Đến ngày"));
 		controls.add(endDateField);
 
-		JButton refreshButton = new JButton("Refresh");
+		JButton refreshButton = new JButton("Làm mới");
 		refreshButton.addActionListener(e -> loadReports());
 		controls.add(refreshButton);
 		panel.add(controls, BorderLayout.EAST);

@@ -53,7 +53,7 @@ public class CustomerPanel extends JPanel {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
 
-		JLabel titleLabel = new JLabel("Customer Management");
+		JLabel titleLabel = new JLabel("Quản lý khách hàng");
 		titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
 		panel.add(titleLabel, BorderLayout.WEST);
 
@@ -83,7 +83,7 @@ public class CustomerPanel extends JPanel {
 		JPanel panel = new JPanel();
 		panel.setLayout(new GridBagLayout());
 		panel.setOpaque(false);
-		panel.setBorder(BorderFactory.createTitledBorder("Customer Information"));
+		panel.setBorder(BorderFactory.createTitledBorder("Thông tin khách hàng"));
 
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.insets = new Insets(5, 5, 5, 5);
@@ -103,7 +103,7 @@ public class CustomerPanel extends JPanel {
 		tfEmail = new JTextField(20);
 		panel.add(tfEmail, setPosition(gbc, 1, 1));
 
-		addLabel(panel, "Gender:", 2, 1, gbc);
+		addLabel(panel, "Giới tính:", 2, 1, gbc);
 		cbGender = new JComboBox<>(Gender.values());
 		cbGender.setPreferredSize(new Dimension(100, 30));
 		panel.add(cbGender, setPosition(gbc, 3, 1));
@@ -112,10 +112,10 @@ public class CustomerPanel extends JPanel {
 		JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
 		btnPanel.setOpaque(false);
 
-		JButton btnAdd = createButton("Add", e -> addCustomer());
-		JButton btnUpdate = createButton("Update", e -> updateCustomer());
-		JButton btnDelete = createButton("Delete", e -> deleteCustomer());
-		JButton btnClear = createButton("Clear", e -> clearForm());
+		JButton btnAdd = createButton("Thêm", e -> addCustomer());
+		JButton btnUpdate = createButton("Cập nhật", e -> updateCustomer());
+		JButton btnDelete = createButton("Xóa", e -> deleteCustomer());
+		JButton btnClear = createButton("Xóa form", e -> clearForm());
 
 		btnPanel.add(btnAdd);
 		btnPanel.add(btnUpdate);
@@ -136,10 +136,10 @@ public class CustomerPanel extends JPanel {
 	private JPanel createTablePanel() {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
-		panel.setBorder(BorderFactory.createTitledBorder("Customer List"));
+		panel.setBorder(BorderFactory.createTitledBorder("Danh sách khách hàng"));
 
 		// Tạo table model
-		String[] columnNames = { "ID", "Full Name", "Phone", "Email", "Gender" };
+		String[] columnNames = { "ID", "Họ và tên", "Số điện thoại", "Email", "Giới tính" };
 		tableModel = new DefaultTableModel(columnNames, 0) {
 			private static final long serialVersionUID = 1L;
 
@@ -184,8 +184,8 @@ public class CustomerPanel extends JPanel {
 					refreshTable(customers);
 				} catch (Exception e) {
 					JOptionPane.showMessageDialog(CustomerPanel.this,
-							"Error loading customers: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+									"Lỗi tải khách hàng: " + e.getMessage(),
+									"Lỗi", JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		};
@@ -249,14 +249,14 @@ public class CustomerPanel extends JPanel {
 				try {
 					get();
 					JOptionPane.showMessageDialog(CustomerPanel.this,
-							"Customer added successfully!", "Success",
+									"Thêm khách hàng thành công!", "Thành công",
 							JOptionPane.INFORMATION_MESSAGE);
 					clearForm();
 					loadCustomers();
 				} catch (Exception e) {
 					JOptionPane.showMessageDialog(CustomerPanel.this,
-							"Error adding customer: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+									"Lỗi thêm khách hàng: " + e.getMessage(),
+									"Lỗi", JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		};
@@ -269,8 +269,8 @@ public class CustomerPanel extends JPanel {
 	 */
 	private void updateCustomer() {
 		if (selectedCustomerId == null) {
-			JOptionPane.showMessageDialog(this, "Please select a customer to update",
-					"Warning", JOptionPane.WARNING_MESSAGE);
+		JOptionPane.showMessageDialog(this, "Vui lòng chọn một khách hàng để cập nhật",
+				"Cảnh báo", JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 
@@ -297,14 +297,14 @@ public class CustomerPanel extends JPanel {
 				try {
 					get();
 					JOptionPane.showMessageDialog(CustomerPanel.this,
-							"Customer updated successfully!", "Success",
+									"Cập nhật khách hàng thành công!", "Thành công",
 							JOptionPane.INFORMATION_MESSAGE);
 					clearForm();
 					loadCustomers();
 				} catch (Exception e) {
 					JOptionPane.showMessageDialog(CustomerPanel.this,
-							"Error updating customer: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+									"Lỗi cập nhật khách hàng: " + e.getMessage(),
+									"Lỗi", JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		};
@@ -317,14 +317,14 @@ public class CustomerPanel extends JPanel {
 	 */
 	private void deleteCustomer() {
 		if (selectedCustomerId == null) {
-			JOptionPane.showMessageDialog(this, "Please select a customer to delete",
-					"Warning", JOptionPane.WARNING_MESSAGE);
+		JOptionPane.showMessageDialog(this, "Vui lòng chọn một khách hàng để xóa",
+				"Cảnh báo", JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 
 		int confirm = JOptionPane.showConfirmDialog(this,
-				"Are you sure you want to delete this customer?",
-				"Confirm Delete", JOptionPane.YES_NO_OPTION);
+"Bạn chắc chắn muốn xóa khách hàng này?",
+			"Xác nhận xóa", JOptionPane.YES_NO_OPTION);
 
 		if (confirm != JOptionPane.YES_OPTION) {
 			return;
@@ -344,14 +344,14 @@ public class CustomerPanel extends JPanel {
 				try {
 					get();
 					JOptionPane.showMessageDialog(CustomerPanel.this,
-							"Customer deleted successfully!", "Success",
+									"Xóa khách hàng thành công!", "Thành công",
 							JOptionPane.INFORMATION_MESSAGE);
 					clearForm();
 					loadCustomers();
 				} catch (Exception e) {
 					JOptionPane.showMessageDialog(CustomerPanel.this,
-							"Error deleting customer: " + e.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+									"Lỗi xóa khách hàng: " + e.getMessage(),
+									"Lỗi", JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		};
@@ -376,26 +376,26 @@ public class CustomerPanel extends JPanel {
 	 */
 	private boolean validateForm() {
 		if (tfFullName.getText().trim().isEmpty()) {
-			JOptionPane.showMessageDialog(this, "Full Name is required", "Validation Error",
+			JOptionPane.showMessageDialog(this, "Họ và tên là bắt buộc", "Lỗi xác nhận",
 					JOptionPane.WARNING_MESSAGE);
 			return false;
 		}
 
 		if (tfPhone.getText().trim().isEmpty()) {
-			JOptionPane.showMessageDialog(this, "Phone is required", "Validation Error",
+			JOptionPane.showMessageDialog(this, "Số điện thoại là bắt buộc", "Lỗi xác nhận",
 					JOptionPane.WARNING_MESSAGE);
 			return false;
 		}
 
 		if (tfEmail.getText().trim().isEmpty()) {
-			JOptionPane.showMessageDialog(this, "Email is required", "Validation Error",
+			JOptionPane.showMessageDialog(this, "Email là bắt buộc", "Lỗi xác nhận",
 					JOptionPane.WARNING_MESSAGE);
 			return false;
 		}
 
 		// Validate email format
 		if (!tfEmail.getText().contains("@")) {
-			JOptionPane.showMessageDialog(this, "Invalid email format", "Validation Error",
+			JOptionPane.showMessageDialog(this, "Định dạng email không hợp lệ", "Lỗi xác nhận",
 					JOptionPane.WARNING_MESSAGE);
 			return false;
 		}

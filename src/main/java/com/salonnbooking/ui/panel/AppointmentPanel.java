@@ -66,7 +66,7 @@ public class AppointmentPanel extends JPanel {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
 
-		JLabel titleLabel = new JLabel("Appointment Booking");
+		JLabel titleLabel = new JLabel("Đặt lịch hẹn");
 		titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
 		panel.add(titleLabel, BorderLayout.WEST);
 
@@ -83,10 +83,10 @@ public class AppointmentPanel extends JPanel {
 		JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
 		btnPanel.setOpaque(false);
 
-		btnAdd = createButton("Add", e -> onAddButtonClicked());
-		btnEdit = createButton("Edit", e -> onEditButtonClicked());
-		btnDelete = createButton("Delete", e -> onDeleteButtonClicked());
-		btnRefresh = createButton("Refresh", e -> loadAppointments());
+		btnAdd = createButton("Thêm", e -> onAddButtonClicked());
+		btnEdit = createButton("Sửa", e -> onEditButtonClicked());
+		btnDelete = createButton("Xóa", e -> onDeleteButtonClicked());
+		btnRefresh = createButton("Làm mới", e -> loadAppointments());
 
 		btnAdd.setEnabled(false);
 		btnEdit.setEnabled(false);
@@ -269,8 +269,8 @@ public class AppointmentPanel extends JPanel {
 	private void onEditButtonClicked() {
 		if (selectedAppointmentId == null) {
 			JOptionPane.showMessageDialog(this,
-					"Please select an appointment to edit",
-					"No Selection", JOptionPane.INFORMATION_MESSAGE);
+					"Vui lòng chọn một lịch hẹn để sửa",
+					"Không có lựa chọn", JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 
@@ -281,7 +281,7 @@ public class AppointmentPanel extends JPanel {
 				.orElse(null);
 
 		if (selectedApt == null) {
-			showError("Appointment not found");
+			showError("Lịch hẹn không tìm thấy");
 			return;
 		}
 
@@ -301,8 +301,8 @@ public class AppointmentPanel extends JPanel {
 	private void onDeleteButtonClicked() {
 		if (selectedAppointmentId == null) {
 			JOptionPane.showMessageDialog(this,
-					"Please select an appointment to delete",
-					"No Selection", JOptionPane.INFORMATION_MESSAGE);
+					"Vui lòng chọn một lịch hẹn để xóa",
+					"Không có lựa chọn", JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 
@@ -335,7 +335,7 @@ public class AppointmentPanel extends JPanel {
 				try {
 					get();
 					JOptionPane.showMessageDialog(AppointmentPanel.this,
-							"Appointment created successfully!",
+								"Lịch hẹn được tạo thành công!",
 							"Success", JOptionPane.INFORMATION_MESSAGE);
 					loadAppointments();
 				} catch (Exception e) {
@@ -367,7 +367,7 @@ public class AppointmentPanel extends JPanel {
 				try {
 					get();
 					JOptionPane.showMessageDialog(AppointmentPanel.this,
-							"Appointment updated successfully!",
+								"Lịch hẹn được cập nhật thành công!",
 							"Success", JOptionPane.INFORMATION_MESSAGE);
 					loadAppointments();
 				} catch (Exception e) {
@@ -400,7 +400,7 @@ public class AppointmentPanel extends JPanel {
 				try {
 					get();
 					JOptionPane.showMessageDialog(AppointmentPanel.this,
-							"Appointment deleted successfully!",
+								"Lịch hẹn được xóa thành công!",
 							"Success", JOptionPane.INFORMATION_MESSAGE);
 					loadAppointments();
 				} catch (Exception e) {

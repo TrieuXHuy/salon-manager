@@ -32,7 +32,7 @@ public class MainDashboard extends JFrame {
 		// Setup FlatLaf Theme
 		FlatDarkPurpleIJTheme.setup();
 
-		setTitle("Salon Booking System");
+		setTitle("Hệ thống đặt lịch salon");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setSize(1200, 700);
 		setLocationRelativeTo(null);
@@ -52,11 +52,11 @@ public class MainDashboard extends JFrame {
 		contentPanel.setBackground(UIManager.getColor("Panel.background"));
 
 		// Placeholder panels (sẽ được thay thế bằng các Panel thực tế)
-		contentPanel.add(createPlaceholderPanel("Dashboard", PANEL_DASHBOARD), PANEL_DASHBOARD);
-		contentPanel.add(createPlaceholderPanel("Customer Management", PANEL_CUSTOMER), PANEL_CUSTOMER);
-		contentPanel.add(createPlaceholderPanel("Appointment Booking", PANEL_APPOINTMENT), PANEL_APPOINTMENT);
-		contentPanel.add(createPlaceholderPanel("Service Management", PANEL_SERVICE), PANEL_SERVICE);
-		contentPanel.add(createPlaceholderPanel("Reports", PANEL_REPORT), PANEL_REPORT);
+		contentPanel.add(createPlaceholderPanel("Tổng quan", PANEL_DASHBOARD), PANEL_DASHBOARD);
+		contentPanel.add(createPlaceholderPanel("Quản lý khách hàng", PANEL_CUSTOMER), PANEL_CUSTOMER);
+		contentPanel.add(createPlaceholderPanel("Đặt lịch hẹn", PANEL_APPOINTMENT), PANEL_APPOINTMENT);
+		contentPanel.add(createPlaceholderPanel("Quản lý dịch vụ", PANEL_SERVICE), PANEL_SERVICE);
+		contentPanel.add(createPlaceholderPanel("Báo cáo", PANEL_REPORT), PANEL_REPORT);
 
 		mainContainer.add(contentPanel, BorderLayout.CENTER);
 
@@ -74,7 +74,7 @@ public class MainDashboard extends JFrame {
 		sidebar.setBorder(new EmptyBorder(15, 10, 15, 10));
 
 		// Header
-		JLabel headerLabel = new JLabel("Salon Booking");
+		JLabel headerLabel = new JLabel("Đặt lịch salon");
 		headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
 		headerLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 		sidebar.add(headerLabel);
@@ -82,7 +82,7 @@ public class MainDashboard extends JFrame {
 		sidebar.add(Box.createVerticalStrut(20));
 
 		// Navigation Buttons
-		String[] buttonLabels = { "Dashboard", "Customers", "Appointments", "Services", "Reports" };
+		String[] buttonLabels = { "Tổng quan", "Khách hàng", "Lịch hẹn", "Dịch vụ", "Báo cáo" };
 		String[] panelNames = { PANEL_DASHBOARD, PANEL_CUSTOMER, PANEL_APPOINTMENT, PANEL_SERVICE,
 				PANEL_REPORT };
 
@@ -97,7 +97,7 @@ public class MainDashboard extends JFrame {
 		sidebar.add(Box.createVerticalGlue());
 
 		// Logout Button
-		JButton logoutBtn = new JButton("Logout");
+		JButton logoutBtn = new JButton("Đăng xuất");
 		logoutBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
 		logoutBtn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
 		logoutBtn.addActionListener(e -> System.exit(0));

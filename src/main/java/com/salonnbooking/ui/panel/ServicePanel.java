@@ -41,7 +41,7 @@ public class ServicePanel extends JPanel {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
 
-		JLabel titleLabel = new JLabel("Service Management");
+		JLabel titleLabel = new JLabel("Quản lý dịch vụ");
 		titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
 		panel.add(titleLabel, BorderLayout.WEST);
 
@@ -62,31 +62,31 @@ public class ServicePanel extends JPanel {
 		JPanel panel = new JPanel();
 		panel.setLayout(new GridBagLayout());
 		panel.setOpaque(false);
-		panel.setBorder(BorderFactory.createTitledBorder("Service Information"));
+		panel.setBorder(BorderFactory.createTitledBorder("Thông tin dịch vụ"));
 
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.insets = new Insets(5, 5, 5, 5);
 		gbc.fill = GridBagConstraints.HORIZONTAL;
 
-		addLabel(panel, "Service Name:", 0, 0, gbc);
+		addLabel(panel, "Tên dịch vụ:", 0, 0, gbc);
 		tfName = new JTextField(20);
 		panel.add(tfName, setPosition(gbc, 1, 0));
 
-		addLabel(panel, "Price (VND):", 2, 0, gbc);
+		addLabel(panel, "Giá (VND):", 2, 0, gbc);
 		tfPrice = new JTextField(15);
 		panel.add(tfPrice, setPosition(gbc, 3, 0));
 
-		addLabel(panel, "Duration (minutes):", 0, 1, gbc);
+		addLabel(panel, "Thời gian (phút):", 0, 1, gbc);
 		tfDuration = new JTextField(20);
 		panel.add(tfDuration, setPosition(gbc, 1, 1));
 
-		cbIsActive = new JCheckBox("Active");
+		cbIsActive = new JCheckBox("Kích hoạt");
 		cbIsActive.setOpaque(false);
 		gbc.gridx = 3;
 		gbc.gridy = 1;
 		panel.add(cbIsActive, gbc);
 
-		addLabel(panel, "Description:", 0, 2, gbc);
+		addLabel(panel, "Mô tả:", 0, 2, gbc);
 		taDescription = new JTextArea(3, 40);
 		taDescription.setLineWrap(true);
 		JScrollPane scrollPane = new JScrollPane(taDescription);
@@ -95,10 +95,10 @@ public class ServicePanel extends JPanel {
 		JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
 		btnPanel.setOpaque(false);
 
-		btnPanel.add(createButton("Add", e -> addService()));
-		btnPanel.add(createButton("Update", e -> updateService()));
-		btnPanel.add(createButton("Delete", e -> deleteService()));
-		btnPanel.add(createButton("Clear", e -> clearForm()));
+		btnPanel.add(createButton("Thêm", e -> addService()));
+		btnPanel.add(createButton("Cập nhật", e -> updateService()));
+		btnPanel.add(createButton("Xóa", e -> deleteService()));
+		btnPanel.add(createButton("Xóa form", e -> clearForm()));
 
 		gbc.gridx = 0;
 		gbc.gridy = 3;
@@ -111,9 +111,9 @@ public class ServicePanel extends JPanel {
 	private JPanel createTablePanel() {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
-		panel.setBorder(BorderFactory.createTitledBorder("Service List"));
+		panel.setBorder(BorderFactory.createTitledBorder("Danh sách dịch vụ"));
 
-		String[] columnNames = { "ID", "Name", "Price", "Duration (min)", "Active", "Description" };
+		String[] columnNames = { "ID", "Tên", "Giá", "Thời gian (phút)", "Kích hoạt", "Mô tả" };
 		tableModel = new DefaultTableModel(columnNames, 0) {
 			private static final long serialVersionUID = 1L;
 

@@ -72,11 +72,11 @@ public class DashboardPanel extends JPanel {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
 
-		JLabel title = new JLabel("Dashboard");
+		JLabel title = new JLabel("Tổng quan");
 		title.setFont(new Font("Segoe UI", Font.BOLD, 24));
 		panel.add(title, BorderLayout.WEST);
 
-		JButton refreshButton = new JButton("Refresh");
+		JButton refreshButton = new JButton("Làm mới");
 		refreshButton.addActionListener(e -> loadDashboard());
 		panel.add(refreshButton, BorderLayout.EAST);
 
@@ -95,14 +95,14 @@ public class DashboardPanel extends JPanel {
 	private JPanel createStatsGrid() {
 		JPanel grid = new JPanel(new GridLayout(2, 4, 12, 12));
 		grid.setOpaque(false);
-		grid.add(createStatCard("Customers", totalCustomersValue, new Color(55, 116, 181)));
-		grid.add(createStatCard("Today", todayAppointmentsValue, new Color(44, 145, 120)));
-		grid.add(createStatCard("Pending", pendingAppointmentsValue, new Color(184, 122, 37)));
-		grid.add(createStatCard("Today revenue", todayRevenueValue, new Color(132, 84, 166)));
-		grid.add(createStatCard("Monthly revenue", monthlyRevenueValue, new Color(41, 128, 185)));
-		grid.add(createStatCard("Top service", topServiceValue, new Color(105, 128, 65)));
-		grid.add(createStatCard("This month", quickStatsValue, new Color(152, 89, 72)));
-		grid.add(createStatCard("Completion", completionRateValue, new Color(83, 96, 125)));
+		grid.add(createStatCard("Khách hàng", totalCustomersValue, new Color(55, 116, 181)));
+		grid.add(createStatCard("Hôm nay", todayAppointmentsValue, new Color(44, 145, 120)));
+		grid.add(createStatCard("Chờ xử lý", pendingAppointmentsValue, new Color(184, 122, 37)));
+		grid.add(createStatCard("Doanh thu hôm nay", todayRevenueValue, new Color(132, 84, 166)));
+		grid.add(createStatCard("Doanh thu tháng", monthlyRevenueValue, new Color(41, 128, 185)));
+		grid.add(createStatCard("Dịch vụ hàng đầu", topServiceValue, new Color(105, 128, 65)));
+		grid.add(createStatCard("Tháng này", quickStatsValue, new Color(152, 89, 72)));
+		grid.add(createStatCard("Hoàn thành", completionRateValue, new Color(83, 96, 125)));
 		return grid;
 	}
 
@@ -133,7 +133,7 @@ public class DashboardPanel extends JPanel {
 		table.setRowHeight(28);
 		table.getTableHeader().setReorderingAllowed(false);
 		JScrollPane scrollPane = new JScrollPane(table);
-		scrollPane.setBorder(BorderFactory.createTitledBorder("Upcoming appointments today"));
+		scrollPane.setBorder(BorderFactory.createTitledBorder("Lịch hẹn sắp tới hôm nay"));
 		return scrollPane;
 	}
 

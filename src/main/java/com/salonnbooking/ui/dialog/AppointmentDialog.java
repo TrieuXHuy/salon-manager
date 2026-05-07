@@ -46,7 +46,7 @@ public class AppointmentDialog extends JDialog {
 	 */
 	public AppointmentDialog(Window owner, List<CustomerRequests.Response> customers,
 			List<ServiceRequests.Response> services, AppointmentRequests.Response editingAppointment) {
-		super(owner, "Appointment", ModalityType.APPLICATION_MODAL);
+		super(owner, "Lịch hẹn", ModalityType.APPLICATION_MODAL);
 		this.editingAppointment = editingAppointment;
 
 		setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
@@ -97,7 +97,7 @@ public class AppointmentDialog extends JDialog {
 		gbc.gridx = 0;
 		gbc.gridy = 0;
 		gbc.weightx = 0;
-		panel.add(new JLabel("Customer:"), gbc);
+		panel.add(new JLabel("Khách hàng:"), gbc);
 
 		cbCustomer = new JComboBox<>();
 		for (CustomerRequests.Response c : customers) {
@@ -112,7 +112,7 @@ public class AppointmentDialog extends JDialog {
 		gbc.gridx = 0;
 		gbc.gridy = 1;
 		gbc.weightx = 0;
-		panel.add(new JLabel("Service:"), gbc);
+		panel.add(new JLabel("Dịch vụ:"), gbc);
 
 		cbService = new JComboBox<>();
 		for (ServiceRequests.Response s : services) {
@@ -127,7 +127,7 @@ public class AppointmentDialog extends JDialog {
 		gbc.gridx = 0;
 		gbc.gridy = 2;
 		gbc.weightx = 0;
-		panel.add(new JLabel("Date/Time:"), gbc);
+		panel.add(new JLabel("Ngày/Giờ:"), gbc);
 
 		tfDateTime = new JTextField();
 		tfDateTime.setToolTipText("Format: yyyy-MM-dd HH:mm (e.g., 2026-12-31 14:30)");
@@ -139,7 +139,7 @@ public class AppointmentDialog extends JDialog {
 		gbc.gridx = 0;
 		gbc.gridy = 3;
 		gbc.weightx = 0;
-		panel.add(new JLabel("Status:"), gbc);
+		panel.add(new JLabel("Trạng thái:"), gbc);
 
 		cbStatus = new JComboBox<>(AppointmentStatus.values());
 		gbc.gridx = 1;
@@ -151,7 +151,7 @@ public class AppointmentDialog extends JDialog {
 		gbc.gridy = 4;
 		gbc.weightx = 0;
 		gbc.anchor = GridBagConstraints.NORTH;
-		panel.add(new JLabel("Note:"), gbc);
+		panel.add(new JLabel("Ghi chú:"), gbc);
 
 		taNote = new JTextArea(5, 30);
 		taNote.setLineWrap(true);
@@ -172,11 +172,11 @@ public class AppointmentDialog extends JDialog {
 		JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
 		panel.setOpaque(false);
 
-		btnSave = new JButton(editingAppointment != null ? "Update" : "Create");
+		btnSave = new JButton(editingAppointment != null ? "Cập nhật" : "Tạo mới");
 		btnSave.setFont(new Font("Segoe UI", Font.PLAIN, 11));
 		btnSave.addActionListener(e -> onSave());
 
-		btnCancel = new JButton("Cancel");
+		btnCancel = new JButton("Hủy");
 		btnCancel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
 		btnCancel.addActionListener(e -> dispose());
 
