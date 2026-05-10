@@ -18,11 +18,12 @@ public final class ScheduleRequests {
 			Integer appointmentId,
 			Integer customerId,
 			String customerName,
-			Integer serviceId,
-			String serviceName,
+			Integer employeeId,
+			String employeeName,
 			LocalDateTime appointmentTime,
 			Integer durationMinutes,
 			AppointmentStatus status,
+			String serviceSummary,
 			String note) {
 	}
 

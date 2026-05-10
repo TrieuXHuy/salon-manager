@@ -7,7 +7,7 @@ import com.salonnbooking.domain.PaymentMethod;
 import com.salonnbooking.domain.PaymentStatus;
 
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 
 public final class PaymentRequests {
 	private PaymentRequests() {
@@ -15,7 +15,9 @@ public final class PaymentRequests {
 
 	public record Create(
 			@NotNull Integer appointmentId,
-			@NotNull @Positive BigDecimal amount,
+			@PositiveOrZero BigDecimal subtotal,
+			@PositiveOrZero BigDecimal discountAmount,
+			@PositiveOrZero BigDecimal finalAmount,
 			PaymentMethod paymentMethod,
 			PaymentStatus paymentStatus,
 			LocalDateTime paidAt) {
@@ -23,7 +25,9 @@ public final class PaymentRequests {
 
 	public record Update(
 			@NotNull Integer appointmentId,
-			@NotNull @Positive BigDecimal amount,
+			@PositiveOrZero BigDecimal subtotal,
+			@PositiveOrZero BigDecimal discountAmount,
+			@PositiveOrZero BigDecimal finalAmount,
 			PaymentMethod paymentMethod,
 			@NotNull PaymentStatus paymentStatus,
 			LocalDateTime paidAt) {
@@ -32,7 +36,9 @@ public final class PaymentRequests {
 	public record Response(
 			Integer id,
 			Integer appointmentId,
-			BigDecimal amount,
+			BigDecimal subtotal,
+			BigDecimal discountAmount,
+			BigDecimal finalAmount,
 			PaymentMethod paymentMethod,
 			PaymentStatus paymentStatus,
 			LocalDateTime paidAt) {
@@ -40,7 +46,9 @@ public final class PaymentRequests {
 			return new Response(
 					p.getId(),
 					p.getAppointment().getId(),
-					p.getAmount(),
+					p.getSubtotal(),
+					p.getDiscountAmount(),
+					p.getFinalAmount(),
 					p.getPaymentMethod(),
 					p.getPaymentStatus(),
 					p.getPaidAt());

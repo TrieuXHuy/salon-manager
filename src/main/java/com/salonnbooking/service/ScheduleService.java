@@ -2,7 +2,6 @@ package com.salonnbooking.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,9 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.salonnbooking.api.dto.ScheduleRequests;
 import com.salonnbooking.domain.Appointment;
+import com.salonnbooking.domain.AppointmentServiceItem;
+import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.ServiceEntity;
 import com.salonnbooking.repository.AppointmentRepository;
-import com.salonnbooking.repository.CustomerRepository;
 import com.salonnbooking.repository.ServiceRepository;
 
 @Service
@@ -21,7 +21,6 @@ import com.salonnbooking.repository.ServiceRepository;
 public class ScheduleService {
 	private final AppointmentRepository appointmentRepository;
 	private final ServiceRepository serviceRepository;
-	private final CustomerRepository customerRepository;
 
 	private static final int BUSINESS_HOURS_START = 8;
 	private static final int BUSINESS_HOURS_END = 18;
@@ -29,11 +28,9 @@ public class ScheduleService {
 
 	public ScheduleService(
 			AppointmentRepository appointmentRepository,
-			ServiceRepository serviceRepository,
-			CustomerRepository customerRepository) {
+			ServiceRepository serviceRepository) {
 		this.appointmentRepository = appointmentRepository;
 		this.serviceRepository = serviceRepository;
-		this.customerRepository = customerRepository;
 	}
 
 	public List<ScheduleRequests.AvailableSlotResponse> getAvailableSlots(LocalDate date, Integer serviceId) {
@@ -42,21 +39,15 @@ public class ScheduleService {
 
 		List<ScheduleRequests.AvailableSlotResponse> availableSlots = new ArrayList<>();
 		List<Appointment> dayAppointments = appointmentRepository
-				.findAppointmentsBetween(
-						date.atStartOfDay(),
-						date.atTime(23, 59, 59));
+				.findAppointmentsBetween(date.atStartOfDay(), date.atTime(23, 59, 59));
 
 		for (int hour = BUSINESS_HOURS_START; hour < BUSINESS_HOURS_END; hour++) {
 			for (int minute = 0; minute < 60; minute += SLOT_DURATION_MINUTES) {
 				LocalDateTime slotTime = date.atTime(hour, minute);
-
 				boolean isAvailable = dayAppointments.stream()
+						.filter(apt -> apt.getStatus() != AppointmentStatus.CANCELLED && apt.getStatus() != AppointmentStatus.NO_SHOW)
 						.noneMatch(apt -> isTimeConflict(apt, slotTime, service.getDurationMinutes()));
-
-				availableSlots.add(new ScheduleRequests.AvailableSlotResponse(
-						slotTime,
-						isAvailable,
-						serviceId));
+				availableSlots.add(new ScheduleRequests.AvailableSlotResponse(slotTime, isAvailable, serviceId));
 			}
 		}
 
@@ -65,82 +56,69 @@ public class ScheduleService {
 
 	public List<ScheduleRequests.AppointmentScheduleResponse> getAppointmentsByDate(LocalDate date) {
 		List<Appointment> dayAppointments = appointmentRepository
-				.findAppointmentsBetween(
-						date.atStartOfDay(),
-						date.atTime(23, 59, 59));
+				.findAppointmentsBetween(date.atStartOfDay(), date.atTime(23, 59, 59));
 
-		List<ScheduleRequests.AppointmentScheduleResponse> schedules = new ArrayList<>();
-
-		for (Appointment apt : dayAppointments) {
-			schedules.add(new ScheduleRequests.AppointmentScheduleResponse(
-					apt.getId(),
-					apt.getCustomer().getId(),
-					apt.getCustomer().getFullName(),
-					apt.getService().getId(),
-					apt.getService().getName(),
-					apt.getAppointmentTime(),
-					apt.getService().getDurationMinutes(),
-					apt.getStatus(),
-					apt.getNote()));
-		}
-
-		return schedules.stream()
-				.sorted((a, b) -> a.appointmentTime().compareTo(b.appointmentTime()))
+		return dayAppointments.stream()
+				.sorted((a, b) -> a.getAppointmentTime().compareTo(b.getAppointmentTime()))
+				.map(apt -> new ScheduleRequests.AppointmentScheduleResponse(
+						apt.getId(),
+						apt.getCustomer().getId(),
+						apt.getCustomer().getFullName(),
+						apt.getEmployee() != null ? apt.getEmployee().getId() : null,
+						apt.getEmployee() != null ? apt.getEmployee().getFullName() : "Chua phan cong",
+						apt.getAppointmentTime(),
+						totalDuration(apt),
+						apt.getStatus(),
+						serviceSummary(apt),
+						apt.getNote()))
 				.toList();
 	}
 
 	public List<ScheduleRequests.DayScheduleResponse> getWeekSchedule(LocalDate startDate) {
 		List<ScheduleRequests.DayScheduleResponse> weekSchedule = new ArrayList<>();
-
 		for (int i = 0; i < 7; i++) {
 			LocalDate date = startDate.plusDays(i);
-			List<Appointment> dayAppointments = appointmentRepository
-					.findAppointmentsBetween(
-							date.atStartOfDay(),
-							date.atTime(23, 59, 59));
-
-			int totalSlots = (BUSINESS_HOURS_END - BUSINESS_HOURS_START) * (60 / SLOT_DURATION_MINUTES);
-			int bookedSlots = dayAppointments.size();
-			int availableSlots = totalSlots - bookedSlots;
-
-			weekSchedule.add(new ScheduleRequests.DayScheduleResponse(
-					date.atStartOfDay(),
-					totalSlots,
-					bookedSlots,
-					availableSlots));
+			weekSchedule.add(buildDaySchedule(date));
 		}
-
 		return weekSchedule;
 	}
 
 	public List<ScheduleRequests.DayScheduleResponse> getMonthSchedule(LocalDate startOfMonth) {
 		LocalDate endOfMonth = startOfMonth.withDayOfMonth(startOfMonth.lengthOfMonth());
 		List<ScheduleRequests.DayScheduleResponse> monthSchedule = new ArrayList<>();
-
 		for (LocalDate date = startOfMonth; !date.isAfter(endOfMonth); date = date.plusDays(1)) {
-			List<Appointment> dayAppointments = appointmentRepository
-					.findAppointmentsBetween(
-							date.atStartOfDay(),
-							date.atTime(23, 59, 59));
-
-			int totalSlots = (BUSINESS_HOURS_END - BUSINESS_HOURS_START) * (60 / SLOT_DURATION_MINUTES);
-			int bookedSlots = dayAppointments.size();
-			int availableSlots = totalSlots - bookedSlots;
-
-			monthSchedule.add(new ScheduleRequests.DayScheduleResponse(
-					date.atStartOfDay(),
-					totalSlots,
-					bookedSlots,
-					availableSlots));
+			monthSchedule.add(buildDaySchedule(date));
 		}
-
 		return monthSchedule;
 	}
 
-	private boolean isTimeConflict(Appointment apt, LocalDateTime slotTime, Integer serviceDuration) {
-		LocalDateTime aptEnd = apt.getAppointmentTime().plusMinutes(apt.getService().getDurationMinutes());
-		LocalDateTime slotEnd = slotTime.plusMinutes(serviceDuration);
+	private ScheduleRequests.DayScheduleResponse buildDaySchedule(LocalDate date) {
+		List<Appointment> dayAppointments = appointmentRepository
+				.findAppointmentsBetween(date.atStartOfDay(), date.atTime(23, 59, 59));
+		int totalSlots = (BUSINESS_HOURS_END - BUSINESS_HOURS_START) * (60 / SLOT_DURATION_MINUTES);
+		int bookedSlots = dayAppointments.size();
+		int availableSlots = totalSlots - bookedSlots;
+		return new ScheduleRequests.DayScheduleResponse(date.atStartOfDay(), totalSlots, bookedSlots, availableSlots);
+	}
 
-		return !slotEnd.isBefore(apt.getAppointmentTime()) && !slotTime.isAfter(aptEnd);
+	private boolean isTimeConflict(Appointment apt, LocalDateTime slotTime, Integer serviceDuration) {
+		LocalDateTime slotEnd = slotTime.plusMinutes(serviceDuration);
+		LocalDateTime appointmentEnd = apt.getEstimatedEndTime() != null
+				? apt.getEstimatedEndTime()
+				: apt.getAppointmentTime().plusMinutes(Math.max(totalDuration(apt), serviceDuration));
+		return slotTime.isBefore(appointmentEnd) && slotEnd.isAfter(apt.getAppointmentTime());
+	}
+
+	private Integer totalDuration(Appointment appointment) {
+		return appointment.getAppointmentServices().stream()
+				.mapToInt(AppointmentServiceItem::getDurationMinutes)
+				.sum();
+	}
+
+	private String serviceSummary(Appointment appointment) {
+		return appointment.getAppointmentServices().stream()
+				.map(AppointmentServiceItem::getServiceNameSnapshot)
+				.reduce((left, right) -> left + ", " + right)
+				.orElse("");
 	}
 }

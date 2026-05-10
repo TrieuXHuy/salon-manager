@@ -2,8 +2,6 @@ package com.salonnbooking.service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,130 +32,97 @@ public class ReportService {
 
 	public List<ReportRequests.DailyRevenueResponse> getDailyRevenueReport(LocalDate startDate, LocalDate endDate) {
 		List<Appointment> appointments = appointmentRepository
-				.findAppointmentsBetween(
-						startDate.atStartOfDay(),
-						endDate.atTime(23, 59, 59));
-
+				.findAppointmentsBetween(startDate.atStartOfDay(), endDate.atTime(23, 59, 59));
 		Map<LocalDate, List<Appointment>> groupedByDate = appointments.stream()
 				.collect(Collectors.groupingBy(a -> a.getAppointmentTime().toLocalDate()));
 
 		List<ReportRequests.DailyRevenueResponse> reports = new ArrayList<>();
-
 		for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
-			List<Appointment> dayAppointments = groupedByDate.getOrDefault(date, new ArrayList<>());
+			List<Appointment> dayAppointments = groupedByDate.getOrDefault(date, List.of());
 			int completedCount = (int) dayAppointments.stream()
-					.filter(a -> a.getStatus() == AppointmentStatus.completed)
+					.filter(a -> a.getStatus() == AppointmentStatus.COMPLETED)
 					.count();
-
-			BigDecimal totalRevenue = BigDecimal.ZERO;
-			for (Appointment apt : dayAppointments) {
-				List<Payment> payments = paymentRepository.findByAppointmentId(apt.getId());
-				for (Payment payment : payments) {
-					if (payment.getPaymentStatus() == PaymentStatus.paid) {
-						totalRevenue = totalRevenue.add(payment.getAmount());
-					}
-				}
-			}
-
-			reports.add(new ReportRequests.DailyRevenueResponse(
-					date,
-					totalRevenue,
-					dayAppointments.size(),
-					completedCount));
+			BigDecimal totalRevenue = calculateRevenue(dayAppointments);
+			reports.add(new ReportRequests.DailyRevenueResponse(date, totalRevenue, dayAppointments.size(), completedCount));
 		}
-
 		return reports;
 	}
 
 	public List<ReportRequests.ServiceRevenueResponse> getServiceRevenueReport() {
 		List<Appointment> allAppointments = appointmentRepository.findAll();
-
 		Map<Integer, List<Appointment>> groupedByService = allAppointments.stream()
-				.collect(Collectors.groupingBy(a -> a.getService().getId()));
+				.flatMap(a -> a.getAppointmentServices().stream().map(item -> Map.entry(item.getService().getId(), a)))
+				.collect(Collectors.groupingBy(Map.Entry::getKey, Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
 
 		List<ReportRequests.ServiceRevenueResponse> reports = new ArrayList<>();
-
 		for (Map.Entry<Integer, List<Appointment>> entry : groupedByService.entrySet()) {
 			List<Appointment> serviceAppointments = entry.getValue();
 			int appointmentCount = serviceAppointments.size();
-
-			BigDecimal totalRevenue = BigDecimal.ZERO;
-			for (Appointment apt : serviceAppointments) {
-				List<Payment> payments = paymentRepository.findByAppointmentId(apt.getId());
-				for (Payment payment : payments) {
-					if (payment.getPaymentStatus() == PaymentStatus.paid) {
-						totalRevenue = totalRevenue.add(payment.getAmount());
-					}
-				}
-			}
-
+			BigDecimal totalRevenue = calculateRevenue(serviceAppointments);
 			BigDecimal avgRevenue = appointmentCount > 0
 					? totalRevenue.divide(BigDecimal.valueOf(appointmentCount), 2, java.math.RoundingMode.HALF_UP)
 					: BigDecimal.ZERO;
-
-			reports.add(new ReportRequests.ServiceRevenueResponse(
-					entry.getKey(),
-					serviceAppointments.get(0).getService().getName(),
-					appointmentCount,
-					totalRevenue,
-					avgRevenue));
+			String serviceName = serviceAppointments.stream()
+					.flatMap(a -> a.getAppointmentServices().stream())
+					.filter(item -> item.getService().getId().equals(entry.getKey()))
+					.map(item -> item.getServiceNameSnapshot())
+					.findFirst()
+					.orElse("Unknown");
+			reports.add(new ReportRequests.ServiceRevenueResponse(entry.getKey(), serviceName, appointmentCount,
+					totalRevenue, avgRevenue));
 		}
 
 		return reports.stream()
 				.sorted((a, b) -> b.totalRevenue().compareTo(a.totalRevenue()))
-				.collect(Collectors.toList());
+				.toList();
 	}
 
 	public List<ReportRequests.PaymentMethodResponse> getPaymentMethodReport() {
-		List<Payment> allPayments = paymentRepository.findAll();
+		List<Payment> paidPayments = paymentRepository.findAll().stream()
+				.filter(p -> p.getPaymentStatus() == PaymentStatus.PAID)
+				.toList();
 
-		Map<PaymentMethod, List<Payment>> groupedByMethod = allPayments.stream()
-				.filter(p -> p.getPaymentStatus() == PaymentStatus.paid)
+		Map<PaymentMethod, List<Payment>> groupedByMethod = paidPayments.stream()
 				.collect(Collectors.groupingBy(Payment::getPaymentMethod));
 
-		int totalPayments = allPayments.stream()
-				.filter(p -> p.getPaymentStatus() == PaymentStatus.paid)
-				.toList()
-				.size();
-
-		BigDecimal totalAmount = allPayments.stream()
-				.filter(p -> p.getPaymentStatus() == PaymentStatus.paid)
-				.map(Payment::getAmount)
+		BigDecimal totalAmount = paidPayments.stream()
+				.map(Payment::getFinalAmount)
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 
 		List<ReportRequests.PaymentMethodResponse> reports = new ArrayList<>();
-
 		for (Map.Entry<PaymentMethod, List<Payment>> entry : groupedByMethod.entrySet()) {
-			List<Payment> methodPayments = entry.getValue();
-			int count = methodPayments.size();
-
-			BigDecimal methodTotal = methodPayments.stream()
-					.map(Payment::getAmount)
+			BigDecimal methodTotal = entry.getValue().stream()
+					.map(Payment::getFinalAmount)
 					.reduce(BigDecimal.ZERO, BigDecimal::add);
-
-			BigDecimal percentage = totalPayments > 0
-					? methodTotal.divide(totalAmount, 2, java.math.RoundingMode.HALF_UP)
+			BigDecimal percentage = totalAmount.compareTo(BigDecimal.ZERO) > 0
+					? methodTotal.divide(totalAmount, 4, java.math.RoundingMode.HALF_UP)
 							.multiply(BigDecimal.valueOf(100))
 					: BigDecimal.ZERO;
 
-			reports.add(new ReportRequests.PaymentMethodResponse(
-					entry.getKey().toString(),
-					count,
-					methodTotal,
-					percentage));
+			reports.add(new ReportRequests.PaymentMethodResponse(entry.getKey().name(), entry.getValue().size(),
+					methodTotal, percentage));
 		}
-
 		return reports;
 	}
 
 	public ReportRequests.AppointmentStatsResponse getAppointmentStats() {
 		List<Appointment> allAppointments = appointmentRepository.findAll();
-
 		return new ReportRequests.AppointmentStatsResponse(
 				allAppointments.size(),
-				(int) allAppointments.stream().filter(a -> a.getStatus() == AppointmentStatus.pending).count(),
-				(int) allAppointments.stream().filter(a -> a.getStatus() == AppointmentStatus.confirmed).count(),
-				(int) allAppointments.stream().filter(a -> a.getStatus() == AppointmentStatus.completed).count(),
-				(int) allAppointments.stream().filter(a -> a.getStatus() == AppointmentStatus.cancelled).count());
+				(int) allAppointments.stream().filter(a -> a.getStatus() == AppointmentStatus.PENDING).count(),
+				(int) allAppointments.stream().filter(a -> a.getStatus() == AppointmentStatus.CONFIRMED).count(),
+				(int) allAppointments.stream().filter(a -> a.getStatus() == AppointmentStatus.COMPLETED).count(),
+				(int) allAppointments.stream().filter(a -> a.getStatus() == AppointmentStatus.CANCELLED).count());
+	}
+
+	private BigDecimal calculateRevenue(List<Appointment> appointments) {
+		return appointments.stream()
+				.map(Appointment::getId)
+				.distinct()
+				.map(paymentRepository::findByAppointmentId)
+				.flatMap(List::stream)
+				.filter(payment -> payment.getPaymentStatus() == PaymentStatus.PAID)
+				.map(Payment::getFinalAmount)
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 }

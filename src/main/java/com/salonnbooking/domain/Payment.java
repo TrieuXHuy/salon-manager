@@ -26,8 +26,14 @@ public class Payment {
 	@JoinColumn(name = "appointment_id", nullable = false)
 	private Appointment appointment;
 
-	@Column(nullable = false, precision = 10, scale = 2)
-	private BigDecimal amount;
+	@Column(precision = 18, scale = 2)
+	private BigDecimal subtotal;
+
+	@Column(name = "discount_amount", precision = 18, scale = 2)
+	private BigDecimal discountAmount = BigDecimal.ZERO;
+
+	@Column(name = "final_amount", precision = 18, scale = 2)
+	private BigDecimal finalAmount;
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "payment_method", columnDefinition = "nvarchar(50)")
@@ -35,7 +41,7 @@ public class Payment {
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "payment_status", nullable = false, columnDefinition = "nvarchar(50)")
-	private PaymentStatus paymentStatus = PaymentStatus.unpaid;
+	private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
 
 	@Column(name = "paid_at")
 	private LocalDateTime paidAt;
@@ -52,12 +58,28 @@ public class Payment {
 		this.appointment = appointment;
 	}
 
-	public BigDecimal getAmount() {
-		return amount;
+	public BigDecimal getSubtotal() {
+		return subtotal;
 	}
 
-	public void setAmount(BigDecimal amount) {
-		this.amount = amount;
+	public void setSubtotal(BigDecimal subtotal) {
+		this.subtotal = subtotal;
+	}
+
+	public BigDecimal getDiscountAmount() {
+		return discountAmount;
+	}
+
+	public void setDiscountAmount(BigDecimal discountAmount) {
+		this.discountAmount = discountAmount;
+	}
+
+	public BigDecimal getFinalAmount() {
+		return finalAmount;
+	}
+
+	public void setFinalAmount(BigDecimal finalAmount) {
+		this.finalAmount = finalAmount;
 	}
 
 	public PaymentMethod getPaymentMethod() {

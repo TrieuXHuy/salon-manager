@@ -21,6 +21,7 @@ import com.google.gson.JsonSerializer;
 import com.salonnbooking.api.dto.AppointmentRequests;
 import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.api.dto.DashboardRequests;
+import com.salonnbooking.api.dto.EmployeeRequests;
 import com.salonnbooking.api.dto.PaymentRequests;
 import com.salonnbooking.api.dto.ReportRequests;
 
@@ -109,6 +110,46 @@ public class ApiClient {
 				.getAsJsonArray();
 		for (var element : jsonArray) {
 			list.add(gson.fromJson(element, CustomerRequests.Response.class));
+		}
+		return list;
+	}
+
+	// ==================== EMPLOYEE API ====================
+
+	public static List<EmployeeRequests.Response> getAllEmployees() throws Exception {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(BASE_URL + "/employees"))
+				.GET()
+				.build();
+
+		HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+		if (response.statusCode() != 200) {
+			throw new RuntimeException("Failed to fetch employees: " + response.body());
+		}
+
+		var list = new java.util.ArrayList<EmployeeRequests.Response>();
+		var jsonArray = com.google.gson.JsonParser.parseString(response.body()).getAsJsonArray();
+		for (var element : jsonArray) {
+			list.add(gson.fromJson(element, EmployeeRequests.Response.class));
+		}
+		return list;
+	}
+
+	public static List<EmployeeRequests.Response> getActiveEmployees() throws Exception {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(BASE_URL + "/employees/active"))
+				.GET()
+				.build();
+
+		HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+		if (response.statusCode() != 200) {
+			throw new RuntimeException("Failed to fetch active employees: " + response.body());
+		}
+
+		var list = new java.util.ArrayList<EmployeeRequests.Response>();
+		var jsonArray = com.google.gson.JsonParser.parseString(response.body()).getAsJsonArray();
+		for (var element : jsonArray) {
+			list.add(gson.fromJson(element, EmployeeRequests.Response.class));
 		}
 		return list;
 	}

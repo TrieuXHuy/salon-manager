@@ -4,19 +4,13 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GridLayout;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -29,35 +23,28 @@ import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
-import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 
 import com.salonnbooking.api.dto.AppointmentRequests;
 import com.salonnbooking.api.dto.CustomerRequests;
+import com.salonnbooking.api.dto.EmployeeRequests;
 import com.salonnbooking.api.dto.PaymentRequests;
 import com.salonnbooking.api.dto.ServiceRequests;
 import com.salonnbooking.client.ApiClient;
 import com.salonnbooking.domain.PaymentMethod;
 import com.salonnbooking.domain.PaymentStatus;
+import com.salonnbooking.ui.components.RoundedPanel;
 import com.salonnbooking.ui.dialog.AppointmentDialog;
 import com.salonnbooking.ui.dialog.PaymentSimulationDialog;
-import com.salonnbooking.ui.components.RoundedPanel;
 import com.salonnbooking.ui.theme.Theme;
+
 import net.miginfocom.swing.MigLayout;
 
-/**
- * AppointmentPanel - Quản lý lịch hẹn
- * 
- * Tích hợp SwingWorker để gọi API không làm block EDT (Non-blocking UI)
- * Sử dụng AppointmentDialog cho form nhập liệu
- * Xử lý Exception & User Feedback toàn diện
- */
 public class AppointmentPanel extends JPanel {
 	private static final long serialVersionUID = 1L;
-	private static final DateTimeFormatter DATE_FORMATTER = 
-			DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+	private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 	private static final Color BG_MAIN = new Color(248, 250, 252);
 	private static final Color BG_CARD = Color.WHITE;
 	private static final Color TEXT_MAIN = new Color(15, 23, 42);
@@ -69,7 +56,6 @@ public class AppointmentPanel extends JPanel {
 	private static final Font SUBTITLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12));
 	private static final Font TABLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 13));
 
-	// UI Components
 	private JButton btnAdd;
 	private JButton btnEdit;
 	private JButton btnDelete;
@@ -79,9 +65,9 @@ public class AppointmentPanel extends JPanel {
 	private DefaultTableModel tableModel;
 	private JLabel lblStatus;
 
-	// Data
-	private Integer selectedAppointmentId = null;
+	private Integer selectedAppointmentId;
 	private List<CustomerRequests.Response> customers;
+	private List<EmployeeRequests.Response> employees;
 	private List<ServiceRequests.Response> services;
 	private List<AppointmentRequests.Response> appointments;
 
@@ -93,13 +79,9 @@ public class AppointmentPanel extends JPanel {
 		add(createTablePanel(), "grow");
 		add(createToolbarPanel(), "growx");
 
-		// Load dữ liệu ban đầu
 		loadInitialData();
 	}
 
-	/**
-	 * Tạo panel header
-	 */
 	private JPanel createHeaderPanel() {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
@@ -112,7 +94,7 @@ public class AppointmentPanel extends JPanel {
 		titleLabel.setFont(TITLE_FONT);
 		titleLabel.setForeground(TEXT_MAIN);
 
-		JLabel subtitle = new JLabel("Quản lý lịch hẹn và thanh toán nhanh");
+		JLabel subtitle = new JLabel("Quản lý lịch hẹn, nhân viên và thanh toán");
 		subtitle.setFont(SUBTITLE_FONT);
 		subtitle.setForeground(TEXT_MUTED);
 
@@ -120,13 +102,9 @@ public class AppointmentPanel extends JPanel {
 		titleBlock.add(Box.createVerticalStrut(4));
 		titleBlock.add(subtitle);
 		panel.add(titleBlock, BorderLayout.WEST);
-
 		return panel;
 	}
 
-	/**
-	 * Tạo toolbar với các button
-	 */
 	private JPanel createToolbarPanel() {
 		RoundedPanel panel = new RoundedPanel(16, BG_CARD, true);
 		panel.setLayout(new BorderLayout());
@@ -138,12 +116,11 @@ public class AppointmentPanel extends JPanel {
 		btnAdd = createButton("Thêm", e -> onAddButtonClicked());
 		btnEdit = createButton("Sửa", e -> onEditButtonClicked());
 		btnDelete = createButton("Xóa", e -> onDeleteButtonClicked());
+		btnPay = createButton("Thanh toán", e -> onPayButtonClicked());
 		btnRefresh = createButton("Làm mới", e -> loadAppointments());
 
-		btnAdd.setEnabled(false);
 		btnEdit.setEnabled(false);
 		btnDelete.setEnabled(false);
-		btnPay = createButton("Thanh toán", e -> onPayButtonClicked());
 		btnPay.setEnabled(false);
 
 		btnPanel.add(btnAdd);
@@ -154,7 +131,6 @@ public class AppointmentPanel extends JPanel {
 
 		panel.add(btnPanel, BorderLayout.WEST);
 
-		// Status label
 		lblStatus = new JLabel("Sẵn sàng");
 		lblStatus.setFont(SUBTITLE_FONT);
 		lblStatus.setForeground(TEXT_MUTED);
@@ -163,9 +139,6 @@ public class AppointmentPanel extends JPanel {
 		return panel;
 	}
 
-	/**
-	 * Tạo panel bảng danh sách
-	 */
 	private JPanel createTablePanel() {
 		RoundedPanel panel = new RoundedPanel(16, BG_CARD, true);
 		panel.setLayout(new BorderLayout(12, 12));
@@ -176,13 +149,13 @@ public class AppointmentPanel extends JPanel {
 		title.setForeground(TEXT_MAIN);
 		panel.add(title, BorderLayout.NORTH);
 
-		String[] columnNames = { "ID", "Khách hàng", "Dịch vụ", "Ngày giờ", "Trạng thái", "Ghi chú" };
+		String[] columnNames = { "ID", "Khách hàng", "Nhân viên", "Dịch vụ", "Ngày giờ", "Trạng thái", "Tổng tiền" };
 		tableModel = new DefaultTableModel(columnNames, 0) {
 			private static final long serialVersionUID = 1L;
 
 			@Override
 			public boolean isCellEditable(int row, int column) {
-				return false; // Read-only table
+				return false;
 			}
 		};
 
@@ -199,17 +172,17 @@ public class AppointmentPanel extends JPanel {
 		table.getTableHeader().setForeground(TEXT_MUTED);
 		table.getTableHeader().setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
 		TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(tableModel);
-		sorter.setComparator(3, Comparator.comparing(value -> LocalDateTime.parse(value.toString(), DATE_FORMATTER)));
+		sorter.setComparator(4, Comparator.comparing(value -> LocalDateTime.parse(value.toString(), DATE_FORMATTER)));
 		table.setRowSorter(sorter);
 
-		// Row selection listener
 		table.getSelectionModel().addListSelectionListener(e -> {
 			if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1) {
 				int modelRow = table.convertRowIndexToModel(table.getSelectedRow());
 				selectedAppointmentId = (Integer) tableModel.getValueAt(modelRow, 0);
 				btnEdit.setEnabled(true);
 				btnDelete.setEnabled(true);
-				btnPay.setEnabled(true);
+				AppointmentRequests.Response selected = getSelectedAppointment();
+				btnPay.setEnabled(selected != null && selected.status() == com.salonnbooking.domain.AppointmentStatus.COMPLETED);
 			} else {
 				selectedAppointmentId = null;
 				btnEdit.setEnabled(false);
@@ -225,11 +198,6 @@ public class AppointmentPanel extends JPanel {
 		return panel;
 	}
 
-	// ========== DATA LOADING METHODS ==========
-
-	/**
-	 * Load dữ liệu ban đầu (Customers, Services, Appointments)
-	 */
 	private void loadInitialData() {
 		setStatus("Đang tải dữ liệu...");
 		disableButtons();
@@ -238,6 +206,7 @@ public class AppointmentPanel extends JPanel {
 			@Override
 			protected Void doInBackground() throws Exception {
 				customers = ApiClient.getAllCustomers();
+				employees = ApiClient.getActiveEmployees();
 				services = ApiClient.getAllServices();
 				return null;
 			}
@@ -258,9 +227,6 @@ public class AppointmentPanel extends JPanel {
 		worker.execute();
 	}
 
-	/**
-	 * Load danh sách lịch hẹn từ API (Non-blocking)
-	 */
 	private void loadAppointments() {
 		setStatus("Đang tải lịch hẹn...");
 
@@ -287,9 +253,6 @@ public class AppointmentPanel extends JPanel {
 		worker.execute();
 	}
 
-	/**
-	 * Làm mới bảng từ danh sách appointments
-	 */
 	private void refreshTable(List<AppointmentRequests.Response> appointments) {
 		tableModel.setRowCount(0);
 
@@ -300,23 +263,17 @@ public class AppointmentPanel extends JPanel {
 					.findFirst()
 					.orElse("Không rõ");
 
-			String serviceName = services.stream()
-					.filter(s -> s.id().equals(apt.serviceId()))
-					.map(ServiceRequests.Response::name)
-					.findFirst()
-					.orElse("Không rõ");
-
 			tableModel.addRow(new Object[] {
 					apt.id(),
 					customerName,
-					serviceName,
+					apt.employeeName(),
+					apt.serviceSummary(),
 					apt.appointmentTime().format(DATE_FORMATTER),
 					apt.status(),
-					apt.note() != null ? apt.note() : ""
+					apt.subtotal()
 			});
 		}
 
-		// Clear selection
 		selectedAppointmentId = null;
 		table.clearSelection();
 		btnEdit.setEnabled(false);
@@ -326,75 +283,45 @@ public class AppointmentPanel extends JPanel {
 
 	private List<AppointmentRequests.Response> sortByAppointmentTime(List<AppointmentRequests.Response> source) {
 		List<AppointmentRequests.Response> sorted = new ArrayList<>(source);
-		sorted.sort(Comparator
-				.comparing(AppointmentRequests.Response::appointmentTime)
-				.thenComparing(AppointmentRequests.Response::id));
+		sorted.sort(Comparator.comparing(AppointmentRequests.Response::appointmentTime).thenComparing(AppointmentRequests.Response::id));
 		return sorted;
 	}
 
-	// ========== BUTTON CLICK HANDLERS ==========
-
-	/**
-	 * Xử lý button Add
-	 */
 	private void onAddButtonClicked() {
-		AppointmentDialog dialog = new AppointmentDialog(
-				SwingUtilities.getWindowAncestor(this),
-				customers, services);
+		AppointmentDialog dialog = new AppointmentDialog(SwingUtilities.getWindowAncestor(this), customers, employees, services);
 		dialog.setVisible(true);
-
 		if (dialog.isApproved()) {
 			addAppointment(dialog.getAppointmentCreateRequest());
 		}
 	}
 
-	/**
-	 * Xử lý button Edit
-	 */
 	private void onEditButtonClicked() {
-		if (selectedAppointmentId == null) {
-			JOptionPane.showMessageDialog(this,
-					"Vui lòng chọn một lịch hẹn để sửa",
-					"Không có lựa chọn", JOptionPane.INFORMATION_MESSAGE);
-			return;
-		}
-
-		// Find the appointment
-		AppointmentRequests.Response selectedApt = appointments.stream()
-				.filter(a -> a.id().equals(selectedAppointmentId))
-				.findFirst()
-				.orElse(null);
-
+		AppointmentRequests.Response selectedApt = getSelectedAppointment();
 		if (selectedApt == null) {
-			showError("Lịch hẹn không tìm thấy");
+			showError("Vui lòng chọn một lịch hẹn để sửa");
 			return;
 		}
 
 		AppointmentDialog dialog = new AppointmentDialog(
 				SwingUtilities.getWindowAncestor(this),
-				customers, services, selectedApt);
+				customers,
+				employees,
+				services,
+				selectedApt);
 		dialog.setVisible(true);
 
 		if (dialog.isApproved()) {
-			updateAppointment(selectedAppointmentId, dialog.getAppointmentUpdateRequest());
+			updateAppointment(selectedApt.id(), dialog.getAppointmentUpdateRequest());
 		}
 	}
 
-	/**
-	 * Xử lý button Delete
-	 */
 	private void onDeleteButtonClicked() {
 		if (selectedAppointmentId == null) {
-			JOptionPane.showMessageDialog(this,
-					"Vui lòng chọn một lịch hẹn để xóa",
-					"Không có lựa chọn", JOptionPane.INFORMATION_MESSAGE);
+			showError("Vui lòng chọn một lịch hẹn để xóa");
 			return;
 		}
-
-		int confirm = JOptionPane.showConfirmDialog(this,
-				"Bạn chắc chắn muốn xóa lịch hẹn này?",
-				"Xác nhận xóa", JOptionPane.YES_NO_OPTION);
-
+		int confirm = JOptionPane.showConfirmDialog(this, "Bạn chắc chắn muốn xóa lịch hẹn này?", "Xác nhận xóa",
+				JOptionPane.YES_NO_OPTION);
 		if (confirm == JOptionPane.YES_OPTION) {
 			deleteAppointment(selectedAppointmentId);
 		}
@@ -403,40 +330,34 @@ public class AppointmentPanel extends JPanel {
 	private void onPayButtonClicked() {
 		AppointmentRequests.Response selectedApt = getSelectedAppointment();
 		if (selectedApt == null) {
-			JOptionPane.showMessageDialog(this,
-					"Vui lòng chọn một lịch hẹn để thanh toán",
-					"Không có lựa chọn", JOptionPane.INFORMATION_MESSAGE);
+			showError("Vui lòng chọn một lịch hẹn để thanh toán");
+			return;
+		}
+		if (selectedApt.status() != com.salonnbooking.domain.AppointmentStatus.COMPLETED) {
+			showError("Chỉ lịch hẹn đã hoàn thành mới được thanh toán");
 			return;
 		}
 
-		ServiceRequests.Response service = findService(selectedApt.serviceId());
 		String customerName = findCustomerName(selectedApt.customerId());
-		String serviceName = service != null ? service.name() : "Không rõ";
-		BigDecimal amount = service != null ? service.price() : BigDecimal.ZERO;
+		BigDecimal amount = selectedApt.subtotal() != null ? selectedApt.subtotal() : BigDecimal.ZERO;
 
 		PaymentSimulationDialog dialog = new PaymentSimulationDialog(
 				SwingUtilities.getWindowAncestor(this),
 				selectedApt.id(),
 				customerName,
-				serviceName,
+				selectedApt.serviceSummary(),
 				amount,
 				"QR / chuyển khoản");
 		dialog.setVisible(true);
 
 		if (dialog.isPaid()) {
-			createSimulatedPayment(selectedApt.id(), amount, PaymentMethod.bank_transfer);
+			createSimulatedPayment(selectedApt.id(), amount, PaymentMethod.BANK_TRANSFER);
 		}
 	}
 
-	// ========== CRUD OPERATIONS (Non-blocking with SwingWorker) ==========
-
-	/**
-	 * Thêm lịch hẹn mới (Non-blocking)
-	 */
 	private void addAppointment(AppointmentRequests.Create createReq) {
 		setStatus("Đang tạo lịch hẹn...");
 		disableButtons();
-
 		SwingWorker<AppointmentRequests.Response, Void> worker = new SwingWorker<>() {
 			@Override
 			protected AppointmentRequests.Response doInBackground() throws Exception {
@@ -447,9 +368,8 @@ public class AppointmentPanel extends JPanel {
 			protected void done() {
 				try {
 					get();
-					JOptionPane.showMessageDialog(AppointmentPanel.this,
-								"Lịch hẹn được tạo thành công!",
-							"Thành công", JOptionPane.INFORMATION_MESSAGE);
+					JOptionPane.showMessageDialog(AppointmentPanel.this, "Lịch hẹn được tạo thành công!", "Thành công",
+							JOptionPane.INFORMATION_MESSAGE);
 					loadAppointments();
 				} catch (Exception e) {
 					handleException("Lỗi tạo lịch hẹn", e);
@@ -458,17 +378,12 @@ public class AppointmentPanel extends JPanel {
 				}
 			}
 		};
-
 		worker.execute();
 	}
 
-	/**
-	 * Cập nhật lịch hẹn (Non-blocking)
-	 */
 	private void updateAppointment(Integer appointmentId, AppointmentRequests.Update updateReq) {
 		setStatus("Đang cập nhật lịch hẹn...");
 		disableButtons();
-
 		SwingWorker<AppointmentRequests.Response, Void> worker = new SwingWorker<>() {
 			@Override
 			protected AppointmentRequests.Response doInBackground() throws Exception {
@@ -479,8 +394,7 @@ public class AppointmentPanel extends JPanel {
 			protected void done() {
 				try {
 					get();
-					JOptionPane.showMessageDialog(AppointmentPanel.this,
-								"Lịch hẹn được cập nhật thành công!",
+					JOptionPane.showMessageDialog(AppointmentPanel.this, "Lịch hẹn được cập nhật thành công!",
 							"Thành công", JOptionPane.INFORMATION_MESSAGE);
 					loadAppointments();
 				} catch (Exception e) {
@@ -490,17 +404,12 @@ public class AppointmentPanel extends JPanel {
 				}
 			}
 		};
-
 		worker.execute();
 	}
 
-	/**
-	 * Xóa lịch hẹn (Non-blocking)
-	 */
 	private void deleteAppointment(Integer appointmentId) {
 		setStatus("Đang xóa lịch hẹn...");
 		disableButtons();
-
 		SwingWorker<Void, Void> worker = new SwingWorker<>() {
 			@Override
 			protected Void doInBackground() throws Exception {
@@ -512,9 +421,8 @@ public class AppointmentPanel extends JPanel {
 			protected void done() {
 				try {
 					get();
-					JOptionPane.showMessageDialog(AppointmentPanel.this,
-								"Lịch hẹn được xóa thành công!",
-							"Thành công", JOptionPane.INFORMATION_MESSAGE);
+					JOptionPane.showMessageDialog(AppointmentPanel.this, "Lịch hẹn được xóa thành công!", "Thành công",
+							JOptionPane.INFORMATION_MESSAGE);
 					loadAppointments();
 				} catch (Exception e) {
 					handleException("Lỗi xóa lịch hẹn", e);
@@ -523,7 +431,6 @@ public class AppointmentPanel extends JPanel {
 				}
 			}
 		};
-
 		worker.execute();
 	}
 
@@ -534,8 +441,10 @@ public class AppointmentPanel extends JPanel {
 		PaymentRequests.Create request = new PaymentRequests.Create(
 				appointmentId,
 				amount,
+				BigDecimal.ZERO,
+				amount,
 				paymentMethod,
-				PaymentStatus.paid,
+				PaymentStatus.PAID,
 				LocalDateTime.now());
 
 		SwingWorker<Void, Void> worker = new SwingWorker<>() {
@@ -549,9 +458,8 @@ public class AppointmentPanel extends JPanel {
 			protected void done() {
 				try {
 					get();
-					JOptionPane.showMessageDialog(AppointmentPanel.this,
-							"Thanh toán mô phỏng thành công!",
-							"Thành công", JOptionPane.INFORMATION_MESSAGE);
+					JOptionPane.showMessageDialog(AppointmentPanel.this, "Thanh toán mô phỏng thành công!", "Thành công",
+							JOptionPane.INFORMATION_MESSAGE);
 					loadAppointments();
 				} catch (Exception e) {
 					handleException("Lỗi ghi nhận thanh toán", e);
@@ -560,30 +468,14 @@ public class AppointmentPanel extends JPanel {
 				}
 			}
 		};
-
 		worker.execute();
 	}
-
-	// ========== HELPER METHODS ==========
 
 	private AppointmentRequests.Response getSelectedAppointment() {
 		if (selectedAppointmentId == null || appointments == null) {
 			return null;
 		}
-		return appointments.stream()
-				.filter(a -> a.id().equals(selectedAppointmentId))
-				.findFirst()
-				.orElse(null);
-	}
-
-	private ServiceRequests.Response findService(Integer serviceId) {
-		if (services == null) {
-			return null;
-		}
-		return services.stream()
-				.filter(s -> s.id().equals(serviceId))
-				.findFirst()
-				.orElse(null);
+		return appointments.stream().filter(a -> a.id().equals(selectedAppointmentId)).findFirst().orElse(null);
 	}
 
 	private String findCustomerName(Integer customerId) {
@@ -597,37 +489,22 @@ public class AppointmentPanel extends JPanel {
 				.orElse("Không rõ");
 	}
 
-	/**
-	 * Xử lý exception và hiển thị thông báo lỗi
-	 */
 	private void handleException(String title, Exception e) {
 		String message = e.getMessage();
 		if (message == null || message.isEmpty()) {
 			message = e.getClass().getSimpleName();
 		}
-
-		JOptionPane.showMessageDialog(this,
-				title + ": " + message,
-				"Lỗi", JOptionPane.ERROR_MESSAGE);
+		JOptionPane.showMessageDialog(this, title + ": " + message, "Lỗi", JOptionPane.ERROR_MESSAGE);
 	}
 
-	/**
-	 * Hiển thị thông báo lỗi
-	 */
 	private void showError(String message) {
 		JOptionPane.showMessageDialog(this, message, "Lỗi", JOptionPane.ERROR_MESSAGE);
 	}
 
-	/**
-	 * Cập nhật status label
-	 */
 	private void setStatus(String status) {
 		lblStatus.setText(status);
 	}
 
-	/**
-	 * Disable tất cả buttons
-	 */
 	private void disableButtons() {
 		btnAdd.setEnabled(false);
 		btnEdit.setEnabled(false);
@@ -636,23 +513,17 @@ public class AppointmentPanel extends JPanel {
 		btnRefresh.setEnabled(false);
 	}
 
-	/**
-	 * Enable tất cả buttons
-	 */
 	private void enableButtons() {
 		btnAdd.setEnabled(true);
 		btnRefresh.setEnabled(true);
-		// Edit và Delete chỉ enable khi có selection
 		if (selectedAppointmentId != null) {
 			btnEdit.setEnabled(true);
 			btnDelete.setEnabled(true);
-			btnPay.setEnabled(true);
+			AppointmentRequests.Response selected = getSelectedAppointment();
+			btnPay.setEnabled(selected != null && selected.status() == com.salonnbooking.domain.AppointmentStatus.COMPLETED);
 		}
 	}
 
-	/**
-	 * Tạo button với listener
-	 */
 	private JButton createButton(String label, java.awt.event.ActionListener listener) {
 		JButton btn = new JButton(label);
 		btn.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 11)));

@@ -1,5 +1,6 @@
 package com.salonnbooking.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -8,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.salonnbooking.api.dto.PaymentRequests;
 import com.salonnbooking.domain.Appointment;
+import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.Payment;
 import com.salonnbooking.domain.PaymentStatus;
 import com.salonnbooking.exception.ResourceNotFoundException;
@@ -37,28 +39,24 @@ public class PaymentService {
 	}
 
 	public Payment save(PaymentRequests.Create req) {
-		Appointment appointment = appointmentRepository.findById(req.appointmentId())
-				.orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + req.appointmentId()));
+		Appointment appointment = findAppointment(req.appointmentId());
+		validateAppointmentForPayment(appointment);
 
 		Payment payment = new Payment();
 		payment.setAppointment(appointment);
-		payment.setAmount(req.amount());
-		payment.setPaymentMethod(req.paymentMethod());
-		payment.setPaymentStatus(req.paymentStatus() != null ? req.paymentStatus() : PaymentStatus.unpaid);
-		payment.setPaidAt(req.paidAt());
+		apply(payment, appointment, req.subtotal(), req.discountAmount(), req.finalAmount(), req.paymentMethod(),
+				req.paymentStatus() != null ? req.paymentStatus() : PaymentStatus.UNPAID, req.paidAt());
 		return paymentRepository.save(payment);
 	}
 
 	public Payment update(Integer id, PaymentRequests.Update req) {
 		Payment payment = findById(id);
-		Appointment appointment = appointmentRepository.findById(req.appointmentId())
-				.orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + req.appointmentId()));
+		Appointment appointment = findAppointment(req.appointmentId());
+		validateAppointmentForPayment(appointment);
 
 		payment.setAppointment(appointment);
-		payment.setAmount(req.amount());
-		payment.setPaymentMethod(req.paymentMethod());
-		payment.setPaymentStatus(req.paymentStatus());
-		payment.setPaidAt(req.paidAt());
+		apply(payment, appointment, req.subtotal(), req.discountAmount(), req.finalAmount(), req.paymentMethod(),
+				req.paymentStatus(), req.paidAt());
 		return paymentRepository.save(payment);
 	}
 
@@ -71,8 +69,39 @@ public class PaymentService {
 
 	public Payment markAsPaid(Integer id) {
 		Payment payment = findById(id);
-		payment.setPaymentStatus(PaymentStatus.paid);
-		payment.setPaidAt(LocalDateTime.now());
+		payment.setPaymentStatus(PaymentStatus.PAID);
+		if (payment.getPaidAt() == null) {
+			payment.setPaidAt(LocalDateTime.now());
+		}
 		return paymentRepository.save(payment);
+	}
+
+	private Appointment findAppointment(Integer appointmentId) {
+		return appointmentRepository.findById(appointmentId)
+				.orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + appointmentId));
+	}
+
+	private void validateAppointmentForPayment(Appointment appointment) {
+		if (appointment.getStatus() != AppointmentStatus.COMPLETED) {
+			throw new IllegalArgumentException("Only completed appointments can be paid");
+		}
+	}
+
+	private void apply(Payment payment, Appointment appointment, BigDecimal subtotal, BigDecimal discountAmount,
+			BigDecimal finalAmount, com.salonnbooking.domain.PaymentMethod paymentMethod, PaymentStatus paymentStatus,
+			LocalDateTime paidAt) {
+		BigDecimal calculatedSubtotal = appointment.getAppointmentServices().stream()
+				.map(item -> item.getPrice() == null ? BigDecimal.ZERO : item.getPrice())
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		BigDecimal appliedSubtotal = subtotal != null ? subtotal : calculatedSubtotal;
+		BigDecimal appliedDiscount = discountAmount != null ? discountAmount : BigDecimal.ZERO;
+		BigDecimal appliedFinal = finalAmount != null ? finalAmount : appliedSubtotal.subtract(appliedDiscount);
+
+		payment.setSubtotal(appliedSubtotal);
+		payment.setDiscountAmount(appliedDiscount);
+		payment.setFinalAmount(appliedFinal);
+		payment.setPaymentMethod(paymentMethod);
+		payment.setPaymentStatus(paymentStatus);
+		payment.setPaidAt(paymentStatus == PaymentStatus.PAID ? (paidAt != null ? paidAt : LocalDateTime.now()) : paidAt);
 	}
 }

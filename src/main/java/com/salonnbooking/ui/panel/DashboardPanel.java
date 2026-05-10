@@ -309,8 +309,8 @@ public class DashboardPanel extends JPanel {
 				.forEach(a -> todayTableModel.addRow(new Object[] {
 						a.appointmentTime().format(DATE_TIME_FORMAT),
 						findCustomerName(data.customers(), a.customerId()),
-						findServiceName(data.services(), a.serviceId()),
-						formatStatus(a.status().toString()),
+						a.serviceSummary(),
+						formatStatus(a.status().name()),
 						a.note() == null ? "" : a.note()
 				}));
 
@@ -323,14 +323,6 @@ public class DashboardPanel extends JPanel {
 		return customers.stream()
 				.filter(c -> c.id().equals(id))
 				.map(CustomerRequests.Response::fullName)
-				.findFirst()
-				.orElse("Không rõ");
-	}
-
-	private String findServiceName(List<ServiceRequests.Response> services, Integer id) {
-		return services.stream()
-				.filter(s -> s.id().equals(id))
-				.map(ServiceRequests.Response::name)
 				.findFirst()
 				.orElse("Không rõ");
 	}
@@ -351,8 +343,11 @@ public class DashboardPanel extends JPanel {
 		return switch (normalized) {
 			case "confirmed" -> "Đã xác nhận";
 			case "pending" -> "Chờ xử lý";
+			case "checked_in" -> "Đã check-in";
+			case "in_progress" -> "Đang thực hiện";
 			case "completed" -> "Hoàn thành";
 			case "cancelled" -> "Đã hủy";
+			case "no_show" -> "Không đến";
 			default -> capitalize(status);
 		};
 	}
