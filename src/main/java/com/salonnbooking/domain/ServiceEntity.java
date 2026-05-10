@@ -16,7 +16,7 @@ public class ServiceEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Integer id;
 
-	@Column(nullable = false, length = 100)
+	@Column(nullable = false, columnDefinition = "nvarchar(255)")
 	private String name;
 
 	@Column(nullable = false, precision = 10, scale = 2)
@@ -25,7 +25,7 @@ public class ServiceEntity {
 	@Column(name = "duration_minutes", nullable = false)
 	private Integer durationMinutes;
 
-	@Column(columnDefinition = "nvarchar(max)")
+	@Column(columnDefinition = "nvarchar(500)")
 	private String description;
 
 	@Column(name = "is_active", nullable = false)

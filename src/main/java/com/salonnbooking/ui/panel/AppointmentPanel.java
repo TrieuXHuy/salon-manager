@@ -1,13 +1,35 @@
 package com.salonnbooking.ui.panel;
 
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridLayout;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import javax.swing.*;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
+import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
@@ -21,6 +43,9 @@ import com.salonnbooking.domain.PaymentMethod;
 import com.salonnbooking.domain.PaymentStatus;
 import com.salonnbooking.ui.dialog.AppointmentDialog;
 import com.salonnbooking.ui.dialog.PaymentSimulationDialog;
+import com.salonnbooking.ui.components.RoundedPanel;
+import com.salonnbooking.ui.theme.Theme;
+import net.miginfocom.swing.MigLayout;
 
 /**
  * AppointmentPanel - Quản lý lịch hẹn
@@ -33,6 +58,16 @@ public class AppointmentPanel extends JPanel {
 	private static final long serialVersionUID = 1L;
 	private static final DateTimeFormatter DATE_FORMATTER = 
 			DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+	private static final Color BG_MAIN = new Color(248, 250, 252);
+	private static final Color BG_CARD = Color.WHITE;
+	private static final Color TEXT_MAIN = new Color(15, 23, 42);
+	private static final Color TEXT_MUTED = new Color(100, 116, 139);
+	private static final Color BORDER = new Color(226, 232, 240);
+	private static final Color PRIMARY = new Color(109, 73, 224);
+	private static final Color PRIMARY_SOFT = new Color(237, 233, 255);
+	private static final Font TITLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 24));
+	private static final Font SUBTITLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12));
+	private static final Font TABLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 13));
 
 	// UI Components
 	private JButton btnAdd;
@@ -51,18 +86,12 @@ public class AppointmentPanel extends JPanel {
 	private List<AppointmentRequests.Response> appointments;
 
 	public AppointmentPanel() {
-		setLayout(new BorderLayout(10, 10));
-		setBorder(new EmptyBorder(15, 15, 15, 15));
-		setBackground(UIManager.getColor("Panel.background"));
+		setLayout(new MigLayout("insets 24, fill, wrap 1", "[grow]", "[]18[grow]18[]"));
+		setBackground(BG_MAIN);
 
-		// Header
-		add(createHeaderPanel(), BorderLayout.NORTH);
-
-		// Main Content (Table)
-		add(createTablePanel(), BorderLayout.CENTER);
-
-		// Toolbar
-		add(createToolbarPanel(), BorderLayout.SOUTH);
+		add(createHeaderPanel(), "growx");
+		add(createTablePanel(), "grow");
+		add(createToolbarPanel(), "growx");
 
 		// Load dữ liệu ban đầu
 		loadInitialData();
@@ -75,9 +104,22 @@ public class AppointmentPanel extends JPanel {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
 
+		JPanel titleBlock = new JPanel();
+		titleBlock.setOpaque(false);
+		titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
+
 		JLabel titleLabel = new JLabel("Đặt lịch hẹn");
-		titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
-		panel.add(titleLabel, BorderLayout.WEST);
+		titleLabel.setFont(TITLE_FONT);
+		titleLabel.setForeground(TEXT_MAIN);
+
+		JLabel subtitle = new JLabel("Quản lý lịch hẹn và thanh toán nhanh");
+		subtitle.setFont(SUBTITLE_FONT);
+		subtitle.setForeground(TEXT_MUTED);
+
+		titleBlock.add(titleLabel);
+		titleBlock.add(Box.createVerticalStrut(4));
+		titleBlock.add(subtitle);
+		panel.add(titleBlock, BorderLayout.WEST);
 
 		return panel;
 	}
@@ -86,10 +128,11 @@ public class AppointmentPanel extends JPanel {
 	 * Tạo toolbar với các button
 	 */
 	private JPanel createToolbarPanel() {
-		JPanel panel = new JPanel(new BorderLayout());
-		panel.setOpaque(false);
+		RoundedPanel panel = new RoundedPanel(16, BG_CARD, true);
+		panel.setLayout(new BorderLayout());
+		panel.setBorder(new EmptyBorder(12, 12, 12, 12));
 
-		JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+		JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
 		btnPanel.setOpaque(false);
 
 		btnAdd = createButton("Thêm", e -> onAddButtonClicked());
@@ -113,7 +156,8 @@ public class AppointmentPanel extends JPanel {
 
 		// Status label
 		lblStatus = new JLabel("Sẵn sàng");
-		lblStatus.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+		lblStatus.setFont(SUBTITLE_FONT);
+		lblStatus.setForeground(TEXT_MUTED);
 		panel.add(lblStatus, BorderLayout.EAST);
 
 		return panel;
@@ -123,9 +167,14 @@ public class AppointmentPanel extends JPanel {
 	 * Tạo panel bảng danh sách
 	 */
 	private JPanel createTablePanel() {
-		JPanel panel = new JPanel(new BorderLayout());
-		panel.setOpaque(false);
-		panel.setBorder(BorderFactory.createTitledBorder("Danh sách lịch hẹn"));
+		RoundedPanel panel = new RoundedPanel(16, BG_CARD, true);
+		panel.setLayout(new BorderLayout(12, 12));
+		panel.setBorder(new EmptyBorder(16, 16, 16, 16));
+
+		JLabel title = new JLabel("Danh sách lịch hẹn");
+		title.setFont(new Font("Segoe UI", Font.BOLD, 14));
+		title.setForeground(TEXT_MAIN);
+		panel.add(title, BorderLayout.NORTH);
 
 		String[] columnNames = { "ID", "Khách hàng", "Dịch vụ", "Ngày giờ", "Trạng thái", "Ghi chú" };
 		tableModel = new DefaultTableModel(columnNames, 0) {
@@ -139,9 +188,16 @@ public class AppointmentPanel extends JPanel {
 
 		table = new JTable(tableModel);
 		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		table.setRowHeight(25);
+		table.setRowHeight(32);
 		table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
 		table.setAutoCreateRowSorter(true);
+		table.setFont(TABLE_FONT);
+		table.setForeground(TEXT_MAIN);
+		table.setShowVerticalLines(false);
+		table.setGridColor(BORDER);
+		table.getTableHeader().setBackground(new Color(245, 243, 255));
+		table.getTableHeader().setForeground(TEXT_MUTED);
+		table.getTableHeader().setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
 		TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(tableModel);
 		sorter.setComparator(3, Comparator.comparing(value -> LocalDateTime.parse(value.toString(), DATE_FORMATTER)));
 		table.setRowSorter(sorter);
@@ -163,6 +219,7 @@ public class AppointmentPanel extends JPanel {
 		});
 
 		JScrollPane scrollPane = new JScrollPane(table);
+		scrollPane.setBorder(BorderFactory.createLineBorder(BORDER));
 		panel.add(scrollPane, BorderLayout.CENTER);
 
 		return panel;
@@ -598,8 +655,11 @@ public class AppointmentPanel extends JPanel {
 	 */
 	private JButton createButton(String label, java.awt.event.ActionListener listener) {
 		JButton btn = new JButton(label);
-		btn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+		btn.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 11)));
 		btn.setFocusPainted(false);
+		btn.setBackground(PRIMARY_SOFT);
+		btn.setForeground(PRIMARY);
+		btn.setBorder(new EmptyBorder(6, 12, 6, 12));
 		btn.addActionListener(listener);
 		return btn;
 	}

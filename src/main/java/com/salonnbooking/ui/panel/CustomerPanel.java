@@ -1,14 +1,37 @@
 package com.salonnbooking.ui.panel;
 
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.util.List;
-import javax.swing.*;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
+import javax.swing.SwingWorker;
+import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 
 import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.client.ApiClient;
 import com.salonnbooking.domain.Gender;
+import com.salonnbooking.ui.components.RoundedPanel;
+import com.salonnbooking.ui.theme.Theme;
+import net.miginfocom.swing.MigLayout;
 
 /**
  * CustomerPanel - Quản lý danh sách khách hàng
@@ -20,6 +43,17 @@ import com.salonnbooking.domain.Gender;
  */
 public class CustomerPanel extends JPanel {
 	private static final long serialVersionUID = 1L;
+	private static final Color BG_MAIN = new Color(248, 250, 252);
+	private static final Color BG_CARD = Color.WHITE;
+	private static final Color TEXT_MAIN = new Color(15, 23, 42);
+	private static final Color TEXT_MUTED = new Color(100, 116, 139);
+	private static final Color BORDER = new Color(226, 232, 240);
+	private static final Color PRIMARY = new Color(109, 73, 224);
+	private static final Color PRIMARY_SOFT = new Color(237, 233, 255);
+	private static final Font TITLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 24));
+	private static final Font SUBTITLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12));
+	private static final Font LABEL_FONT = Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12));
+	private static final Font TABLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 13));
 
 	// UI Components
 	private JTextField tfFullName;
@@ -32,15 +66,11 @@ public class CustomerPanel extends JPanel {
 	private Integer selectedCustomerId = null;
 
 	public CustomerPanel() {
-		setLayout(new BorderLayout(10, 10));
-		setBorder(new EmptyBorder(15, 15, 15, 15));
-		setBackground(UIManager.getColor("Panel.background"));
+		setLayout(new MigLayout("insets 24, fill, wrap 1", "[grow]", "[]18[grow]"));
+		setBackground(BG_MAIN);
 
-		// Header
-		add(createHeaderPanel(), BorderLayout.NORTH);
-
-		// Main Content
-		add(createMainPanel(), BorderLayout.CENTER);
+		add(createHeaderPanel(), "growx");
+		add(createMainPanel(), "grow");
 
 		// Load dữ liệu ban đầu
 		loadCustomers();
@@ -53,9 +83,22 @@ public class CustomerPanel extends JPanel {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
 
+		JPanel titleBlock = new JPanel();
+		titleBlock.setOpaque(false);
+		titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
+
 		JLabel titleLabel = new JLabel("Quản lý khách hàng");
-		titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
-		panel.add(titleLabel, BorderLayout.WEST);
+		titleLabel.setFont(TITLE_FONT);
+		titleLabel.setForeground(TEXT_MAIN);
+
+		JLabel subtitle = new JLabel("Theo dõi & cập nhật hồ sơ khách hàng");
+		subtitle.setFont(SUBTITLE_FONT);
+		subtitle.setForeground(TEXT_MUTED);
+
+		titleBlock.add(titleLabel);
+		titleBlock.add(Box.createVerticalStrut(4));
+		titleBlock.add(subtitle);
+		panel.add(titleBlock, BorderLayout.WEST);
 
 		return panel;
 	}
@@ -64,15 +107,10 @@ public class CustomerPanel extends JPanel {
 	 * Tạo panel chính chứa form và table
 	 */
 	private JPanel createMainPanel() {
-		JPanel main = new JPanel(new BorderLayout(10, 10));
+		JPanel main = new JPanel(new MigLayout("insets 0, fill, wrap 1", "[grow]", "[]18[grow]"));
 		main.setOpaque(false);
-
-		// Form Panel
-		main.add(createFormPanel(), BorderLayout.NORTH);
-
-		// Table Panel
-		main.add(createTablePanel(), BorderLayout.CENTER);
-
+		main.add(createFormPanel(), "growx");
+		main.add(createTablePanel(), "grow");
 		return main;
 	}
 
@@ -80,33 +118,43 @@ public class CustomerPanel extends JPanel {
 	 * Tạo form input
 	 */
 	private JPanel createFormPanel() {
-		JPanel panel = new JPanel();
-		panel.setLayout(new GridBagLayout());
-		panel.setOpaque(false);
-		panel.setBorder(BorderFactory.createTitledBorder("Thông tin khách hàng"));
+		RoundedPanel panel = new RoundedPanel(16, BG_CARD, true);
+		panel.setLayout(new BorderLayout());
+		panel.setBorder(new EmptyBorder(16, 16, 16, 16));
+
+		JLabel sectionTitle = new JLabel("Thông tin khách hàng");
+		sectionTitle.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 14)));
+		sectionTitle.setForeground(TEXT_MAIN);
+		panel.add(sectionTitle, BorderLayout.NORTH);
+
+		JPanel fields = new JPanel(new GridBagLayout());
+		fields.setOpaque(false);
 
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.insets = new Insets(5, 5, 5, 5);
 		gbc.fill = GridBagConstraints.HORIZONTAL;
 
 		// Row 1: Full Name & Phone
-		addLabel(panel, "Họ và tên:", 0, 0, gbc);
+		addLabel(fields, "Họ và tên:", 0, 0, gbc);
 		tfFullName = new JTextField(20);
-		panel.add(tfFullName, setPosition(gbc, 1, 0));
+		styleField(tfFullName);
+		fields.add(tfFullName, setPosition(gbc, 1, 0));
 
-		addLabel(panel, "Số điện thoại:", 2, 0, gbc);
+		addLabel(fields, "Số điện thoại:", 2, 0, gbc);
 		tfPhone = new JTextField(15);
-		panel.add(tfPhone, setPosition(gbc, 3, 0));
+		styleField(tfPhone);
+		fields.add(tfPhone, setPosition(gbc, 3, 0));
 
 		// Row 2: Email & Gender
-		addLabel(panel, "Email:", 0, 1, gbc);
+		addLabel(fields, "Email:", 0, 1, gbc);
 		tfEmail = new JTextField(20);
-		panel.add(tfEmail, setPosition(gbc, 1, 1));
+		styleField(tfEmail);
+		fields.add(tfEmail, setPosition(gbc, 1, 1));
 
-		addLabel(panel, "Giới tính:", 2, 1, gbc);
+		addLabel(fields, "Giới tính:", 2, 1, gbc);
 		cbGender = new JComboBox<>(Gender.values());
-		cbGender.setPreferredSize(new Dimension(100, 30));
-		panel.add(cbGender, setPosition(gbc, 3, 1));
+		cbGender.setPreferredSize(new Dimension(100, 32));
+		fields.add(cbGender, setPosition(gbc, 3, 1));
 
 		// Buttons
 		JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
@@ -125,8 +173,9 @@ public class CustomerPanel extends JPanel {
 		gbc.gridx = 0;
 		gbc.gridy = 2;
 		gbc.gridwidth = 4;
-		panel.add(btnPanel, gbc);
+		fields.add(btnPanel, gbc);
 
+		panel.add(fields, BorderLayout.CENTER);
 		return panel;
 	}
 
@@ -134,9 +183,14 @@ public class CustomerPanel extends JPanel {
 	 * Tạo panel bảng danh sách
 	 */
 	private JPanel createTablePanel() {
-		JPanel panel = new JPanel(new BorderLayout());
-		panel.setOpaque(false);
-		panel.setBorder(BorderFactory.createTitledBorder("Danh sách khách hàng"));
+		RoundedPanel panel = new RoundedPanel(16, BG_CARD, true);
+		panel.setLayout(new BorderLayout(12, 12));
+		panel.setBorder(new EmptyBorder(16, 16, 16, 16));
+
+		JLabel title = new JLabel("Danh sách khách hàng");
+		title.setFont(new Font("Segoe UI", Font.BOLD, 14));
+		title.setForeground(TEXT_MAIN);
+		panel.add(title, BorderLayout.NORTH);
 
 		// Tạo table model
 		String[] columnNames = { "ID", "Họ và tên", "Số điện thoại", "Email", "Giới tính" };
@@ -151,7 +205,14 @@ public class CustomerPanel extends JPanel {
 
 		table = new JTable(tableModel);
 		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		table.setRowHeight(25);
+		table.setRowHeight(32);
+		table.setFont(TABLE_FONT);
+		table.setForeground(TEXT_MAIN);
+		table.setShowVerticalLines(false);
+		table.setGridColor(BORDER);
+		table.getTableHeader().setBackground(new Color(245, 243, 255));
+		table.getTableHeader().setForeground(TEXT_MUTED);
+		table.getTableHeader().setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
 
 		// Add row selection listener
 		table.getSelectionModel().addListSelectionListener(e -> {
@@ -161,6 +222,7 @@ public class CustomerPanel extends JPanel {
 		});
 
 		JScrollPane scrollPane = new JScrollPane(table);
+		scrollPane.setBorder(BorderFactory.createLineBorder(BORDER));
 		panel.add(scrollPane, BorderLayout.CENTER);
 
 		return panel;
@@ -410,7 +472,10 @@ public class CustomerPanel extends JPanel {
 		gbc.gridy = y;
 		gbc.gridwidth = 1;
 		gbc.weightx = 0;
-		panel.add(new JLabel(text), gbc);
+		JLabel label = new JLabel(text);
+		label.setFont(LABEL_FONT);
+		label.setForeground(TEXT_MUTED);
+		panel.add(label, gbc);
 	}
 
 	private GridBagConstraints setPosition(GridBagConstraints gbc, int x, int y) {
@@ -423,9 +488,20 @@ public class CustomerPanel extends JPanel {
 
 	private JButton createButton(String label, java.awt.event.ActionListener listener) {
 		JButton btn = new JButton(label);
-		btn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+		btn.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 11)));
 		btn.setFocusPainted(false);
+		btn.setBackground(PRIMARY_SOFT);
+		btn.setForeground(PRIMARY);
+		btn.setBorder(new EmptyBorder(6, 12, 6, 12));
 		btn.addActionListener(listener);
 		return btn;
+	}
+
+	private void styleField(JTextField field) {
+		field.setBorder(BorderFactory.createLineBorder(BORDER));
+		field.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12)));
+		field.setPreferredSize(new Dimension(180, 32));
+		field.setBackground(Color.WHITE);
+		field.setForeground(TEXT_MAIN);
 	}
 }

@@ -35,10 +35,10 @@ public class Appointment {
 	private LocalDateTime appointmentTime;
 
 	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
+	@Column(nullable = false, columnDefinition = "nvarchar(50)")
 	private AppointmentStatus status = AppointmentStatus.pending;
 
-	@Column(columnDefinition = "nvarchar(max)")
+	@Column(columnDefinition = "nvarchar(500)")
 	private String note;
 
 	@CreationTimestamp

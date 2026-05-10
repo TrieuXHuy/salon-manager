@@ -20,17 +20,17 @@ public class Customer {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Integer id;
 
-	@Column(name = "full_name", nullable = false, length = 100)
+	@Column(name = "full_name", nullable = false, columnDefinition = "nvarchar(255)")
 	private String fullName;
 
 	@Column(nullable = false, length = 20, unique = true)
 	private String phone;
 
-	@Column(length = 100)
+	@Column(columnDefinition = "nvarchar(255)")
 	private String email;
 
 	@Enumerated(EnumType.STRING)
-	@Column(length = 10)
+	@Column(columnDefinition = "nvarchar(10)")
 	private Gender gender;
 
 	@CreationTimestamp

@@ -30,7 +30,7 @@ public class SmsLog {
 	@Column(nullable = false, length = 20)
 	private String phone;
 
-	@Column(nullable = false, columnDefinition = "nvarchar(max)")
+	@Column(nullable = false, columnDefinition = "nvarchar(500)")
 	private String message;
 
 	@CreationTimestamp
@@ -38,7 +38,7 @@ public class SmsLog {
 	private LocalDateTime sentAt;
 
 	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
+	@Column(nullable = false, columnDefinition = "nvarchar(50)")
 	private SmsStatus status = SmsStatus.success;
 
 	public Integer getId() {

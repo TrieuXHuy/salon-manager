@@ -1,6 +1,7 @@
 package com.salonnbooking.ui.panel;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
@@ -11,6 +12,8 @@ import java.util.List;
 import java.util.Locale;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -26,10 +29,23 @@ import javax.swing.table.DefaultTableModel;
 
 import com.salonnbooking.api.dto.ReportRequests;
 import com.salonnbooking.client.ApiClient;
+import com.salonnbooking.ui.components.RoundedPanel;
+import com.salonnbooking.ui.theme.Theme;
+import net.miginfocom.swing.MigLayout;
 
 public class ReportPanel extends JPanel {
 	private static final long serialVersionUID = 1L;
 	private static final NumberFormat CURRENCY = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
+	private static final Color BG_MAIN = new Color(248, 250, 252);
+	private static final Color BG_CARD = Color.WHITE;
+	private static final Color TEXT_MAIN = new Color(15, 23, 42);
+	private static final Color TEXT_MUTED = new Color(100, 116, 139);
+	private static final Color BORDER = new Color(226, 232, 240);
+	private static final Color PRIMARY = new Color(109, 73, 224);
+	private static final Color PRIMARY_SOFT = new Color(237, 233, 255);
+	private static final Font TITLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 24));
+	private static final Font SUBTITLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12));
+	private static final Font TABLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 13));
 
 	private final JTextField startDateField = new JTextField(LocalDate.now().minusDays(30).toString(), 10);
 	private final JTextField endDateField = new JTextField(LocalDate.now().toString(), 10);
@@ -48,13 +64,12 @@ public class ReportPanel extends JPanel {
 			"Phương thức thanh toán", "Số lượng", "Tổng tiền", "Tỷ lệ");
 
 	public ReportPanel() {
-		setLayout(new BorderLayout(16, 16));
-		setBorder(new EmptyBorder(18, 18, 18, 18));
-		setBackground(UIManager.getColor("Panel.background"));
+		setLayout(new MigLayout("insets 24, fill, wrap 1", "[grow]", "[]18[grow]18[]"));
+		setBackground(BG_MAIN);
 
-		add(createHeader(), BorderLayout.NORTH);
-		add(createContent(), BorderLayout.CENTER);
-		add(statusLabel, BorderLayout.SOUTH);
+		add(createHeader(), "growx");
+		add(createContent(), "grow");
+		add(createFooter(), "growx");
 
 		loadReports();
 	}
@@ -63,19 +78,41 @@ public class ReportPanel extends JPanel {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
 
-		JLabel title = new JLabel("Báo cáo");
-		title.setFont(new Font("Segoe UI", Font.BOLD, 24));
-		panel.add(title, BorderLayout.WEST);
+		JPanel titleBlock = new JPanel();
+		titleBlock.setOpaque(false);
+		titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
 
-		JPanel controls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-		controls.setOpaque(false);
-		controls.add(new JLabel("Từ ngày"));
+		JLabel title = new JLabel("Báo cáo");
+		title.setFont(TITLE_FONT);
+		title.setForeground(TEXT_MAIN);
+
+		JLabel subtitle = new JLabel("Tổng hợp số liệu theo khoảng thời gian");
+		subtitle.setFont(SUBTITLE_FONT);
+		subtitle.setForeground(TEXT_MUTED);
+
+		titleBlock.add(title);
+		titleBlock.add(Box.createVerticalStrut(4));
+		titleBlock.add(subtitle);
+		panel.add(titleBlock, BorderLayout.WEST);
+
+		RoundedPanel controls = new RoundedPanel(14, BG_CARD, true);
+		controls.setLayout(new FlowLayout(FlowLayout.RIGHT, 8, 6));
+		controls.setBorder(new EmptyBorder(6, 8, 6, 8));
+
+		JLabel fromLabel = new JLabel("Từ ngày");
+		fromLabel.setFont(SUBTITLE_FONT);
+		fromLabel.setForeground(TEXT_MUTED);
+		controls.add(fromLabel);
+		styleField(startDateField);
 		controls.add(startDateField);
-		controls.add(new JLabel("Đến ngày"));
+		JLabel toLabel = new JLabel("Đến ngày");
+		toLabel.setFont(SUBTITLE_FONT);
+		toLabel.setForeground(TEXT_MUTED);
+		controls.add(toLabel);
+		styleField(endDateField);
 		controls.add(endDateField);
 
-		JButton refreshButton = new JButton("Làm mới");
-		refreshButton.addActionListener(e -> loadReports());
+		JButton refreshButton = createButton("Làm mới", e -> loadReports());
 		controls.add(refreshButton);
 		panel.add(controls, BorderLayout.EAST);
 
@@ -87,17 +124,22 @@ public class ReportPanel extends JPanel {
 		content.setOpaque(false);
 		content.add(createStatsPanel(), BorderLayout.NORTH);
 
+		RoundedPanel tabsCard = new RoundedPanel(16, BG_CARD, true);
+		tabsCard.setLayout(new BorderLayout());
+		tabsCard.setBorder(new EmptyBorder(12, 12, 12, 12));
+
 		JTabbedPane tabs = new JTabbedPane();
 		tabs.addTab("Doanh thu ngày", createTable(dailyRevenueModel));
 		tabs.addTab("Doanh thu dịch vụ", createTable(serviceRevenueModel));
 		tabs.addTab("Thanh toán", createTable(paymentMethodModel));
-		content.add(tabs, BorderLayout.CENTER);
+		tabsCard.add(tabs, BorderLayout.CENTER);
+		content.add(tabsCard, BorderLayout.CENTER);
 
 		return content;
 	}
 
 	private JPanel createStatsPanel() {
-		JPanel panel = new JPanel(new GridLayout(1, 5, 10, 0));
+		JPanel panel = new JPanel(new GridLayout(1, 5, 12, 0));
 		panel.setOpaque(false);
 		panel.add(createStat("Tổng số", totalAppointmentsValue));
 		panel.add(createStat("Chờ xử lý", pendingValue));
@@ -108,15 +150,15 @@ public class ReportPanel extends JPanel {
 	}
 
 	private JPanel createStat(String label, JLabel value) {
-		JPanel panel = new JPanel(new BorderLayout(4, 4));
-		panel.setBorder(BorderFactory.createCompoundBorder(
-				BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor")),
-				new EmptyBorder(10, 12, 10, 12)));
-		panel.setBackground(UIManager.getColor("Table.background"));
+		RoundedPanel panel = new RoundedPanel(14, BG_CARD, true);
+		panel.setLayout(new BorderLayout(4, 4));
+		panel.setBorder(new EmptyBorder(10, 12, 10, 12));
 
 		JLabel labelView = new JLabel(label);
-		labelView.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-		value.setFont(new Font("Segoe UI", Font.BOLD, 20));
+		labelView.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12)));
+		labelView.setForeground(TEXT_MUTED);
+		value.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 20)));
+		value.setForeground(TEXT_MAIN);
 
 		panel.add(labelView, BorderLayout.NORTH);
 		panel.add(value, BorderLayout.CENTER);
@@ -125,9 +167,27 @@ public class ReportPanel extends JPanel {
 
 	private JScrollPane createTable(DefaultTableModel model) {
 		JTable table = new JTable(model);
-		table.setRowHeight(28);
+		table.setRowHeight(32);
+		table.setFont(TABLE_FONT);
+		table.setForeground(TEXT_MAIN);
+		table.setShowVerticalLines(false);
+		table.setGridColor(BORDER);
 		table.getTableHeader().setReorderingAllowed(false);
-		return new JScrollPane(table);
+		table.getTableHeader().setBackground(new Color(245, 243, 255));
+		table.getTableHeader().setForeground(TEXT_MUTED);
+		table.getTableHeader().setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
+		JScrollPane scrollPane = new JScrollPane(table);
+		scrollPane.setBorder(BorderFactory.createLineBorder(BORDER));
+		return scrollPane;
+	}
+
+	private JPanel createFooter() {
+		JPanel footer = new JPanel(new BorderLayout());
+		footer.setOpaque(false);
+		statusLabel.setFont(SUBTITLE_FONT);
+		statusLabel.setForeground(TEXT_MUTED);
+		footer.add(statusLabel, BorderLayout.WEST);
+		return footer;
 	}
 
 	private static DefaultTableModel readOnlyModel(String... columns) {
@@ -222,6 +282,24 @@ public class ReportPanel extends JPanel {
 
 	private String formatCurrency(BigDecimal value) {
 		return CURRENCY.format(value == null ? BigDecimal.ZERO : value);
+	}
+
+	private JButton createButton(String label, java.awt.event.ActionListener listener) {
+		JButton btn = new JButton(label);
+		btn.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 11)));
+		btn.setFocusPainted(false);
+		btn.setBackground(PRIMARY_SOFT);
+		btn.setForeground(PRIMARY);
+		btn.setBorder(new EmptyBorder(6, 12, 6, 12));
+		btn.addActionListener(listener);
+		return btn;
+	}
+
+	private void styleField(JTextField field) {
+		field.setBorder(BorderFactory.createLineBorder(BORDER));
+		field.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12)));
+		field.setBackground(Color.WHITE);
+		field.setForeground(TEXT_MAIN);
 	}
 
 	private record ReportData(

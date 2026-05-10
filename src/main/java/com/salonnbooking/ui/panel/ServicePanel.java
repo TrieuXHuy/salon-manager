@@ -1,20 +1,55 @@
 package com.salonnbooking.ui.panel;
 
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.math.BigDecimal;
 import java.util.List;
-import javax.swing.*;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
+import javax.swing.SwingWorker;
+import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 
 import com.salonnbooking.api.dto.ServiceRequests;
 import com.salonnbooking.client.ApiClient;
+import com.salonnbooking.ui.components.RoundedPanel;
+import com.salonnbooking.ui.theme.Theme;
+import net.miginfocom.swing.MigLayout;
 
 /**
  * ServicePanel - Quản lý dịch vụ salon
  */
 public class ServicePanel extends JPanel {
 	private static final long serialVersionUID = 1L;
+	private static final Color BG_MAIN = new Color(248, 250, 252);
+	private static final Color BG_CARD = Color.WHITE;
+	private static final Color TEXT_MAIN = new Color(15, 23, 42);
+	private static final Color TEXT_MUTED = new Color(100, 116, 139);
+	private static final Color BORDER = new Color(226, 232, 240);
+	private static final Color PRIMARY = new Color(109, 73, 224);
+	private static final Color PRIMARY_SOFT = new Color(237, 233, 255);
+	private static final Font TITLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 24));
+	private static final Font SUBTITLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12));
+	private static final Font LABEL_FONT = Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12));
+	private static final Font TABLE_FONT = Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 13));
 
 	private JTextField tfName;
 	private JTextField tfPrice;
@@ -27,12 +62,11 @@ public class ServicePanel extends JPanel {
 	private Integer selectedServiceId = null;
 
 	public ServicePanel() {
-		setLayout(new BorderLayout(10, 10));
-		setBorder(new EmptyBorder(15, 15, 15, 15));
-		setBackground(UIManager.getColor("Panel.background"));
+		setLayout(new MigLayout("insets 24, fill, wrap 1", "[grow]", "[]18[grow]"));
+		setBackground(BG_MAIN);
 
-		add(createHeaderPanel(), BorderLayout.NORTH);
-		add(createMainPanel(), BorderLayout.CENTER);
+		add(createHeaderPanel(), "growx");
+		add(createMainPanel(), "grow");
 
 		loadServices();
 	}
@@ -41,56 +75,81 @@ public class ServicePanel extends JPanel {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setOpaque(false);
 
+		JPanel titleBlock = new JPanel();
+		titleBlock.setOpaque(false);
+		titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
+
 		JLabel titleLabel = new JLabel("Quản lý dịch vụ");
-		titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
-		panel.add(titleLabel, BorderLayout.WEST);
+		titleLabel.setFont(TITLE_FONT);
+		titleLabel.setForeground(TEXT_MAIN);
+
+		JLabel subtitle = new JLabel("Cập nhật danh mục và giá dịch vụ");
+		subtitle.setFont(SUBTITLE_FONT);
+		subtitle.setForeground(TEXT_MUTED);
+
+		titleBlock.add(titleLabel);
+		titleBlock.add(Box.createVerticalStrut(4));
+		titleBlock.add(subtitle);
+		panel.add(titleBlock, BorderLayout.WEST);
 
 		return panel;
 	}
 
 	private JPanel createMainPanel() {
-		JPanel main = new JPanel(new BorderLayout(10, 10));
+		JPanel main = new JPanel(new MigLayout("insets 0, fill, wrap 1", "[grow]", "[]18[grow]"));
 		main.setOpaque(false);
-
-		main.add(createFormPanel(), BorderLayout.NORTH);
-		main.add(createTablePanel(), BorderLayout.CENTER);
-
+		main.add(createFormPanel(), "growx");
+		main.add(createTablePanel(), "grow");
 		return main;
 	}
 
 	private JPanel createFormPanel() {
-		JPanel panel = new JPanel();
-		panel.setLayout(new GridBagLayout());
-		panel.setOpaque(false);
-		panel.setBorder(BorderFactory.createTitledBorder("Thông tin dịch vụ"));
+		RoundedPanel panel = new RoundedPanel(16, BG_CARD, true);
+		panel.setLayout(new BorderLayout());
+		panel.setBorder(new EmptyBorder(16, 16, 16, 16));
+
+		JLabel sectionTitle = new JLabel("Thông tin dịch vụ");
+		sectionTitle.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 14)));
+		sectionTitle.setForeground(TEXT_MAIN);
+		panel.add(sectionTitle, BorderLayout.NORTH);
+
+		JPanel fields = new JPanel(new GridBagLayout());
+		fields.setOpaque(false);
 
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.insets = new Insets(5, 5, 5, 5);
 		gbc.fill = GridBagConstraints.HORIZONTAL;
 
-		addLabel(panel, "Tên dịch vụ:", 0, 0, gbc);
+		addLabel(fields, "Tên dịch vụ:", 0, 0, gbc);
 		tfName = new JTextField(20);
-		panel.add(tfName, setPosition(gbc, 1, 0));
+		styleField(tfName);
+		fields.add(tfName, setPosition(gbc, 1, 0));
 
-		addLabel(panel, "Giá (VND):", 2, 0, gbc);
+		addLabel(fields, "Giá (VND):", 2, 0, gbc);
 		tfPrice = new JTextField(15);
-		panel.add(tfPrice, setPosition(gbc, 3, 0));
+		styleField(tfPrice);
+		fields.add(tfPrice, setPosition(gbc, 3, 0));
 
-		addLabel(panel, "Thời gian (phút):", 0, 1, gbc);
+		addLabel(fields, "Thời gian (phút):", 0, 1, gbc);
 		tfDuration = new JTextField(20);
-		panel.add(tfDuration, setPosition(gbc, 1, 1));
+		styleField(tfDuration);
+		fields.add(tfDuration, setPosition(gbc, 1, 1));
 
 		cbIsActive = new JCheckBox("Kích hoạt");
 		cbIsActive.setOpaque(false);
+		cbIsActive.setFont(LABEL_FONT);
+		cbIsActive.setForeground(TEXT_MUTED);
 		gbc.gridx = 3;
 		gbc.gridy = 1;
-		panel.add(cbIsActive, gbc);
+		fields.add(cbIsActive, gbc);
 
-		addLabel(panel, "Mô tả:", 0, 2, gbc);
+		addLabel(fields, "Mô tả:", 0, 2, gbc);
 		taDescription = new JTextArea(3, 40);
 		taDescription.setLineWrap(true);
+		taDescription.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12)));
 		JScrollPane scrollPane = new JScrollPane(taDescription);
-		panel.add(scrollPane, setPosition(gbc, 1, 2));
+		scrollPane.setBorder(BorderFactory.createLineBorder(BORDER));
+		fields.add(scrollPane, setPosition(gbc, 1, 2));
 
 		JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
 		btnPanel.setOpaque(false);
@@ -103,15 +162,21 @@ public class ServicePanel extends JPanel {
 		gbc.gridx = 0;
 		gbc.gridy = 3;
 		gbc.gridwidth = 4;
-		panel.add(btnPanel, gbc);
+		fields.add(btnPanel, gbc);
 
+		panel.add(fields, BorderLayout.CENTER);
 		return panel;
 	}
 
 	private JPanel createTablePanel() {
-		JPanel panel = new JPanel(new BorderLayout());
-		panel.setOpaque(false);
-		panel.setBorder(BorderFactory.createTitledBorder("Danh sách dịch vụ"));
+		RoundedPanel panel = new RoundedPanel(16, BG_CARD, true);
+		panel.setLayout(new BorderLayout(12, 12));
+		panel.setBorder(new EmptyBorder(16, 16, 16, 16));
+
+		JLabel title = new JLabel("Danh sách dịch vụ");
+		title.setFont(new Font("Segoe UI", Font.BOLD, 14));
+		title.setForeground(TEXT_MAIN);
+		panel.add(title, BorderLayout.NORTH);
 
 		String[] columnNames = { "ID", "Tên", "Giá", "Thời gian (phút)", "Kích hoạt", "Mô tả" };
 		tableModel = new DefaultTableModel(columnNames, 0) {
@@ -125,7 +190,14 @@ public class ServicePanel extends JPanel {
 
 		table = new JTable(tableModel);
 		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		table.setRowHeight(25);
+		table.setRowHeight(32);
+		table.setFont(TABLE_FONT);
+		table.setForeground(TEXT_MAIN);
+		table.setShowVerticalLines(false);
+		table.setGridColor(BORDER);
+		table.getTableHeader().setBackground(new Color(245, 243, 255));
+		table.getTableHeader().setForeground(TEXT_MUTED);
+		table.getTableHeader().setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
 
 		table.getSelectionModel().addListSelectionListener(e -> {
 			if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1) {
@@ -134,6 +206,7 @@ public class ServicePanel extends JPanel {
 		});
 
 		JScrollPane scrollPane = new JScrollPane(table);
+		scrollPane.setBorder(BorderFactory.createLineBorder(BORDER));
 		panel.add(scrollPane, BorderLayout.CENTER);
 
 		return panel;
@@ -358,7 +431,10 @@ public class ServicePanel extends JPanel {
 		gbc.gridy = y;
 		gbc.gridwidth = 1;
 		gbc.weightx = 0;
-		panel.add(new JLabel(text), gbc);
+		JLabel label = new JLabel(text);
+		label.setFont(LABEL_FONT);
+		label.setForeground(TEXT_MUTED);
+		panel.add(label, gbc);
 	}
 
 	private GridBagConstraints setPosition(GridBagConstraints gbc, int x, int y) {
@@ -371,9 +447,20 @@ public class ServicePanel extends JPanel {
 
 	private JButton createButton(String label, java.awt.event.ActionListener listener) {
 		JButton btn = new JButton(label);
-		btn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+		btn.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 11)));
 		btn.setFocusPainted(false);
+		btn.setBackground(PRIMARY_SOFT);
+		btn.setForeground(PRIMARY);
+		btn.setBorder(new EmptyBorder(6, 12, 6, 12));
 		btn.addActionListener(listener);
 		return btn;
+	}
+
+	private void styleField(JTextField field) {
+		field.setBorder(BorderFactory.createLineBorder(BORDER));
+		field.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12)));
+		field.setPreferredSize(new Dimension(180, 32));
+		field.setBackground(Color.WHITE);
+		field.setForeground(TEXT_MAIN);
 	}
 }
