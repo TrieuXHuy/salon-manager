@@ -26,6 +26,7 @@ import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
 import com.formdev.flatlaf.FlatLightLaf;
+import com.salonnbooking.domain.UserAccount;
 import com.salonnbooking.ui.components.RoundedPanel;
 import com.salonnbooking.ui.components.SidebarButton;
 import com.salonnbooking.ui.theme.Theme;
@@ -43,6 +44,8 @@ public class MainDashboard extends JFrame {
 	private CardLayout cardLayout;
 	private JPanel contentPanel;
 	private SidebarButton[] navButtons;
+	private final UserAccount currentUser;
+	private final Runnable logoutHandler;
 
 	private static final Color BG_MAIN = new Color(248, 250, 252);
 	private static final Color BG_SIDEBAR = Color.WHITE;
@@ -59,8 +62,10 @@ public class MainDashboard extends JFrame {
 	public static final String PANEL_SERVICE = "service";
 	public static final String PANEL_REPORT = "report";
 
-	public MainDashboard() {
-		// Setup FlatLaf Theme
+	public MainDashboard(UserAccount currentUser, Runnable logoutHandler) {
+		this.currentUser = currentUser;
+		this.logoutHandler = logoutHandler;
+
 		configureLightPalette();
 
 		setTitle("Hệ thống đặt lịch salon");
@@ -173,7 +178,12 @@ public class MainDashboard extends JFrame {
 		logoutBtn.setFocusPainted(false);
 		logoutBtn.setBorder(new EmptyBorder(10, 14, 10, 14));
 		logoutBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-		logoutBtn.addActionListener(e -> System.exit(0));
+		logoutBtn.addActionListener(e -> {
+			dispose();
+			if (logoutHandler != null) {
+				SwingUtilities.invokeLater(logoutHandler);
+			}
+		});
 		return logoutBtn;
 	}
 
@@ -182,18 +192,24 @@ public class MainDashboard extends JFrame {
 		card.setLayout(new MigLayout("insets 10, fillx", "[]10[grow]", "[]"));
 		card.setBorder(BorderFactory.createLineBorder(BORDER));
 
-		CircleBadge avatar = new CircleBadge("A", new Color(148, 163, 184));
+		String fullName = currentUser != null ? currentUser.getFullName() : "Admin";
+		String roleText = currentUser != null && currentUser.getRole() != null
+				? currentUser.getRole().getLabel()
+				: "Quản trị viên";
+		String avatarText = extractInitials(fullName);
+
+		CircleBadge avatar = new CircleBadge(avatarText, new Color(148, 163, 184));
 		card.add(avatar);
 
 		JPanel info = new JPanel();
 		info.setOpaque(false);
 		info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
 
-		JLabel name = new JLabel("Admin");
+		JLabel name = new JLabel(fullName);
 		name.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
 		name.setForeground(TEXT_MAIN);
 
-		JLabel role = new JLabel("Quản trị viên");
+		JLabel role = new JLabel(roleText);
 		role.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 11)));
 		role.setForeground(TEXT_MUTED);
 
@@ -209,6 +225,19 @@ public class MainDashboard extends JFrame {
 
 		card.add(info, "growx");
 		return card;
+	}
+
+	private String extractInitials(String fullName) {
+		if (fullName == null || fullName.isBlank()) {
+			return "U";
+		}
+		String[] parts = fullName.trim().split("\\s+");
+		if (parts.length == 1) {
+			return parts[0].substring(0, 1).toUpperCase();
+		}
+		String first = parts[0].substring(0, 1);
+		String last = parts[parts.length - 1].substring(0, 1);
+		return (first + last).toUpperCase();
 	}
 
 	/**
@@ -281,7 +310,7 @@ public class MainDashboard extends JFrame {
 		FlatLightLaf.setup();
 		configureLightPalette();
 		SwingUtilities.invokeLater(() -> {
-			MainDashboard frame = new MainDashboard();
+			MainDashboard frame = new MainDashboard(null, null);
 			frame.setVisible(true);
 		});
 	}

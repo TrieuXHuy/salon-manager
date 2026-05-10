@@ -1,14 +1,22 @@
 package com.salonnbooking;
 
-import javax.swing.*;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.WebApplicationType;
+import org.springframework.context.ConfigurableApplicationContext;
+
+import com.formdev.flatlaf.FlatLightLaf;
+import com.salonnbooking.domain.UserAccount;
 import com.salonnbooking.ui.MainDashboard;
+import com.salonnbooking.ui.auth.LoginFrame;
 import com.salonnbooking.ui.panel.AppointmentPanel;
 import com.salonnbooking.ui.panel.CustomerPanel;
 import com.salonnbooking.ui.panel.DashboardPanel;
 import com.salonnbooking.ui.panel.ReportPanel;
 import com.salonnbooking.ui.panel.ServicePanel;
-import com.formdev.flatlaf.FlatLightLaf;
 
 /**
  * SwingClient - Entry point của ứng dụng Java Swing
@@ -21,40 +29,37 @@ import com.formdev.flatlaf.FlatLightLaf;
  * - ServicePanel: Quản lý dịch vụ
  */
 public class SwingClient {
+	private static final int DEFAULT_BACKEND_PORT = 8080;
+
+	private static ConfigurableApplicationContext applicationContext;
 
 	public static void main(String[] args) {
-		// Cấu hình UTF-8 encoding cho JVM
 		System.setProperty("file.encoding", "UTF-8");
 		System.setProperty("sun.jnu.encoding", "UTF-8");
-		
-		// Setup FlatLaf theme trước khi tạo UI
+
+		try {
+			SpringApplicationBuilder builder = new SpringApplicationBuilder(SalonnBookingApplication.class)
+					.headless(false);
+
+			if (isBackendReachable()) {
+				builder.web(WebApplicationType.NONE);
+			}
+
+			applicationContext = builder.run(args);
+		} catch (Exception e) {
+			e.printStackTrace();
+			JOptionPane.showMessageDialog(null,
+					"Không khởi động được backend: " + e.getMessage(),
+					"Lỗi khởi động", JOptionPane.ERROR_MESSAGE);
+			System.exit(1);
+		}
+
 		FlatLightLaf.setup();
 		configureLightPalette();
 
-		// Chạy UI trên Event Dispatch Thread
 		SwingUtilities.invokeLater(() -> {
 			try {
-				// Tạo main dashboard
-				MainDashboard dashboard = new MainDashboard();
-
-				// Tạo các panel
-				DashboardPanel dashboardPanel = new DashboardPanel();
-				CustomerPanel customerPanel = new CustomerPanel();
-				AppointmentPanel appointmentPanel = new AppointmentPanel();
-				ServicePanel servicePanel = new ServicePanel();
-				ReportPanel reportPanel = new ReportPanel();
-
-				// Thêm các panel vào dashboard
-				dashboard.addPanel(MainDashboard.PANEL_DASHBOARD, dashboardPanel);
-				dashboard.addPanel(MainDashboard.PANEL_CUSTOMER, customerPanel);
-				dashboard.addPanel(MainDashboard.PANEL_APPOINTMENT, appointmentPanel);
-				dashboard.addPanel(MainDashboard.PANEL_SERVICE, servicePanel);
-				dashboard.addPanel(MainDashboard.PANEL_REPORT, reportPanel);
-
-				// Hiển thị dashboard
-				dashboard.setVisible(true);
-				dashboard.showPanel(MainDashboard.PANEL_DASHBOARD);
-
+				showLoginWindow();
 			} catch (Exception e) {
 				e.printStackTrace();
 				JOptionPane.showMessageDialog(null,
@@ -63,6 +68,30 @@ public class SwingClient {
 				System.exit(1);
 			}
 		});
+	}
+
+	public static void showDashboard(UserAccount userAccount) {
+		MainDashboard dashboard = new MainDashboard(userAccount, SwingClient::showLoginWindow);
+
+		DashboardPanel dashboardPanel = new DashboardPanel();
+		CustomerPanel customerPanel = new CustomerPanel();
+		AppointmentPanel appointmentPanel = new AppointmentPanel();
+		ServicePanel servicePanel = new ServicePanel();
+		ReportPanel reportPanel = new ReportPanel();
+
+		dashboard.addPanel(MainDashboard.PANEL_DASHBOARD, dashboardPanel);
+		dashboard.addPanel(MainDashboard.PANEL_CUSTOMER, customerPanel);
+		dashboard.addPanel(MainDashboard.PANEL_APPOINTMENT, appointmentPanel);
+		dashboard.addPanel(MainDashboard.PANEL_SERVICE, servicePanel);
+		dashboard.addPanel(MainDashboard.PANEL_REPORT, reportPanel);
+
+		dashboard.setVisible(true);
+		dashboard.showPanel(MainDashboard.PANEL_DASHBOARD);
+	}
+
+	private static void showLoginWindow() {
+		LoginFrame loginFrame = new LoginFrame(applicationContext);
+		loginFrame.setVisible(true);
 	}
 
 	private static void configureLightPalette() {
@@ -76,5 +105,14 @@ public class SwingClient {
 		UIManager.put("Component.borderColor", new java.awt.Color(203, 213, 225));
 		UIManager.put("Button.arc", 8);
 		UIManager.put("Component.arc", 8);
+	}
+
+	private static boolean isBackendReachable() {
+		try (java.net.Socket socket = new java.net.Socket()) {
+			socket.connect(new java.net.InetSocketAddress("127.0.0.1", DEFAULT_BACKEND_PORT), 1000);
+			return true;
+		} catch (java.io.IOException ex) {
+			return false;
+		}
 	}
 }
