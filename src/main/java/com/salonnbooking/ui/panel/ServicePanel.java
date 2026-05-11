@@ -2,6 +2,8 @@ package com.salonnbooking.ui.panel;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -26,7 +28,9 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 
 import com.salonnbooking.api.dto.ServiceRequests;
 import com.salonnbooking.client.ApiClient;
@@ -190,14 +194,62 @@ public class ServicePanel extends JPanel {
 
 		table = new JTable(tableModel);
 		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		table.setRowHeight(32);
+		table.setRowHeight(40);
 		table.setFont(TABLE_FONT);
 		table.setForeground(TEXT_MAIN);
 		table.setShowVerticalLines(false);
+		table.setShowHorizontalLines(true);
 		table.setGridColor(BORDER);
-		table.getTableHeader().setBackground(new Color(245, 243, 255));
-		table.getTableHeader().setForeground(TEXT_MUTED);
-		table.getTableHeader().setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
+		table.setIntercellSpacing(new Dimension(0, 0));
+		table.setFillsViewportHeight(true);
+		table.setBackground(Color.WHITE);
+		table.setSelectionBackground(new Color(241, 245, 249));
+		table.setSelectionForeground(TEXT_MAIN);
+
+		// Custom Header Customization
+		JTableHeader header = table.getTableHeader();
+		header.setBackground(new Color(248, 250, 252));
+		header.setForeground(TEXT_MUTED);
+		header.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
+		header.setPreferredSize(new Dimension(100, 40));
+		header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER));
+		((DefaultTableCellRenderer) header.getDefaultRenderer()).setHorizontalAlignment(JLabel.LEFT);
+
+		// Custom Header Renderer for padding
+		DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+			@Override
+			public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+				super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+				setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+				setBackground(new Color(248, 250, 252));
+				setForeground(TEXT_MUTED);
+				setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
+				return this;
+			}
+		};
+		for (int i = 0; i < table.getColumnModel().getColumnCount(); i++) {
+			table.getColumnModel().getColumn(i).setHeaderRenderer(headerRenderer);
+		}
+
+		// Custom Cell Renderer for Row Styling & Padding
+		DefaultTableCellRenderer cellRenderer = new DefaultTableCellRenderer() {
+			@Override
+			public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+				super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+				setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+				if (!isSelected) {
+					setBackground(row % 2 == 0 ? Color.WHITE : new Color(250, 250, 252));
+				}
+				return this;
+			}
+		};
+		for (int i = 0; i < table.getColumnModel().getColumnCount(); i++) {
+			table.getColumnModel().getColumn(i).setCellRenderer(cellRenderer);
+		}
+
+		// Fix column width
+		table.getColumnModel().getColumn(0).setPreferredWidth(50);
+		table.getColumnModel().getColumn(0).setMaxWidth(80);
 
 		table.getSelectionModel().addListSelectionListener(e -> {
 			if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1) {
@@ -207,6 +259,7 @@ public class ServicePanel extends JPanel {
 
 		JScrollPane scrollPane = new JScrollPane(table);
 		scrollPane.setBorder(BorderFactory.createLineBorder(BORDER));
+		scrollPane.getViewport().setBackground(Color.WHITE);
 		panel.add(scrollPane, BorderLayout.CENTER);
 
 		return panel;
@@ -447,19 +500,24 @@ public class ServicePanel extends JPanel {
 
 	private JButton createButton(String label, java.awt.event.ActionListener listener) {
 		JButton btn = new JButton(label);
-		btn.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 11)));
+		btn.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
 		btn.setFocusPainted(false);
 		btn.setBackground(PRIMARY_SOFT);
 		btn.setForeground(PRIMARY);
-		btn.setBorder(new EmptyBorder(6, 12, 6, 12));
+		btn.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createLineBorder(PRIMARY_SOFT),
+				new EmptyBorder(8, 16, 8, 16)));
+		btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
 		btn.addActionListener(listener);
 		return btn;
 	}
 
 	private void styleField(JTextField field) {
-		field.setBorder(BorderFactory.createLineBorder(BORDER));
-		field.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12)));
-		field.setPreferredSize(new Dimension(180, 32));
+		field.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createLineBorder(BORDER),
+				BorderFactory.createEmptyBorder(0, 10, 0, 10)));
+		field.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 13)));
+		field.setPreferredSize(new Dimension(180, 36));
 		field.setBackground(Color.WHITE);
 		field.setForeground(TEXT_MAIN);
 	}
