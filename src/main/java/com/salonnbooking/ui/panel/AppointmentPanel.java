@@ -10,30 +10,35 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.Locale;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
 import javax.swing.JTable;
+import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.RowFilter;
+import javax.swing.SpinnerDateModel;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
@@ -82,7 +87,13 @@ public class AppointmentPanel extends JPanel {
 	private JButton btnRefresh;
 	private JTable table;
 	private DefaultTableModel tableModel;
+	private TableRowSorter<DefaultTableModel> tableSorter;
+	private JTextField txtCustomerSearch;
+	private JComboBox<String> cbServiceSearch;
+	private JSpinner spDateTimeSearch;
+	private JComboBox<String> cbStatusSearch;
 	private JLabel lblStatus;
+	private boolean dateTimeFilterActive = false;
 
 	// Data
 	private Integer selectedAppointmentId = null;
@@ -179,7 +190,7 @@ public class AppointmentPanel extends JPanel {
 		JLabel title = new JLabel("Danh sách lịch hẹn");
 		title.setFont(new Font("Segoe UI", Font.BOLD, 14));
 		title.setForeground(TEXT_MAIN);
-		panel.add(title, BorderLayout.NORTH);
+		panel.add(createTableHeaderPanel(title), BorderLayout.NORTH);
 
 		String[] columnNames = { "ID", "Khách hàng", "Dịch vụ", "Ngày giờ", "Trạng thái", "Ghi chú" };
 		tableModel = new DefaultTableModel(columnNames, 0) {
@@ -251,6 +262,12 @@ public class AppointmentPanel extends JPanel {
 		TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(tableModel);
 		sorter.setComparator(3, Comparator.comparing(value -> LocalDateTime.parse(value.toString(), DATE_FORMATTER)));
 		table.setRowSorter(sorter);
+		table.getTableHeader().setBackground(new Color(245, 243, 255));
+		table.getTableHeader().setForeground(TEXT_MUTED);
+		table.getTableHeader().setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
+		tableSorter = new TableRowSorter<>(tableModel);
+		tableSorter.setComparator(3, Comparator.comparing(value -> LocalDateTime.parse(value.toString(), DATE_FORMATTER)));
+		table.setRowSorter(tableSorter);
 
 		// Row selection listener
 		table.getSelectionModel().addListSelectionListener(e -> {
@@ -276,6 +293,121 @@ public class AppointmentPanel extends JPanel {
 		return panel;
 	}
 
+	private JPanel createTableHeaderPanel(JLabel title) {
+		JPanel header = new JPanel(new BorderLayout(0, 10));
+		header.setOpaque(false);
+		header.add(title, BorderLayout.NORTH);
+
+		JPanel filters = new JPanel(new MigLayout("insets 0, fillx, wrap 2", "[grow][grow]", "[][]"));
+		filters.setOpaque(false);
+
+		txtCustomerSearch = createSearchField("T\u00ecm kh\u00e1ch h\u00e0ng");
+		cbServiceSearch = new JComboBox<>();
+		cbServiceSearch.setFont(TABLE_FONT);
+		cbServiceSearch.addItem("T\u1ea5t c\u1ea3 d\u1ecbch v\u1ee5");
+		cbServiceSearch.addActionListener(e -> applyAppointmentFilters());
+		cbStatusSearch = new JComboBox<>(new String[] {
+				"T\u1ea5t c\u1ea3 tr\u1ea1ng th\u00e1i",
+				"pending",
+				"confirmed",
+				"completed",
+				"cancelled"
+		});
+		cbStatusSearch.setFont(TABLE_FONT);
+		cbStatusSearch.addActionListener(e -> applyAppointmentFilters());
+
+		filters.add(createFilterGroup("Kh\u00e1ch h\u00e0ng", txtCustomerSearch), "growx");
+		filters.add(createFilterGroup("D\u1ecbch v\u1ee5", cbServiceSearch), "growx");
+		filters.add(createFilterGroup("Ng\u00e0y gi\u1edd", createDateTimeFilter()), "growx");
+		filters.add(createFilterGroup("Tr\u1ea1ng th\u00e1i", cbStatusSearch), "growx");
+		header.add(filters, BorderLayout.CENTER);
+
+		return header;
+	}
+
+	private JPanel createDateTimeFilter() {
+		JPanel panel = new JPanel(new BorderLayout(6, 0));
+		panel.setOpaque(false);
+
+		spDateTimeSearch = new JSpinner(new SpinnerDateModel(new Date(), null, null, Calendar.MINUTE));
+		spDateTimeSearch.setEditor(new JSpinner.DateEditor(spDateTimeSearch, "dd/MM/yyyy HH:mm"));
+		spDateTimeSearch.setFont(TABLE_FONT);
+		spDateTimeSearch.setToolTipText("Ch\u1ecdn ng\u00e0y gi\u1edd \u0111\u1ec3 l\u1ecdc l\u1ecbch h\u1eb9n");
+		spDateTimeSearch.addChangeListener(e -> {
+			if (dateTimeFilterActive) {
+				applyAppointmentFilters();
+			}
+		});
+		panel.add(spDateTimeSearch, BorderLayout.CENTER);
+
+		JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+		buttons.setOpaque(false);
+		JButton btnApply = createSmallFilterButton("L\u1ecdc");
+		btnApply.addActionListener(e -> {
+			dateTimeFilterActive = true;
+			applyAppointmentFilters();
+		});
+		JButton btnClear = createSmallFilterButton("X\u00f3a");
+		btnClear.addActionListener(e -> {
+			dateTimeFilterActive = false;
+			applyAppointmentFilters();
+		});
+		buttons.add(btnApply);
+		buttons.add(btnClear);
+		panel.add(buttons, BorderLayout.EAST);
+
+		return panel;
+	}
+
+	private JButton createSmallFilterButton(String label) {
+		JButton button = new JButton(label);
+		button.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 11)));
+		button.setFocusPainted(false);
+		button.setBackground(PRIMARY_SOFT);
+		button.setForeground(PRIMARY);
+		button.setBorder(new EmptyBorder(5, 10, 5, 10));
+		return button;
+	}
+
+	private JPanel createFilterGroup(String label, java.awt.Component input) {
+		JPanel group = new JPanel(new BorderLayout(0, 4));
+		group.setOpaque(false);
+
+		JLabel lbl = new JLabel(label);
+		lbl.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 11)));
+		lbl.setForeground(TEXT_MUTED);
+
+		group.add(lbl, BorderLayout.NORTH);
+		group.add(input, BorderLayout.CENTER);
+		return group;
+	}
+
+	private JTextField createSearchField(String placeholder) {
+		JTextField field = new JTextField();
+		field.setToolTipText(placeholder);
+		field.setFont(TABLE_FONT);
+		field.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createLineBorder(BORDER),
+				new EmptyBorder(6, 8, 6, 8)));
+		field.getDocument().addDocumentListener(new DocumentListener() {
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				applyAppointmentFilters();
+			}
+
+			@Override
+			public void removeUpdate(DocumentEvent e) {
+				applyAppointmentFilters();
+			}
+
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				applyAppointmentFilters();
+			}
+		});
+		return field;
+	}
+
 	// ========== DATA LOADING METHODS ==========
 
 	/**
@@ -297,6 +429,7 @@ public class AppointmentPanel extends JPanel {
 			protected void done() {
 				try {
 					get();
+					populateServiceFilter();
 					loadAppointments();
 				} catch (Exception e) {
 					handleException("Lỗi tải dữ liệu ban đầu", e);
@@ -373,6 +506,107 @@ public class AppointmentPanel extends JPanel {
 		btnEdit.setEnabled(false);
 		btnDelete.setEnabled(false);
 		btnPay.setEnabled(false);
+		applyAppointmentFilters();
+	}
+
+	private void applyAppointmentFilters() {
+		if (tableSorter == null) {
+			return;
+		}
+
+		String customer = normalizeFilterText(txtCustomerSearch);
+		String service = selectedComboFilter(cbServiceSearch, 0);
+		LocalDateTime dateTime = dateTimeFilterActive ? getSelectedSearchDateTime() : null;
+		String status = cbStatusSearch != null && cbStatusSearch.getSelectedIndex() > 0
+				? cbStatusSearch.getSelectedItem().toString().toLowerCase(Locale.ROOT)
+				: "";
+
+		tableSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
+			@Override
+			public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
+				return contains(entry, 1, customer)
+						&& equalsText(entry, 2, service)
+						&& equalsDateTime(entry, 3, dateTime)
+						&& contains(entry, 4, status);
+			}
+		});
+
+		selectedAppointmentId = null;
+		table.clearSelection();
+		btnEdit.setEnabled(false);
+		btnDelete.setEnabled(false);
+		btnPay.setEnabled(false);
+
+		if (appointments != null && lblStatus != null) {
+			int visibleCount = tableSorter.getViewRowCount();
+			setStatus("S\u1eb5n s\u00e0ng - " + visibleCount + "/" + appointments.size() + " l\u1ecbch h\u1eb9n");
+		}
+	}
+
+	private String normalizeFilterText(JTextField field) {
+		if (field == null || field.getText() == null) {
+			return "";
+		}
+		return field.getText().trim().toLowerCase(Locale.ROOT);
+	}
+
+	private String selectedComboFilter(JComboBox<String> comboBox, int allIndex) {
+		if (comboBox == null || comboBox.getSelectedIndex() == allIndex || comboBox.getSelectedItem() == null) {
+			return "";
+		}
+		return comboBox.getSelectedItem().toString().trim().toLowerCase(Locale.ROOT);
+	}
+
+	private boolean contains(RowFilter.Entry<? extends DefaultTableModel, ? extends Integer> entry,
+			int column, String keyword) {
+		if (keyword.isEmpty()) {
+			return true;
+		}
+		Object value = entry.getValue(column);
+		return value != null && value.toString().toLowerCase(Locale.ROOT).contains(keyword);
+	}
+
+	private boolean equalsText(RowFilter.Entry<? extends DefaultTableModel, ? extends Integer> entry,
+			int column, String keyword) {
+		if (keyword.isEmpty()) {
+			return true;
+		}
+		Object value = entry.getValue(column);
+		return value != null && value.toString().trim().toLowerCase(Locale.ROOT).equals(keyword);
+	}
+
+	private boolean equalsDateTime(RowFilter.Entry<? extends DefaultTableModel, ? extends Integer> entry,
+			int column, LocalDateTime dateTime) {
+		if (dateTime == null) {
+			return true;
+		}
+		Object value = entry.getValue(column);
+		if (value == null) {
+			return false;
+		}
+		return LocalDateTime.parse(value.toString(), DATE_FORMATTER).equals(dateTime);
+	}
+
+	private LocalDateTime getSelectedSearchDateTime() {
+		Date selectedDate = (Date) spDateTimeSearch.getValue();
+		return LocalDateTime.ofInstant(selectedDate.toInstant(), ZoneId.systemDefault())
+				.withSecond(0)
+				.withNano(0);
+	}
+
+	private void populateServiceFilter() {
+		if (cbServiceSearch == null) {
+			return;
+		}
+		cbServiceSearch.removeAllItems();
+		cbServiceSearch.addItem("T\u1ea5t c\u1ea3 d\u1ecbch v\u1ee5");
+		if (services != null) {
+			services.stream()
+					.map(ServiceRequests.Response::name)
+					.sorted(String.CASE_INSENSITIVE_ORDER)
+					.forEach(cbServiceSearch::addItem);
+		}
+		cbServiceSearch.setSelectedIndex(0);
 	}
 
 	private List<AppointmentRequests.Response> sortByAppointmentTime(List<AppointmentRequests.Response> source) {
