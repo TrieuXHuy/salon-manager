@@ -239,23 +239,43 @@ public class DashboardPanel extends JPanel {
 
 		todayTable = new JTable(todayTableModel);
 		JTable table = todayTable;
-		table.setRowHeight(36);
+		table.setRowHeight(40);
 		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		table.setFont(TABLE_FONT);
 		table.setForeground(TEXT_MAIN);
 		table.setGridColor(BORDER);
-		table.setShowHorizontalLines(false);
+		table.setShowHorizontalLines(true);
 		table.setShowVerticalLines(false);
+		table.setIntercellSpacing(new Dimension(0, 0));
 		table.setFillsViewportHeight(true);
-		table.setSelectionBackground(new Color(224, 231, 255));
+		table.setBackground(Color.WHITE);
+		table.setSelectionBackground(new Color(241, 245, 249));
 		table.setSelectionForeground(TEXT_MAIN);
 
 		JTableHeader tableHeader = table.getTableHeader();
 		tableHeader.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
-		tableHeader.setBackground(new Color(245, 243, 255));
+		tableHeader.setBackground(new Color(248, 250, 252));
 		tableHeader.setForeground(TEXT_MUTED);
 		tableHeader.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER));
+		tableHeader.setPreferredSize(new Dimension(100, 40));
 		tableHeader.setReorderingAllowed(false);
+		((DefaultTableCellRenderer) tableHeader.getDefaultRenderer()).setHorizontalAlignment(JLabel.LEFT);
+
+		// Custom Header Renderer for padding
+		DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+			@Override
+			public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+				super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+				setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+				setBackground(new Color(248, 250, 252));
+				setForeground(TEXT_MUTED);
+				setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
+				return this;
+			}
+		};
+		for (int i = 0; i < table.getColumnModel().getColumnCount(); i++) {
+			table.getColumnModel().getColumn(i).setHeaderRenderer(headerRenderer);
+		}
 
 		DefaultTableCellRenderer baseRenderer = createBaseRenderer();
 		table.setDefaultRenderer(Object.class, baseRenderer);
@@ -581,9 +601,13 @@ public class DashboardPanel extends JPanel {
 				JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row,
 						column);
 				label.setFont(TABLE_FONT);
-				label.setBorder(new EmptyBorder(6, 10, 6, 10));
+				label.setBorder(new EmptyBorder(0, 16, 0, 16));
 				label.setForeground(TEXT_MAIN);
-				label.setBackground(isSelected ? table.getSelectionBackground() : BG_CARD);
+				if (!isSelected) {
+					label.setBackground(row % 2 == 0 ? Color.WHITE : new Color(250, 250, 252));
+				} else {
+					label.setBackground(table.getSelectionBackground());
+				}
 				return label;
 			}
 		};
