@@ -140,6 +140,7 @@ public class AppointmentDialog extends JDialog {
 		panel.add(new JLabel("Trạng thái:"), gbc);
 
 		cbStatus = new JComboBox<>(AppointmentStatus.values());
+		cbStatus.setRenderer(new StatusComboBoxRenderer());
 		gbc.gridx = 1;
 		gbc.weightx = 1;
 		panel.add(cbStatus, gbc);
@@ -394,6 +395,32 @@ public class AppointmentDialog extends JDialog {
 			if (value != null) {
 				setText(value.toString());
 			}
+
+			if (isSelected) {
+				setBackground(list.getSelectionBackground());
+				setForeground(list.getSelectionForeground());
+			} else {
+				setBackground(list.getBackground());
+				setForeground(list.getForeground());
+			}
+
+			return this;
+		}
+	}
+
+	private static class StatusComboBoxRenderer extends JLabel implements javax.swing.ListCellRenderer<AppointmentStatus> {
+		private static final long serialVersionUID = 1L;
+
+		public StatusComboBoxRenderer() {
+			setOpaque(true);
+			setHorizontalAlignment(LEFT);
+			setVerticalAlignment(CENTER);
+		}
+
+		@Override
+		public Component getListCellRendererComponent(JList<? extends AppointmentStatus> list, AppointmentStatus value,
+				int index, boolean isSelected, boolean cellHasFocus) {
+			setText(value != null ? value.getDisplayName() : "");
 
 			if (isSelected) {
 				setBackground(list.getSelectionBackground());

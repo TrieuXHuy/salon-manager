@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.salonnbooking.api.dto.PaymentRequests;
 import com.salonnbooking.domain.Appointment;
+import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.Payment;
 import com.salonnbooking.domain.PaymentStatus;
 import com.salonnbooking.exception.ResourceNotFoundException;
@@ -46,6 +47,7 @@ public class PaymentService {
 		payment.setPaymentMethod(req.paymentMethod());
 		payment.setPaymentStatus(req.paymentStatus() != null ? req.paymentStatus() : PaymentStatus.unpaid);
 		payment.setPaidAt(req.paidAt());
+		updateAppointmentStatusWhenPaid(appointment, payment.getPaymentStatus());
 		return paymentRepository.save(payment);
 	}
 
@@ -59,6 +61,7 @@ public class PaymentService {
 		payment.setPaymentMethod(req.paymentMethod());
 		payment.setPaymentStatus(req.paymentStatus());
 		payment.setPaidAt(req.paidAt());
+		updateAppointmentStatusWhenPaid(appointment, payment.getPaymentStatus());
 		return paymentRepository.save(payment);
 	}
 
@@ -73,6 +76,14 @@ public class PaymentService {
 		Payment payment = findById(id);
 		payment.setPaymentStatus(PaymentStatus.paid);
 		payment.setPaidAt(LocalDateTime.now());
+		updateAppointmentStatusWhenPaid(payment.getAppointment(), payment.getPaymentStatus());
 		return paymentRepository.save(payment);
+	}
+
+	private void updateAppointmentStatusWhenPaid(Appointment appointment, PaymentStatus paymentStatus) {
+		if (paymentStatus == PaymentStatus.paid) {
+			appointment.setStatus(AppointmentStatus.paid);
+			appointmentRepository.save(appointment);
+		}
 	}
 }

@@ -8,9 +8,14 @@ import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.Window;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -23,6 +28,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -49,6 +55,7 @@ import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.api.dto.PaymentRequests;
 import com.salonnbooking.api.dto.ServiceRequests;
 import com.salonnbooking.client.ApiClient;
+import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.PaymentMethod;
 import com.salonnbooking.domain.PaymentStatus;
 import com.salonnbooking.ui.dialog.AppointmentDialog;
@@ -90,8 +97,9 @@ public class AppointmentPanel extends JPanel {
 	private TableRowSorter<DefaultTableModel> tableSorter;
 	private JTextField txtCustomerSearch;
 	private JComboBox<String> cbServiceSearch;
-	private JSpinner spDateTimeSearch;
-	private JComboBox<String> cbStatusSearch;
+	private JSpinner spStartDateSearch;
+	private JSpinner spEndDateSearch;
+	private JComboBox<StatusFilterItem> cbStatusSearch;
 	private JLabel lblStatus;
 	private boolean dateTimeFilterActive = false;
 
@@ -306,42 +314,35 @@ public class AppointmentPanel extends JPanel {
 		cbServiceSearch.setFont(TABLE_FONT);
 		cbServiceSearch.addItem("T\u1ea5t c\u1ea3 d\u1ecbch v\u1ee5");
 		cbServiceSearch.addActionListener(e -> applyAppointmentFilters());
-		cbStatusSearch = new JComboBox<>(new String[] {
-				"T\u1ea5t c\u1ea3 tr\u1ea1ng th\u00e1i",
-				"pending",
-				"confirmed",
-				"completed",
-				"cancelled"
-		});
+		cbStatusSearch = new JComboBox<>();
+		cbStatusSearch.addItem(new StatusFilterItem(null, "T\u1ea5t c\u1ea3 tr\u1ea1ng th\u00e1i"));
+		for (AppointmentStatus status : AppointmentStatus.values()) {
+			cbStatusSearch.addItem(new StatusFilterItem(status, status.getDisplayName()));
+		}
 		cbStatusSearch.setFont(TABLE_FONT);
 		cbStatusSearch.addActionListener(e -> applyAppointmentFilters());
 
 		filters.add(createFilterGroup("Kh\u00e1ch h\u00e0ng", txtCustomerSearch), "growx");
 		filters.add(createFilterGroup("D\u1ecbch v\u1ee5", cbServiceSearch), "growx");
-		filters.add(createFilterGroup("Ng\u00e0y gi\u1edd", createDateTimeFilter()), "growx");
+		filters.add(createFilterGroup("Ng\u00e0y", createDateFilter()), "growx");
 		filters.add(createFilterGroup("Tr\u1ea1ng th\u00e1i", cbStatusSearch), "growx");
 		header.add(filters, BorderLayout.CENTER);
 
 		return header;
 	}
 
-	private JPanel createDateTimeFilter() {
-		JPanel panel = new JPanel(new BorderLayout(6, 0));
+	private JPanel createDateFilter() {
+		JPanel panel = new JPanel(new MigLayout("insets 0, fillx", "[30!][grow][34!][30!][grow][34!][pref][pref]", "[]"));
 		panel.setOpaque(false);
 
-		spDateTimeSearch = new JSpinner(new SpinnerDateModel(new Date(), null, null, Calendar.MINUTE));
-		spDateTimeSearch.setEditor(new JSpinner.DateEditor(spDateTimeSearch, "dd/MM/yyyy HH:mm"));
-		spDateTimeSearch.setFont(TABLE_FONT);
-		spDateTimeSearch.setToolTipText("Ch\u1ecdn ng\u00e0y gi\u1edd \u0111\u1ec3 l\u1ecdc l\u1ecbch h\u1eb9n");
-		spDateTimeSearch.addChangeListener(e -> {
-			if (dateTimeFilterActive) {
-				applyAppointmentFilters();
-			}
-		});
-		panel.add(spDateTimeSearch, BorderLayout.CENTER);
+		spStartDateSearch = createDateSpinner(LocalDate.now());
+		spEndDateSearch = createDateSpinner(LocalDate.now());
 
-		JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-		buttons.setOpaque(false);
+		JButton btnPickStart = createSmallFilterButton("...");
+		btnPickStart.addActionListener(e -> showCalendarPicker(spStartDateSearch));
+		JButton btnPickEnd = createSmallFilterButton("...");
+		btnPickEnd.addActionListener(e -> showCalendarPicker(spEndDateSearch));
+
 		JButton btnApply = createSmallFilterButton("L\u1ecdc");
 		btnApply.addActionListener(e -> {
 			dateTimeFilterActive = true;
@@ -352,11 +353,134 @@ public class AppointmentPanel extends JPanel {
 			dateTimeFilterActive = false;
 			applyAppointmentFilters();
 		});
-		buttons.add(btnApply);
-		buttons.add(btnClear);
-		panel.add(buttons, BorderLayout.EAST);
+
+		panel.add(new JLabel("T\u1eeb"));
+		panel.add(spStartDateSearch, "growx");
+		panel.add(btnPickStart, "growx");
+		panel.add(new JLabel("\u0110\u1ebfn"));
+		panel.add(spEndDateSearch, "growx");
+		panel.add(btnPickEnd, "growx");
+		panel.add(btnApply);
+		panel.add(btnClear);
 
 		return panel;
+	}
+
+	private JSpinner createDateSpinner(LocalDate date) {
+		JSpinner spinner = new JSpinner(new SpinnerDateModel(
+				Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant()),
+				null,
+				null,
+				Calendar.DAY_OF_MONTH));
+		spinner.setEditor(new JSpinner.DateEditor(spinner, "dd/MM/yyyy"));
+		spinner.setFont(TABLE_FONT);
+		spinner.setToolTipText("Ch\u1ecdn ng\u00e0y \u0111\u1ec3 l\u1ecdc l\u1ecbch h\u1eb9n");
+		spinner.addChangeListener(e -> {
+			if (dateTimeFilterActive) {
+				applyAppointmentFilters();
+			}
+		});
+		return spinner;
+	}
+
+	private void showCalendarPicker(JSpinner targetSpinner) {
+		Window owner = SwingUtilities.getWindowAncestor(this);
+		JDialog dialog = new JDialog(owner, "Ch\u1ecdn ng\u00e0y", java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+		dialog.setLayout(new BorderLayout(8, 8));
+		dialog.setSize(360, 300);
+		dialog.setLocationRelativeTo(this);
+
+		YearMonth[] currentMonth = { YearMonth.from(getSelectedSearchDate(targetSpinner)) };
+		JLabel monthLabel = new JLabel("", JLabel.CENTER);
+		monthLabel.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 13)));
+
+		DefaultTableModel calendarModel = new DefaultTableModel(
+				new String[] { "T2", "T3", "T4", "T5", "T6", "T7", "CN" }, 0) {
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			public boolean isCellEditable(int row, int column) {
+				return false;
+			}
+		};
+		JTable calendarTable = new JTable(calendarModel);
+		calendarTable.setRowHeight(30);
+		calendarTable.setCellSelectionEnabled(true);
+		calendarTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		calendarTable.getTableHeader().setReorderingAllowed(false);
+
+		Runnable refreshCalendar = () -> {
+			monthLabel.setText("Th\u00e1ng " + currentMonth[0].getMonthValue() + "/" + currentMonth[0].getYear());
+			fillCalendarModel(calendarModel, currentMonth[0]);
+		};
+
+		calendarTable.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent event) {
+				int row = calendarTable.rowAtPoint(event.getPoint());
+				int column = calendarTable.columnAtPoint(event.getPoint());
+				if (row < 0 || column < 0) {
+					return;
+				}
+				Object value = calendarModel.getValueAt(row, column);
+				if (value == null || value.toString().isBlank()) {
+					return;
+				}
+				LocalDate selectedDate = currentMonth[0].atDay(Integer.parseInt(value.toString()));
+				setSpinnerDate(targetSpinner, selectedDate);
+				dialog.dispose();
+				if (dateTimeFilterActive) {
+					applyAppointmentFilters();
+				}
+			}
+		});
+
+		JButton previousButton = createSmallFilterButton("<");
+		previousButton.addActionListener(e -> {
+			currentMonth[0] = currentMonth[0].minusMonths(1);
+			refreshCalendar.run();
+		});
+		JButton nextButton = createSmallFilterButton(">");
+		nextButton.addActionListener(e -> {
+			currentMonth[0] = currentMonth[0].plusMonths(1);
+			refreshCalendar.run();
+		});
+
+		JPanel header = new JPanel(new BorderLayout(8, 0));
+		header.setBorder(new EmptyBorder(8, 8, 0, 8));
+		header.add(previousButton, BorderLayout.WEST);
+		header.add(monthLabel, BorderLayout.CENTER);
+		header.add(nextButton, BorderLayout.EAST);
+
+		dialog.add(header, BorderLayout.NORTH);
+		dialog.add(new JScrollPane(calendarTable), BorderLayout.CENTER);
+		refreshCalendar.run();
+		dialog.setVisible(true);
+	}
+
+	private void fillCalendarModel(DefaultTableModel model, YearMonth month) {
+		model.setRowCount(0);
+		Object[] week = new Object[7];
+		int column = month.atDay(1).getDayOfWeek().getValue() - 1;
+
+		for (int day = 1; day <= month.lengthOfMonth(); day++) {
+			week[column] = day;
+			if (column == 6) {
+				model.addRow(week);
+				week = new Object[7];
+				column = 0;
+			} else {
+				column++;
+			}
+		}
+
+		if (column != 0) {
+			model.addRow(week);
+		}
+	}
+
+	private void setSpinnerDate(JSpinner spinner, LocalDate date) {
+		spinner.setValue(Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant()));
 	}
 
 	private JButton createSmallFilterButton(String label) {
@@ -495,7 +619,7 @@ public class AppointmentPanel extends JPanel {
 					customerName,
 					serviceName,
 					apt.appointmentTime().format(DATE_FORMATTER),
-					apt.status(),
+					apt.status().getDisplayName(),
 					apt.note() != null ? apt.note() : ""
 			});
 		}
@@ -516,17 +640,16 @@ public class AppointmentPanel extends JPanel {
 
 		String customer = normalizeFilterText(txtCustomerSearch);
 		String service = selectedComboFilter(cbServiceSearch, 0);
-		LocalDateTime dateTime = dateTimeFilterActive ? getSelectedSearchDateTime() : null;
-		String status = cbStatusSearch != null && cbStatusSearch.getSelectedIndex() > 0
-				? cbStatusSearch.getSelectedItem().toString().toLowerCase(Locale.ROOT)
-				: "";
+		LocalDate startDate = dateTimeFilterActive ? getSelectedSearchDate(spStartDateSearch) : null;
+		LocalDate endDate = dateTimeFilterActive ? getSelectedSearchDate(spEndDateSearch) : null;
+		String status = selectedStatusFilter();
 
 		tableSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
 			@Override
 			public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
 				return contains(entry, 1, customer)
 						&& equalsText(entry, 2, service)
-						&& equalsDateTime(entry, 3, dateTime)
+						&& inDateRange(entry, 3, startDate, endDate)
 						&& contains(entry, 4, status);
 			}
 		});
@@ -557,6 +680,14 @@ public class AppointmentPanel extends JPanel {
 		return comboBox.getSelectedItem().toString().trim().toLowerCase(Locale.ROOT);
 	}
 
+	private String selectedStatusFilter() {
+		if (cbStatusSearch == null || cbStatusSearch.getSelectedItem() == null) {
+			return "";
+		}
+		StatusFilterItem item = (StatusFilterItem) cbStatusSearch.getSelectedItem();
+		return item.status() == null ? "" : item.label().toLowerCase(Locale.ROOT);
+	}
+
 	private boolean contains(RowFilter.Entry<? extends DefaultTableModel, ? extends Integer> entry,
 			int column, String keyword) {
 		if (keyword.isEmpty()) {
@@ -575,23 +706,24 @@ public class AppointmentPanel extends JPanel {
 		return value != null && value.toString().trim().toLowerCase(Locale.ROOT).equals(keyword);
 	}
 
-	private boolean equalsDateTime(RowFilter.Entry<? extends DefaultTableModel, ? extends Integer> entry,
-			int column, LocalDateTime dateTime) {
-		if (dateTime == null) {
+	private boolean inDateRange(RowFilter.Entry<? extends DefaultTableModel, ? extends Integer> entry,
+			int column, LocalDate startDate, LocalDate endDate) {
+		if (startDate == null || endDate == null) {
 			return true;
 		}
 		Object value = entry.getValue(column);
 		if (value == null) {
 			return false;
 		}
-		return LocalDateTime.parse(value.toString(), DATE_FORMATTER).equals(dateTime);
+		LocalDate appointmentDate = LocalDateTime.parse(value.toString(), DATE_FORMATTER).toLocalDate();
+		LocalDate start = startDate.isBefore(endDate) ? startDate : endDate;
+		LocalDate end = startDate.isBefore(endDate) ? endDate : startDate;
+		return !appointmentDate.isBefore(start) && !appointmentDate.isAfter(end);
 	}
 
-	private LocalDateTime getSelectedSearchDateTime() {
-		Date selectedDate = (Date) spDateTimeSearch.getValue();
-		return LocalDateTime.ofInstant(selectedDate.toInstant(), ZoneId.systemDefault())
-				.withSecond(0)
-				.withNano(0);
+	private LocalDate getSelectedSearchDate(JSpinner spinner) {
+		Date selectedDate = (Date) spinner.getValue();
+		return LocalDateTime.ofInstant(selectedDate.toInstant(), ZoneId.systemDefault()).toLocalDate();
 	}
 
 	private void populateServiceFilter() {
@@ -607,6 +739,13 @@ public class AppointmentPanel extends JPanel {
 					.forEach(cbServiceSearch::addItem);
 		}
 		cbServiceSearch.setSelectedIndex(0);
+	}
+
+	private record StatusFilterItem(AppointmentStatus status, String label) {
+		@Override
+		public String toString() {
+			return label;
+		}
 	}
 
 	private List<AppointmentRequests.Response> sortByAppointmentTime(List<AppointmentRequests.Response> source) {
