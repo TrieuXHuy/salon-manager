@@ -2,6 +2,7 @@ package com.salonnbooking.service;
 
 import java.util.List;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,7 +22,7 @@ public class ServiceService {
 
 	@Transactional(readOnly = true)
 	public List<ServiceEntity> findAll() {
-		return serviceRepository.findAll();
+		return serviceRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
 	}
 
 	@Transactional(readOnly = true)
