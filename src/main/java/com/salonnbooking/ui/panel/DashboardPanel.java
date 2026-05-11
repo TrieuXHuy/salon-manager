@@ -27,6 +27,7 @@ import javax.swing.JTable;
 import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -43,6 +44,7 @@ import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.PaymentMethod;
 import com.salonnbooking.domain.PaymentStatus;
 import com.salonnbooking.ui.components.RoundedPanel;
+import com.salonnbooking.ui.dialog.PaymentSimulationDialog;
 import com.salonnbooking.ui.theme.Theme;
 import net.miginfocom.swing.MigLayout;
 
@@ -226,9 +228,9 @@ public class DashboardPanel extends JPanel {
 		updateStatusButton = createActionButton("C\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i");
 		updateStatusButton.setEnabled(false);
 		updateStatusButton.addActionListener(e -> updateSelectedAppointmentStatus());
-		transferButton = createActionButton("Chuy\u1ec3n kho\u1ea3n");
+		transferButton = createActionButton("Thanh to\u00e1n");
 		transferButton.setEnabled(false);
-		transferButton.addActionListener(e -> createBankTransferForSelected());
+		transferButton.addActionListener(e -> paySelectedAppointment());
 		actions.add(new JLabel("Tr\u1ea1ng th\u00e1i"), "alignx right");
 		actions.add(statusCombo, "w 180!");
 		actions.add(updateStatusButton);
@@ -422,7 +424,7 @@ public class DashboardPanel extends JPanel {
 				"C\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i th\u00e0nh c\u00f4ng");
 	}
 
-	private void createBankTransferForSelected() {
+	private void paySelectedAppointment() {
 		AppointmentRequests.Response appointment = getSelectedTodayAppointment();
 		if (appointment == null) {
 			JOptionPane.showMessageDialog(this, "Vui l\u00f2ng ch\u1ecdn m\u1ed9t l\u1ecbch h\u1eb9n",
@@ -430,21 +432,31 @@ public class DashboardPanel extends JPanel {
 			return;
 		}
 		ServiceRequests.Response service = findService(currentData.services(), appointment.serviceId());
+		String customerName = findCustomerName(currentData.customers(), appointment.customerId());
+		String serviceName = service == null ? "Kh\u00f4ng r\u00f5" : service.name();
 		BigDecimal amount = service == null || service.price() == null ? BigDecimal.ZERO : service.price();
-		int confirm = JOptionPane.showConfirmDialog(this,
-				"Ghi nh\u1eadn chuy\u1ec3n kho\u1ea3n " + formatCurrency(amount) + " cho l\u1ecbch h\u1eb9n n\u00e0y?",
-				"X\u00e1c nh\u1eadn chuy\u1ec3n kho\u1ea3n",
-				JOptionPane.YES_NO_OPTION);
-		if (confirm != JOptionPane.YES_OPTION) {
-			return;
-		}
 
-		setActionControlsEnabled(false);
-		statusLabel.setText("\u0110ang ghi nh\u1eadn chuy\u1ec3n kho\u1ea3n...");
-		PaymentRequests.Create request = new PaymentRequests.Create(
+		PaymentSimulationDialog dialog = new PaymentSimulationDialog(
+				SwingUtilities.getWindowAncestor(this),
 				appointment.id(),
+				customerName,
+				serviceName,
 				amount,
-				PaymentMethod.bank_transfer,
+				"QR / chuy\u1ec3n kho\u1ea3n");
+		dialog.setVisible(true);
+
+		if (dialog.isPaid()) {
+			createSimulatedPayment(appointment.id(), amount, PaymentMethod.bank_transfer);
+		}
+	}
+
+	private void createSimulatedPayment(Integer appointmentId, BigDecimal amount, PaymentMethod paymentMethod) {
+		setActionControlsEnabled(false);
+		statusLabel.setText("\u0110ang ghi nh\u1eadn thanh to\u00e1n...");
+		PaymentRequests.Create request = new PaymentRequests.Create(
+				appointmentId,
+				amount,
+				paymentMethod,
 				PaymentStatus.paid,
 				LocalDateTime.now());
 
@@ -452,7 +464,6 @@ public class DashboardPanel extends JPanel {
 			@Override
 			protected Void doInBackground() throws Exception {
 				ApiClient.createPayment(request);
-				ApiClient.updateAppointment(appointment.id(), createAppointmentUpdate(appointment, AppointmentStatus.paid));
 				return null;
 			}
 
@@ -461,15 +472,15 @@ public class DashboardPanel extends JPanel {
 				try {
 					get();
 					JOptionPane.showMessageDialog(DashboardPanel.this,
-							"\u0110\u00e3 ghi nh\u1eadn chuy\u1ec3n kho\u1ea3n v\u00e0 chuy\u1ec3n tr\u1ea1ng th\u00e1i sang \u0110\u00e3 thanh to\u00e1n",
+							"Thanh to\u00e1n m\u00f4 ph\u1ecfng th\u00e0nh c\u00f4ng!",
 							"Th\u00e0nh c\u00f4ng",
 							JOptionPane.INFORMATION_MESSAGE);
 					loadDashboard();
 				} catch (Exception e) {
-					statusLabel.setText("L\u1ed7i ghi nh\u1eadn chuy\u1ec3n kho\u1ea3n");
+					statusLabel.setText("L\u1ed7i ghi nh\u1eadn thanh to\u00e1n");
 					setActionControlsEnabled(true);
 					JOptionPane.showMessageDialog(DashboardPanel.this,
-							"L\u1ed7i ghi nh\u1eadn chuy\u1ec3n kho\u1ea3n: " + e.getMessage(),
+							"L\u1ed7i ghi nh\u1eadn thanh to\u00e1n: " + e.getMessage(),
 							"L\u1ed7i",
 							JOptionPane.ERROR_MESSAGE);
 				}
