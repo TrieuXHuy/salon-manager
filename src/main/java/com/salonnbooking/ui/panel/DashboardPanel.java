@@ -9,6 +9,7 @@ import java.awt.Font;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -17,11 +18,14 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.ListCellRenderer;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
@@ -32,8 +36,12 @@ import javax.swing.table.JTableHeader;
 import com.salonnbooking.api.dto.AppointmentRequests;
 import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.api.dto.DashboardRequests;
+import com.salonnbooking.api.dto.PaymentRequests;
 import com.salonnbooking.api.dto.ServiceRequests;
 import com.salonnbooking.client.ApiClient;
+import com.salonnbooking.domain.AppointmentStatus;
+import com.salonnbooking.domain.PaymentMethod;
+import com.salonnbooking.domain.PaymentStatus;
 import com.salonnbooking.ui.components.RoundedPanel;
 import com.salonnbooking.ui.theme.Theme;
 import net.miginfocom.swing.MigLayout;
@@ -68,8 +76,13 @@ public class DashboardPanel extends JPanel {
 	private final JLabel quickStatsValue = new JLabel("-");
 	private final JLabel completionRateValue = new JLabel("-");
 	private final JLabel statusLabel = new JLabel("Sẵn sàng");
+	private JTable todayTable;
+	private JComboBox<AppointmentStatus> statusCombo;
+	private JButton updateStatusButton;
+	private JButton transferButton;
+	private DashboardData currentData;
 	private final DefaultTableModel todayTableModel = new DefaultTableModel(
-			new String[] { "Thời gian", "Khách hàng", "Dịch vụ", "Trạng thái", "Ghi chú" }, 0) {
+			new String[] { "ID", "Th\u1eddi gian", "Kh\u00e1ch h\u00e0ng", "D\u1ecbch v\u1ee5", "Tr\u1ea1ng th\u00e1i", "Ghi ch\u00fa" }, 0) {
 		private static final long serialVersionUID = 1L;
 
 		@Override
@@ -185,7 +198,7 @@ public class DashboardPanel extends JPanel {
 
 	private JPanel createTodayTable() {
 		RoundedPanel container = new RoundedPanel(18, BG_CARD, true);
-		container.setLayout(new MigLayout("insets 18, fill", "[grow]", "[]12[grow]"));
+		container.setLayout(new MigLayout("insets 18, fill", "[grow]", "[]12[]12[grow]"));
 
 		JPanel header = new JPanel(new MigLayout("insets 0, fillx", "[grow][]", "[]"));
 		header.setOpaque(false);
@@ -205,8 +218,27 @@ public class DashboardPanel extends JPanel {
 
 		container.add(header, "wrap");
 
-		JTable table = new JTable(todayTableModel);
+		JPanel actions = new JPanel(new MigLayout("insets 0, fillx", "[grow][]8[]8[]", "[]"));
+		actions.setOpaque(false);
+		statusCombo = new JComboBox<>(AppointmentStatus.values());
+		statusCombo.setRenderer(createStatusComboRenderer());
+		statusCombo.setEnabled(false);
+		updateStatusButton = createActionButton("C\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i");
+		updateStatusButton.setEnabled(false);
+		updateStatusButton.addActionListener(e -> updateSelectedAppointmentStatus());
+		transferButton = createActionButton("Chuy\u1ec3n kho\u1ea3n");
+		transferButton.setEnabled(false);
+		transferButton.addActionListener(e -> createBankTransferForSelected());
+		actions.add(new JLabel("Tr\u1ea1ng th\u00e1i"), "alignx right");
+		actions.add(statusCombo, "w 180!");
+		actions.add(updateStatusButton);
+		actions.add(transferButton);
+		container.add(actions, "wrap, growx");
+
+		todayTable = new JTable(todayTableModel);
+		JTable table = todayTable;
 		table.setRowHeight(36);
+		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		table.setFont(TABLE_FONT);
 		table.setForeground(TEXT_MAIN);
 		table.setGridColor(BORDER);
@@ -225,14 +257,23 @@ public class DashboardPanel extends JPanel {
 
 		DefaultTableCellRenderer baseRenderer = createBaseRenderer();
 		table.setDefaultRenderer(Object.class, baseRenderer);
-		table.getColumnModel().getColumn(0).setCellRenderer(createCenteredRenderer());
-		table.getColumnModel().getColumn(3).setCellRenderer(new StatusCellRenderer());
+		table.getColumnModel().getColumn(0).setMinWidth(0);
+		table.getColumnModel().getColumn(0).setMaxWidth(0);
+		table.getColumnModel().getColumn(0).setPreferredWidth(0);
+		table.getColumnModel().getColumn(1).setCellRenderer(createCenteredRenderer());
+		table.getColumnModel().getColumn(4).setCellRenderer(new StatusCellRenderer());
 
-		table.getColumnModel().getColumn(0).setPreferredWidth(150);
-		table.getColumnModel().getColumn(1).setPreferredWidth(180);
+		table.getColumnModel().getColumn(1).setPreferredWidth(150);
 		table.getColumnModel().getColumn(2).setPreferredWidth(180);
-		table.getColumnModel().getColumn(3).setPreferredWidth(120);
-		table.getColumnModel().getColumn(4).setPreferredWidth(220);
+		table.getColumnModel().getColumn(3).setPreferredWidth(180);
+		table.getColumnModel().getColumn(4).setPreferredWidth(120);
+		table.getColumnModel().getColumn(5).setPreferredWidth(220);
+
+		table.getSelectionModel().addListSelectionListener(e -> {
+			if (!e.getValueIsAdjusting()) {
+				syncSelectedAppointmentActions();
+			}
+		});
 
 		JScrollPane scrollPane = new JScrollPane(table);
 		scrollPane.setBorder(BorderFactory.createEmptyBorder());
@@ -289,6 +330,7 @@ public class DashboardPanel extends JPanel {
 	}
 
 	private void applyData(DashboardData data) {
+		currentData = data;
 		DashboardRequests.DashboardResponse dashboard = data.dashboard();
 		DashboardRequests.QuickStatsResponse quickStats = data.quickStats();
 
@@ -307,16 +349,18 @@ public class DashboardPanel extends JPanel {
 				.filter(a -> a.appointmentTime().toLocalDate().equals(today))
 				.sorted((a, b) -> a.appointmentTime().compareTo(b.appointmentTime()))
 				.forEach(a -> todayTableModel.addRow(new Object[] {
+						a.id(),
 						a.appointmentTime().format(DATE_TIME_FORMAT),
 						findCustomerName(data.customers(), a.customerId()),
 						findServiceName(data.services(), a.serviceId()),
-						formatStatus(a.status().toString()),
+						a.status().getDisplayName(),
 						a.note() == null ? "" : a.note()
 				}));
 
 		if (todayTableModel.getRowCount() == 0) {
-			todayTableModel.addRow(new Object[] { "", "Hôm nay chưa có lịch hẹn", "", "", "" });
+			todayTableModel.addRow(new Object[] { null, "", "H\u00f4m nay ch\u01b0a c\u00f3 l\u1ecbch h\u1eb9n", "", "", "" });
 		}
+		syncSelectedAppointmentActions();
 	}
 
 	private String findCustomerName(List<CustomerRequests.Response> customers, Integer id) {
@@ -333,6 +377,166 @@ public class DashboardPanel extends JPanel {
 				.map(ServiceRequests.Response::name)
 				.findFirst()
 				.orElse("Không rõ");
+	}
+
+	private void syncSelectedAppointmentActions() {
+		AppointmentRequests.Response appointment = getSelectedTodayAppointment();
+		boolean hasSelection = appointment != null;
+		if (statusCombo != null) {
+			statusCombo.setEnabled(hasSelection);
+			if (hasSelection) {
+				statusCombo.setSelectedItem(appointment.status());
+			}
+		}
+		if (updateStatusButton != null) {
+			updateStatusButton.setEnabled(hasSelection);
+		}
+		if (transferButton != null) {
+			transferButton.setEnabled(hasSelection && appointment.status() != AppointmentStatus.paid);
+		}
+	}
+
+	private AppointmentRequests.Response getSelectedTodayAppointment() {
+		if (todayTable == null || currentData == null || todayTable.getSelectedRow() < 0) {
+			return null;
+		}
+		int modelRow = todayTable.convertRowIndexToModel(todayTable.getSelectedRow());
+		Object idValue = todayTableModel.getValueAt(modelRow, 0);
+		if (!(idValue instanceof Integer appointmentId)) {
+			return null;
+		}
+		return currentData.appointments().stream()
+				.filter(appointment -> appointment.id().equals(appointmentId))
+				.findFirst()
+				.orElse(null);
+	}
+
+	private void updateSelectedAppointmentStatus() {
+		AppointmentRequests.Response appointment = getSelectedTodayAppointment();
+		if (appointment == null || statusCombo == null || statusCombo.getSelectedItem() == null) {
+			JOptionPane.showMessageDialog(this, "Vui l\u00f2ng ch\u1ecdn m\u1ed9t l\u1ecbch h\u1eb9n",
+					"Ch\u01b0a ch\u1ecdn l\u1ecbch", JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		updateAppointmentStatus(appointment, (AppointmentStatus) statusCombo.getSelectedItem(),
+				"C\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i th\u00e0nh c\u00f4ng");
+	}
+
+	private void createBankTransferForSelected() {
+		AppointmentRequests.Response appointment = getSelectedTodayAppointment();
+		if (appointment == null) {
+			JOptionPane.showMessageDialog(this, "Vui l\u00f2ng ch\u1ecdn m\u1ed9t l\u1ecbch h\u1eb9n",
+					"Ch\u01b0a ch\u1ecdn l\u1ecbch", JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		ServiceRequests.Response service = findService(currentData.services(), appointment.serviceId());
+		BigDecimal amount = service == null || service.price() == null ? BigDecimal.ZERO : service.price();
+		int confirm = JOptionPane.showConfirmDialog(this,
+				"Ghi nh\u1eadn chuy\u1ec3n kho\u1ea3n " + formatCurrency(amount) + " cho l\u1ecbch h\u1eb9n n\u00e0y?",
+				"X\u00e1c nh\u1eadn chuy\u1ec3n kho\u1ea3n",
+				JOptionPane.YES_NO_OPTION);
+		if (confirm != JOptionPane.YES_OPTION) {
+			return;
+		}
+
+		setActionControlsEnabled(false);
+		statusLabel.setText("\u0110ang ghi nh\u1eadn chuy\u1ec3n kho\u1ea3n...");
+		PaymentRequests.Create request = new PaymentRequests.Create(
+				appointment.id(),
+				amount,
+				PaymentMethod.bank_transfer,
+				PaymentStatus.paid,
+				LocalDateTime.now());
+
+		SwingWorker<Void, Void> worker = new SwingWorker<>() {
+			@Override
+			protected Void doInBackground() throws Exception {
+				ApiClient.createPayment(request);
+				ApiClient.updateAppointment(appointment.id(), createAppointmentUpdate(appointment, AppointmentStatus.paid));
+				return null;
+			}
+
+			@Override
+			protected void done() {
+				try {
+					get();
+					JOptionPane.showMessageDialog(DashboardPanel.this,
+							"\u0110\u00e3 ghi nh\u1eadn chuy\u1ec3n kho\u1ea3n v\u00e0 chuy\u1ec3n tr\u1ea1ng th\u00e1i sang \u0110\u00e3 thanh to\u00e1n",
+							"Th\u00e0nh c\u00f4ng",
+							JOptionPane.INFORMATION_MESSAGE);
+					loadDashboard();
+				} catch (Exception e) {
+					statusLabel.setText("L\u1ed7i ghi nh\u1eadn chuy\u1ec3n kho\u1ea3n");
+					setActionControlsEnabled(true);
+					JOptionPane.showMessageDialog(DashboardPanel.this,
+							"L\u1ed7i ghi nh\u1eadn chuy\u1ec3n kho\u1ea3n: " + e.getMessage(),
+							"L\u1ed7i",
+							JOptionPane.ERROR_MESSAGE);
+				}
+			}
+		};
+		worker.execute();
+	}
+
+	private void updateAppointmentStatus(AppointmentRequests.Response appointment, AppointmentStatus status,
+			String successMessage) {
+		setActionControlsEnabled(false);
+		statusLabel.setText("\u0110ang c\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i...");
+
+		SwingWorker<Void, Void> worker = new SwingWorker<>() {
+			@Override
+			protected Void doInBackground() throws Exception {
+				ApiClient.updateAppointment(appointment.id(), createAppointmentUpdate(appointment, status));
+				return null;
+			}
+
+			@Override
+			protected void done() {
+				try {
+					get();
+					JOptionPane.showMessageDialog(DashboardPanel.this, successMessage, "Th\u00e0nh c\u00f4ng",
+							JOptionPane.INFORMATION_MESSAGE);
+					loadDashboard();
+				} catch (Exception e) {
+					statusLabel.setText("L\u1ed7i c\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i");
+					setActionControlsEnabled(true);
+					JOptionPane.showMessageDialog(DashboardPanel.this,
+							"L\u1ed7i c\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i: " + e.getMessage(),
+							"L\u1ed7i",
+							JOptionPane.ERROR_MESSAGE);
+				}
+			}
+		};
+		worker.execute();
+	}
+
+	private AppointmentRequests.Update createAppointmentUpdate(AppointmentRequests.Response appointment,
+			AppointmentStatus status) {
+		return new AppointmentRequests.Update(
+				appointment.customerId(),
+				appointment.serviceId(),
+				appointment.appointmentTime(),
+				status,
+				appointment.note());
+	}
+
+	private ServiceRequests.Response findService(List<ServiceRequests.Response> services, Integer id) {
+		return services.stream()
+				.filter(s -> s.id().equals(id))
+				.findFirst()
+				.orElse(null);
+	}
+
+	private void setActionControlsEnabled(boolean enabled) {
+		if (statusCombo != null) {
+			statusCombo.setEnabled(enabled);
+		}
+		if (updateStatusButton != null) {
+			updateStatusButton.setEnabled(enabled);
+		}
+		if (transferButton != null) {
+			transferButton.setEnabled(enabled);
+		}
 	}
 
 	private String formatCurrency(BigDecimal value) {
@@ -353,6 +557,7 @@ public class DashboardPanel extends JPanel {
 			case "pending" -> "Chờ xử lý";
 			case "completed" -> "Hoàn thành";
 			case "cancelled" -> "Đã hủy";
+			case "paid" -> "Đã thanh toán";
 			default -> capitalize(status);
 		};
 	}
@@ -377,6 +582,28 @@ public class DashboardPanel extends JPanel {
 		DefaultTableCellRenderer renderer = createBaseRenderer();
 		renderer.setHorizontalAlignment(SwingConstants.CENTER);
 		return renderer;
+	}
+
+	private JButton createActionButton(String label) {
+		JButton button = new JButton(label);
+		button.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 11)));
+		button.setForeground(PRIMARY);
+		button.setBackground(PRIMARY_SOFT);
+		button.setFocusPainted(false);
+		button.setBorder(new EmptyBorder(6, 12, 6, 12));
+		return button;
+	}
+
+	private ListCellRenderer<? super AppointmentStatus> createStatusComboRenderer() {
+		return (list, value, index, isSelected, cellHasFocus) -> {
+			JLabel label = new JLabel(value == null ? "" : value.getDisplayName());
+			label.setOpaque(true);
+			label.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12)));
+			label.setBorder(new EmptyBorder(4, 8, 4, 8));
+			label.setBackground(isSelected ? list.getSelectionBackground() : list.getBackground());
+			label.setForeground(isSelected ? list.getSelectionForeground() : list.getForeground());
+			return label;
+		};
 	}
 
 	private String capitalize(String value) {
@@ -435,6 +662,8 @@ public class DashboardPanel extends JPanel {
 				styleStatus(label, new Color(220, 252, 231), new Color(22, 163, 74));
 			} else if (status.contains("chờ") || status.contains("pending")) {
 				styleStatus(label, new Color(254, 243, 199), new Color(217, 119, 6));
+			} else if (status.contains("thanh toán") || status.contains("paid")) {
+				styleStatus(label, new Color(219, 234, 254), new Color(37, 99, 235));
 			} else if (status.contains("hoàn thành")) {
 				styleStatus(label, new Color(219, 234, 254), new Color(37, 99, 235));
 			} else if (status.contains("hủy") || status.contains("cancel")) {

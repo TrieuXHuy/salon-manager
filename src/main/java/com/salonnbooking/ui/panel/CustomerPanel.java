@@ -21,6 +21,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.ListCellRenderer;
 import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
@@ -153,6 +154,7 @@ public class CustomerPanel extends JPanel {
 
 		addLabel(fields, "Giới tính:", 2, 1, gbc);
 		cbGender = new JComboBox<>(Gender.values());
+		cbGender.setRenderer(createGenderRenderer());
 		cbGender.setPreferredSize(new Dimension(100, 32));
 		fields.add(cbGender, setPosition(gbc, 3, 1));
 
@@ -267,7 +269,7 @@ public class CustomerPanel extends JPanel {
 					customer.fullName(),
 					customer.phone(),
 					customer.email(),
-					customer.gender()
+					customer.gender() == null ? "" : customer.gender().getDisplayName()
 			});
 		}
 	}
@@ -282,7 +284,7 @@ public class CustomerPanel extends JPanel {
 			tfFullName.setText((String) tableModel.getValueAt(row, 1));
 			tfPhone.setText((String) tableModel.getValueAt(row, 2));
 			tfEmail.setText((String) tableModel.getValueAt(row, 3));
-			cbGender.setSelectedItem(tableModel.getValueAt(row, 4));
+			cbGender.setSelectedItem(parseGender(tableModel.getValueAt(row, 4)));
 		}
 	}
 
@@ -503,5 +505,30 @@ public class CustomerPanel extends JPanel {
 		field.setPreferredSize(new Dimension(180, 32));
 		field.setBackground(Color.WHITE);
 		field.setForeground(TEXT_MAIN);
+	}
+
+	private Gender parseGender(Object value) {
+		if (value == null) {
+			return Gender.other;
+		}
+		String text = value.toString();
+		for (Gender gender : Gender.values()) {
+			if (gender.name().equalsIgnoreCase(text) || gender.getDisplayName().equalsIgnoreCase(text)) {
+				return gender;
+			}
+		}
+		return Gender.other;
+	}
+
+	private ListCellRenderer<? super Gender> createGenderRenderer() {
+		return (list, value, index, isSelected, cellHasFocus) -> {
+			JLabel label = new JLabel(value == null ? "" : value.getDisplayName());
+			label.setOpaque(true);
+			label.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12)));
+			label.setBorder(new EmptyBorder(4, 8, 4, 8));
+			label.setBackground(isSelected ? list.getSelectionBackground() : list.getBackground());
+			label.setForeground(isSelected ? list.getSelectionForeground() : list.getForeground());
+			return label;
+		};
 	}
 }
