@@ -43,6 +43,10 @@ public class SecurityConfig {
                         .hasRole("ADMIN")
                         .requestMatchers("/api/auth/me", "/api/account/**")
                         .authenticated()
+                        .requestMatchers("/api/booking/**", "/api/customer/**")
+                        .hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.POST, "/api/appointments")
+                        .hasRole("CUSTOMER")
                         .requestMatchers("/api/users/**")
                         .hasRole("ADMIN")
                         .requestMatchers("/api/admin/**")
@@ -54,7 +58,6 @@ public class SecurityConfig {
                                 "/api/staff-working-hours/**")
                         .hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers(
-                                "/api/appointments/**",
                                 "/api/appointment-services/**",
                                 "/api/payments/**",
                                 "/api/reviews/**")
