@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -61,14 +63,17 @@ public class Appointment {
     private LocalDateTime updatedAt;
 
     @Builder.Default
+    @JsonIgnore
     @OneToMany(mappedBy = "appointment")
     private List<AppointmentService> appointmentServices = new ArrayList<>();
 
     @Builder.Default
+    @JsonIgnore
     @OneToMany(mappedBy = "appointment")
     private List<Payment> payments = new ArrayList<>();
 
     @Builder.Default
+    @JsonIgnore
     @OneToMany(mappedBy = "appointment")
     private List<Review> reviews = new ArrayList<>();
 }

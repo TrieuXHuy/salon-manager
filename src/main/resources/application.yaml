@@ -17,3 +17,15 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.SQLServerDialect
+
+app:
+  security:
+    token:
+      expiry-days: 7
+      header-name: Authorization
+    bootstrap-admin:
+      enabled: true
+      full-name: System Admin
+      email: admin@salon.local
+      password: admin123
+      phone: "0900000000"

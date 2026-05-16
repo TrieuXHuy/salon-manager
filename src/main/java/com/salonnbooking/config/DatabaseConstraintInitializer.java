@@ -24,9 +24,13 @@ public class DatabaseConstraintInitializer {
 							rs.getString("constraint_name"),
 							rs.getString("definition")));
 
-			boolean alreadyAllowsPaid = constraints.stream()
-					.anyMatch(constraint -> constraint.definition().contains("'paid'"));
-			if (alreadyAllowsPaid) {
+			boolean alreadyMatchesCurrentStatus = constraints.stream()
+					.anyMatch(constraint -> constraint.definition().contains("'PENDING'")
+							&& constraint.definition().contains("'CONFIRMED'")
+							&& constraint.definition().contains("'IN_PROGRESS'")
+							&& constraint.definition().contains("'COMPLETED'")
+							&& constraint.definition().contains("'CANCELLED'"));
+			if (alreadyMatchesCurrentStatus) {
 				return;
 			}
 
@@ -39,7 +43,7 @@ public class DatabaseConstraintInitializer {
 
 			jdbcTemplate.execute("ALTER TABLE " + tableName
 					+ " ADD CONSTRAINT [CK_appointment_status] CHECK ([status] IN "
-					+ "('pending','confirmed','completed','cancelled','paid'))");
+					+ "('PENDING','CONFIRMED','IN_PROGRESS','COMPLETED','CANCELLED'))");
 		};
 	}
 

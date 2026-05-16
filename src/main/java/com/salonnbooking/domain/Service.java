@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -50,10 +52,12 @@ public class Service {
     private LocalDateTime createdAt;
 
     @Builder.Default
+    @JsonIgnore
     @OneToMany(mappedBy = "service")
     private List<StaffService> staffServices = new ArrayList<>();
 
     @Builder.Default
+    @JsonIgnore
     @OneToMany(mappedBy = "service")
     private List<AppointmentService> appointmentServices = new ArrayList<>();
 }
