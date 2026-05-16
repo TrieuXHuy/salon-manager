@@ -45,9 +45,11 @@ public class SecurityConfig {
                         .authenticated()
                         .requestMatchers("/api/users/**")
                         .hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**")
+                        .hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/services/**")
+                        .permitAll()
                         .requestMatchers(
-                                "/api/service-categories/**",
-                                "/api/services/**",
                                 "/api/staff-services/**",
                                 "/api/staff-working-hours/**")
                         .hasAnyRole("ADMIN", "STAFF")
