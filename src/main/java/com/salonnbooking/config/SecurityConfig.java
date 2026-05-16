@@ -45,6 +45,8 @@ public class SecurityConfig {
                         .authenticated()
                         .requestMatchers("/api/booking/**", "/api/customer/**")
                         .hasRole("CUSTOMER")
+                        .requestMatchers("/api/staff/**")
+                        .hasRole("STAFF")
                         .requestMatchers(HttpMethod.POST, "/api/appointments")
                         .hasRole("CUSTOMER")
                         .requestMatchers("/api/users/**")

@@ -20,4 +20,19 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     List<Appointment> findByCustomerIdOrderByAppointmentStartDesc(Long customerId);
 
     List<Appointment> findByCustomerIdAndStatusOrderByAppointmentStartDesc(Long customerId, AppointmentStatus status);
+
+    List<Appointment> findByStaffIdOrderByAppointmentStartDesc(Long staffId);
+
+    List<Appointment> findByStaffIdAndStatusOrderByAppointmentStartDesc(Long staffId, AppointmentStatus status);
+
+    List<Appointment> findByStaffIdAndAppointmentStartBetweenOrderByAppointmentStartDesc(
+            Long staffId,
+            LocalDateTime from,
+            LocalDateTime to);
+
+    List<Appointment> findByStaffIdAndAppointmentStartBetweenAndStatusOrderByAppointmentStartDesc(
+            Long staffId,
+            LocalDateTime from,
+            LocalDateTime to,
+            AppointmentStatus status);
 }
