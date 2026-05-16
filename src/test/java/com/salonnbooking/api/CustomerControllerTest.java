@@ -17,11 +17,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.domain.Customer;
 import com.salonnbooking.domain.Gender;
 import com.salonnbooking.exception.ResourceNotFoundException;
-import com.salonnbooking.service.CustomerService;
 
 @WebMvcTest(CustomerController.class)
 @DisplayName("Customer Controller Tests")

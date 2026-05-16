@@ -15,11 +15,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.domain.Customer;
 import com.salonnbooking.domain.Gender;
 import com.salonnbooking.exception.ResourceNotFoundException;
-import com.salonnbooking.repository.CustomerRepository;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Customer Service Tests")

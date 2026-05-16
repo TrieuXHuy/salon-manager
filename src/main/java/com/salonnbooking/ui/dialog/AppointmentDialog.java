@@ -9,9 +9,6 @@ import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
-import com.salonnbooking.api.dto.AppointmentRequests;
-import com.salonnbooking.api.dto.CustomerRequests;
-import com.salonnbooking.api.dto.ServiceRequests;
 import com.salonnbooking.domain.AppointmentStatus;
 
 /**

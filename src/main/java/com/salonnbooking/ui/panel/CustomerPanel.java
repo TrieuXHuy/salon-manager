@@ -28,12 +28,9 @@ import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.ListCellRenderer;
 import javax.swing.SwingWorker;
-import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 
-import com.salonnbooking.api.dto.CustomerRequests;
-import com.salonnbooking.client.ApiClient;
 import com.salonnbooking.domain.Gender;
 import com.salonnbooking.ui.components.RoundedPanel;
 import com.salonnbooking.ui.theme.Theme;

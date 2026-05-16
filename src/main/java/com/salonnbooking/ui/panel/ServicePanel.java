@@ -26,14 +26,11 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingWorker;
-import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 
-import com.salonnbooking.api.dto.ServiceRequests;
-import com.salonnbooking.client.ApiClient;
 import com.salonnbooking.ui.components.RoundedPanel;
 import com.salonnbooking.ui.theme.Theme;
 import net.miginfocom.swing.MigLayout;

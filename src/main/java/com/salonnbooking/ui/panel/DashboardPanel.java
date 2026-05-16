@@ -34,12 +34,6 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 
-import com.salonnbooking.api.dto.AppointmentRequests;
-import com.salonnbooking.api.dto.CustomerRequests;
-import com.salonnbooking.api.dto.DashboardRequests;
-import com.salonnbooking.api.dto.PaymentRequests;
-import com.salonnbooking.api.dto.ServiceRequests;
-import com.salonnbooking.client.ApiClient;
 import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.PaymentMethod;
 import com.salonnbooking.domain.PaymentStatus;
