@@ -1,0 +1,40 @@
+package com.salonnbooking.desktop.util;
+
+import java.lang.reflect.Type;
+import java.time.LocalDateTime;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializer;
+
+public final class JsonUtil {
+
+    private static final Gson GSON = new GsonBuilder()
+            .registerTypeAdapter(LocalDateTime.class, (JsonDeserializer<LocalDateTime>) (json, type, ctx) -> {
+                if (json == null || json.isJsonNull()) {
+                    return null;
+                }
+                String value = json.getAsString();
+                return value == null || value.isBlank() ? null : LocalDateTime.parse(value);
+            })
+            .create();
+
+    private JsonUtil() {
+    }
+
+    public static Gson gson() {
+        return GSON;
+    }
+
+    public static <T> T fromJson(String json, Class<T> cls) {
+        return GSON.fromJson(json, cls);
+    }
+
+    public static <T> T fromJson(String json, Type type) {
+        return GSON.fromJson(json, type);
+    }
+
+    public static String toJson(Object obj) {
+        return GSON.toJson(obj);
+    }
+}
