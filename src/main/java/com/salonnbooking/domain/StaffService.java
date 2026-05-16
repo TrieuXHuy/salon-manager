@@ -1,11 +1,6 @@
 package com.salonnbooking.domain;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -20,31 +15,23 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "payments")
+@Table(name = "staff_services")
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Payment {
+public class StaffService {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "appointment_id")
-    private Appointment appointment;
+    @JoinColumn(name = "staff_id")
+    private User staff;
 
-    private BigDecimal amount;
-
-    @Enumerated(EnumType.STRING)
-    private PaymentMethod paymentMethod;
-
-    @Enumerated(EnumType.STRING)
-    private PaymentStatus paymentStatus;
-
-    private LocalDateTime paidAt;
-
-    private LocalDateTime createdAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "service_id")
+    private Service service;
 }

@@ -1,7 +1,7 @@
 package com.salonnbooking.domain;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,31 +20,28 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "payments")
+@Table(name = "staff_working_hours")
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Payment {
+public class StaffWorkingHour {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "appointment_id")
-    private Appointment appointment;
-
-    private BigDecimal amount;
+    @JoinColumn(name = "staff_id")
+    private User staff;
 
     @Enumerated(EnumType.STRING)
-    private PaymentMethod paymentMethod;
+    private DayOfWeek dayOfWeek;
 
-    @Enumerated(EnumType.STRING)
-    private PaymentStatus paymentStatus;
+    private LocalTime startTime;
 
-    private LocalDateTime paidAt;
+    private LocalTime endTime;
 
-    private LocalDateTime createdAt;
+    private Boolean isActive;
 }

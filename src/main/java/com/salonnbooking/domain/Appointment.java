@@ -1,10 +1,10 @@
 package com.salonnbooking.domain;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
-import org.hibernate.annotations.CreationTimestamp;
-
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -14,82 +14,61 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "appointments")
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Appointment {
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Integer id;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "customer_id", nullable = false)
-	private Customer customer;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "service_id", nullable = false)
-	private ServiceEntity service;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private User customer;
 
-	@Column(name = "appointment_time", nullable = false)
-	private LocalDateTime appointmentTime;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "staff_id")
+    private User staff;
 
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, columnDefinition = "nvarchar(50)")
-	private AppointmentStatus status = AppointmentStatus.pending;
+    private LocalDateTime appointmentStart;
 
-	@Column(columnDefinition = "nvarchar(500)")
-	private String note;
+    private LocalDateTime appointmentEnd;
 
-	@CreationTimestamp
-	@Column(name = "created_at", nullable = false)
-	private LocalDateTime createdAt;
+    @Enumerated(EnumType.STRING)
+    private AppointmentStatus status;
 
-	public Integer getId() {
-		return id;
-	}
+    private String note;
 
-	public Customer getCustomer() {
-		return customer;
-	}
+    private String cancelReason;
 
-	public void setCustomer(Customer customer) {
-		this.customer = customer;
-	}
+    private BigDecimal totalAmount;
 
-	public ServiceEntity getService() {
-		return service;
-	}
+    private LocalDateTime createdAt;
 
-	public void setService(ServiceEntity service) {
-		this.service = service;
-	}
+    private LocalDateTime updatedAt;
 
-	public LocalDateTime getAppointmentTime() {
-		return appointmentTime;
-	}
+    @Builder.Default
+    @OneToMany(mappedBy = "appointment")
+    private List<AppointmentService> appointmentServices = new ArrayList<>();
 
-	public void setAppointmentTime(LocalDateTime appointmentTime) {
-		this.appointmentTime = appointmentTime;
-	}
+    @Builder.Default
+    @OneToMany(mappedBy = "appointment")
+    private List<Payment> payments = new ArrayList<>();
 
-	public AppointmentStatus getStatus() {
-		return status;
-	}
-
-	public void setStatus(AppointmentStatus status) {
-		this.status = status;
-	}
-
-	public String getNote() {
-		return note;
-	}
-
-	public void setNote(String note) {
-		this.note = note;
-	}
-
-	public LocalDateTime getCreatedAt() {
-		return createdAt;
-	}
+    @Builder.Default
+    @OneToMany(mappedBy = "appointment")
+    private List<Review> reviews = new ArrayList<>();
 }

@@ -1,11 +1,8 @@
 package com.salonnbooking.domain;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -20,13 +17,13 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "payments")
+@Table(name = "reviews")
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Payment {
+public class Review {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,15 +33,17 @@ public class Payment {
     @JoinColumn(name = "appointment_id")
     private Appointment appointment;
 
-    private BigDecimal amount;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private User customer;
 
-    @Enumerated(EnumType.STRING)
-    private PaymentMethod paymentMethod;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "staff_id")
+    private User staff;
 
-    @Enumerated(EnumType.STRING)
-    private PaymentStatus paymentStatus;
+    private Integer rating;
 
-    private LocalDateTime paidAt;
+    private String comment;
 
     private LocalDateTime createdAt;
 }
