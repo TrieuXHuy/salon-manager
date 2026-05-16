@@ -9,4 +9,6 @@ import com.salonnbooking.domain.Payment;
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByAppointmentId(Long appointmentId);
+
+    List<Payment> findByAppointmentIdIn(List<Long> appointmentIds);
 }

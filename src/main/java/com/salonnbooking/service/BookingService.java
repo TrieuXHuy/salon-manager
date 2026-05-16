@@ -311,7 +311,10 @@ public class BookingService {
                 .map(payment -> new BookingDtos.PaymentResponse(
                         payment.getId(),
                         payment.getAmount(),
-                        payment.getPaymentStatus()))
+                        payment.getPaymentMethod(),
+                        payment.getPaymentStatus(),
+                        payment.getPaidAt(),
+                        payment.getCreatedAt()))
                 .toList();
 
         return new BookingDtos.AppointmentResponse(

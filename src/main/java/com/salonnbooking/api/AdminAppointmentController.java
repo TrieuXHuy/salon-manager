@@ -46,4 +46,11 @@ public class AdminAppointmentController {
             @RequestBody(required = false) BookingDtos.CancelAppointmentRequest request) {
         return adminAppointmentService.cancelAppointment(id, request);
     }
+
+    @PatchMapping("/{id}/payment")
+    public BookingDtos.AppointmentResponse payAppointment(
+            @PathVariable Long id,
+            @RequestBody BookingDtos.UpdatePaymentRequest request) {
+        return adminAppointmentService.payAppointment(id, request);
+    }
 }

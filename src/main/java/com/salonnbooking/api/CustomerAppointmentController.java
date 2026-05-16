@@ -13,15 +13,18 @@ import org.springframework.web.bind.annotation.RestController;
 import com.salonnbooking.api.dto.BookingDtos;
 import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.service.BookingService;
+import com.salonnbooking.service.PaymentQueryService;
 
 @RestController
 @RequestMapping("/api/customer/appointments")
 public class CustomerAppointmentController {
 
     private final BookingService bookingService;
+    private final PaymentQueryService paymentQueryService;
 
-    public CustomerAppointmentController(BookingService bookingService) {
+    public CustomerAppointmentController(BookingService bookingService, PaymentQueryService paymentQueryService) {
         this.bookingService = bookingService;
+        this.paymentQueryService = paymentQueryService;
     }
 
     @GetMapping
@@ -39,5 +42,10 @@ public class CustomerAppointmentController {
             @PathVariable Long id,
             @RequestBody BookingDtos.CancelAppointmentRequest request) {
         return bookingService.cancelMyAppointment(id, request);
+    }
+
+    @GetMapping("/{id}/payment")
+    public List<BookingDtos.PaymentResponse> getPayment(@PathVariable Long id) {
+        return paymentQueryService.getMyAppointmentPayments(id);
     }
 }

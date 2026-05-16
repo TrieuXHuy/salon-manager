@@ -10,6 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.salonnbooking.api.dto.BookingDtos;
 import com.salonnbooking.domain.Appointment;
 import com.salonnbooking.domain.AppointmentStatus;
+import com.salonnbooking.domain.Payment;
+import com.salonnbooking.domain.PaymentMethod;
+import com.salonnbooking.domain.PaymentStatus;
 import com.salonnbooking.exception.ResourceNotFoundException;
 import com.salonnbooking.repository.AppointmentRepository;
 import com.salonnbooking.repository.AppointmentServiceRepository;
@@ -93,6 +96,33 @@ public class AdminAppointmentService {
         return toAppointmentResponse(appointmentRepository.save(appointment));
     }
 
+    @Transactional
+    public BookingDtos.AppointmentResponse payAppointment(Long id, BookingDtos.UpdatePaymentRequest request) {
+        if (request == null || request.paymentMethod() == null) {
+            throw new IllegalArgumentException("paymentMethod is required");
+        }
+
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + id));
+        if (appointment.getStatus() == AppointmentStatus.CANCELLED) {
+            throw new IllegalArgumentException("Cannot pay CANCELLED appointment");
+        }
+
+        List<Payment> payments = paymentRepository.findByAppointmentId(id);
+        if (payments.isEmpty()) {
+            throw new ResourceNotFoundException("Payment not found for appointment id: " + id);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (Payment payment : payments) {
+            payment.setPaymentMethod(request.paymentMethod());
+            payment.setPaymentStatus(PaymentStatus.PAID);
+            payment.setPaidAt(now);
+        }
+        paymentRepository.saveAll(payments);
+        return toAppointmentResponse(appointment);
+    }
+
     private List<Appointment> findByDateFilters(
             LocalDateTime from,
             LocalDateTime to,
@@ -144,7 +174,10 @@ public class AdminAppointmentService {
                 .map(payment -> new BookingDtos.PaymentResponse(
                         payment.getId(),
                         payment.getAmount(),
-                        payment.getPaymentStatus()))
+                        payment.getPaymentMethod(),
+                        payment.getPaymentStatus(),
+                        payment.getPaidAt(),
+                        payment.getCreatedAt()))
                 .toList();
 
         return new BookingDtos.AppointmentResponse(

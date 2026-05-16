@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.Gender;
+import com.salonnbooking.domain.PaymentMethod;
 import com.salonnbooking.domain.PaymentStatus;
 
 public final class BookingDtos {
@@ -47,7 +48,13 @@ public final class BookingDtos {
     public record PaymentResponse(
             Long id,
             BigDecimal amount,
-            PaymentStatus paymentStatus) {
+            PaymentMethod paymentMethod,
+            PaymentStatus paymentStatus,
+            LocalDateTime paidAt,
+            LocalDateTime createdAt) {
+    }
+
+    public record UpdatePaymentRequest(PaymentMethod paymentMethod) {
     }
 
     public record AppointmentResponse(
