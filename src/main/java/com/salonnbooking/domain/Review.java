@@ -2,6 +2,7 @@ package com.salonnbooking.domain;
 
 import java.time.LocalDateTime;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -43,6 +44,7 @@ public class Review {
 
     private Integer rating;
 
+    @Column(columnDefinition = "nvarchar(1000)")
     private String comment;
 
     private LocalDateTime createdAt;

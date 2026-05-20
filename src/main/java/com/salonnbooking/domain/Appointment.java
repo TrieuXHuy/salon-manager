@@ -7,6 +7,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -52,8 +53,10 @@ public class Appointment {
     @Enumerated(EnumType.STRING)
     private AppointmentStatus status;
 
+    @Column(columnDefinition = "nvarchar(1000)")
     private String note;
 
+    @Column(columnDefinition = "nvarchar(1000)")
     private String cancelReason;
 
     private BigDecimal totalAmount;

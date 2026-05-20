@@ -71,6 +71,15 @@ public class BookingWizardPanel extends JPanel {
     private Consumer<BookingSummary> onBookingConfirmed;
     private final NumberFormat nf = NumberFormat.getInstance(new Locale("vi", "VN"));
 
+    private static int s(int value) {
+        return Theme.scaleDimension(value);
+    }
+
+    private static int gap(int value) {
+        float scale = Math.min(Theme.getDPIScaleFactor(), 1.25f);
+        return Math.round(value * scale);
+    }
+
     // Mock data
     private record StaffInfo(Long id, String name, String role, boolean active) {}
 
@@ -85,11 +94,14 @@ public class BookingWizardPanel extends JPanel {
 
     public BookingWizardPanel() {
         setBackground(Theme.BG_MAIN);
-        setLayout(new MigLayout("fill, wrap 1, insets 24", "[fill]", "[][grow][]"));
+        setLayout(new MigLayout(
+                "fill, wrap 1, insets " + gap(20),
+                "[fill]",
+                "[" + s(76) + "!][grow][" + s(70) + "!]"));
 
         // 1. Step Indicator
         stepIndicator = new StepIndicatorPanel();
-        add(stepIndicator, "h 90!");
+        add(stepIndicator, "growx");
 
         // 2. Content Panel (CardLayout)
         contentPanel.setOpaque(false);
@@ -100,19 +112,21 @@ public class BookingWizardPanel extends JPanel {
         add(contentPanel, "grow");
 
         // 3. Navigation Bar
-        RoundedPanel navBar = new RoundedPanel(12, Theme.BG_CARD, true);
-        navBar.setLayout(new MigLayout("insets 16 24 16 24, fillx", "[left]push[right]"));
+        RoundedPanel navBar = new RoundedPanel(gap(12), Theme.BG_CARD, true);
+        navBar.setLayout(new MigLayout(
+                "insets " + gap(12) + " " + gap(20) + " " + gap(12) + " " + gap(20) + ", fillx",
+                "[left]push[right]"));
 
         backBtn = createNavButton("← Quay lại", Theme.SLATE);
         backBtn.setVisible(false);
         backBtn.addActionListener(e -> goBack());
-        navBar.add(backBtn, "h 44!, w 160!");
+        navBar.add(backBtn, "h " + s(42) + "!, w " + s(150) + "!");
 
         nextBtn = createNavButton("Tiếp theo →", Theme.EMERALD);
         nextBtn.addActionListener(e -> goNext());
-        navBar.add(nextBtn, "h 44!, w 180!");
+        navBar.add(nextBtn, "h " + s(42) + "!, w " + s(170) + "!");
 
-        add(navBar, "h 76!");
+        add(navBar, "growx");
 
         updateStep();
     }
@@ -129,15 +143,18 @@ public class BookingWizardPanel extends JPanel {
         JLabel title = new JLabel("Chọn dịch vụ bạn muốn đặt");
         title.setFont(Theme.FONT_H2);
         title.setForeground(Theme.NAVY);
-        panel.add(title, "gapbottom 12");
+        panel.add(title, "gapbottom " + gap(10));
 
-        // Service cards grid
-        JPanel grid = new JPanel(new MigLayout("wrap 3, gap 16, fillx", "[fill, 33%][fill, 33%][fill, 33%]"));
+        // Service cards list
+        JPanel grid = new JPanel(new MigLayout(
+                "wrap 1, gapy " + gap(12) + ", fillx, insets 0",
+                "[fill]",
+                ""));
         grid.setOpaque(false);
 
         List<ServiceDtos.Response> services = loadMockServices();
         for (ServiceDtos.Response svc : services) {
-            grid.add(createServiceCard(svc), "h 130!");
+            grid.add(createServiceCard(svc), "h " + s(92) + "!, growx");
         }
 
         JScrollPane scroll = new JScrollPane(grid);
@@ -148,19 +165,21 @@ public class BookingWizardPanel extends JPanel {
         panel.add(scroll, "grow");
 
         // Summary bar
-        RoundedPanel summaryBar = new RoundedPanel(10, Theme.BG_CARD, true);
-        summaryBar.setLayout(new MigLayout("insets 12 20 12 20, fillx", "[left]push[right]"));
+        RoundedPanel summaryBar = new RoundedPanel(gap(10), Theme.BG_CARD, true);
+        summaryBar.setLayout(new MigLayout(
+                "insets " + gap(10) + " " + gap(16) + " " + gap(10) + " " + gap(16) + ", fillx",
+                "[left]push[right]"));
         summaryLabel = new JLabel("Chưa chọn dịch vụ nào");
         summaryLabel.setFont(Theme.FONT_H3);
         summaryLabel.setForeground(Theme.TEXT_MUTED);
         summaryBar.add(summaryLabel);
-        panel.add(summaryBar, "h 48!, gaptop 8");
+        panel.add(summaryBar, "h " + s(46) + "!, gaptop " + gap(8));
 
         return panel;
     }
 
     private RoundedPanel createServiceCard(ServiceDtos.Response svc) {
-        RoundedPanel card = new RoundedPanel(12, Theme.BG_CARD, true) {
+        RoundedPanel card = new RoundedPanel(gap(12), Theme.BG_CARD, true) {
             boolean hovered = false;
             boolean selected = false;
             {
@@ -189,7 +208,10 @@ public class BookingWizardPanel extends JPanel {
             }
             public void setSelectedState(boolean sel) { this.selected = sel; repaint(); }
         };
-        card.setLayout(new MigLayout("insets 14, fillx", "[]12[grow][]", "[][]"));
+        card.setLayout(new MigLayout(
+                "insets " + gap(12) + ", fillx",
+                "[" + s(46) + "!]" + gap(12) + "[grow, fill][]",
+                "[]"));
         card.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         // Icon
@@ -207,25 +229,27 @@ public class BookingWizardPanel extends JPanel {
             }
         };
         iconBadge.setOpaque(false);
-        iconBadge.setPreferredSize(new Dimension(48, 48));
+        iconBadge.setPreferredSize(new Dimension(s(46), s(46)));
         iconBadge.setLayout(new MigLayout("fill, insets 0", "[center]", "[center]"));
         JLabel iconLbl = new JLabel(icon);
-        iconLbl.setFont(Theme.FONT_H1.deriveFont(20f));
+        iconLbl.setFont(Theme.FONT_H2);
         iconBadge.add(iconLbl);
-        card.add(iconBadge, "span 1 2, aligny top, w 48!, h 48!");
+        card.add(iconBadge, "w " + s(46) + "!, h " + s(46) + "!, aligny center");
 
         // Info
+        JPanel infoPanel = new JPanel(new MigLayout("wrap 1, insets 0, gapy " + gap(4), "[fill]"));
+        infoPanel.setOpaque(false);
+
         JLabel nameLabel = new JLabel(svc.name());
         nameLabel.setFont(Theme.FONT_H3);
         nameLabel.setForeground(Theme.NAVY);
-        card.add(nameLabel, "growx");
+        infoPanel.add(nameLabel);
 
         JCheckBox checkBox = new JCheckBox();
         checkBox.setOpaque(false);
-        card.add(checkBox, "span 1 2, aligny top");
 
         // Bottom row
-        JPanel bottomRow = new JPanel(new MigLayout("insets 0, gap 8", "[][]push[]"));
+        JPanel bottomRow = new JPanel(new MigLayout("insets 0, gap " + gap(8), "[][]push[]"));
         bottomRow.setOpaque(false);
 
         JLabel catLabel = new JLabel(svc.categoryName() != null ? svc.categoryName() : "");
@@ -243,7 +267,9 @@ public class BookingWizardPanel extends JPanel {
         priceLabel.setForeground(Theme.EMERALD);
         bottomRow.add(priceLabel);
 
-        card.add(bottomRow, "growx, skip 1");
+        infoPanel.add(bottomRow, "growx");
+        card.add(infoPanel, "growx");
+        card.add(checkBox, "aligny center");
 
         // Card click toggles checkbox
         Runnable toggle = () -> {
@@ -300,14 +326,17 @@ public class BookingWizardPanel extends JPanel {
         JLabel title = new JLabel("Chọn nhân viên phục vụ");
         title.setFont(Theme.FONT_H2);
         title.setForeground(Theme.NAVY);
-        panel.add(title, "gapbottom 12");
+        panel.add(title, "gapbottom " + gap(10));
 
-        JPanel grid = new JPanel(new MigLayout("wrap 3, gap 16, fillx", "[fill, 33%][fill, 33%][fill, 33%]"));
+        JPanel grid = new JPanel(new MigLayout(
+                "wrap 1, gapy " + gap(12) + ", fillx, insets 0",
+                "[fill]",
+                ""));
         grid.setOpaque(false);
 
         ButtonGroup staffGroup = new ButtonGroup();
         for (StaffInfo staff : mockStaff) {
-            grid.add(createStaffCard(staff, staffGroup), "h 170!");
+            grid.add(createStaffCard(staff, staffGroup), "h " + s(104) + "!, growx");
         }
 
         JScrollPane scroll = new JScrollPane(grid);
@@ -321,35 +350,37 @@ public class BookingWizardPanel extends JPanel {
     }
 
     private RoundedPanel createStaffCard(StaffInfo staff, ButtonGroup group) {
-        RoundedPanel card = new RoundedPanel(12, Theme.BG_CARD, true);
-        card.setLayout(new MigLayout("insets 16, fillx", "[]16[grow]", "[][][][]"));
+        RoundedPanel card = new RoundedPanel(gap(12), Theme.BG_CARD, true);
+        card.setLayout(new MigLayout(
+                "insets " + gap(14) + ", fillx",
+                "[" + s(52) + "!]" + gap(14) + "[grow, fill][]",
+                "[]"));
         card.setCursor(staff.active ? new Cursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
 
         // Avatar
-        CircleAvatar avatar = new CircleAvatar(staff.name, 56, Theme.NAVY, Theme.TEXT_WHITE);
-        card.add(avatar, "span 1 4, aligny top, w 56!, h 56!");
+        CircleAvatar avatar = new CircleAvatar(staff.name, s(52), Theme.NAVY, Theme.TEXT_WHITE);
+        card.add(avatar, "w " + s(52) + "!, h " + s(52) + "!, aligny center");
 
-        // Name
+        JPanel infoPanel = new JPanel(new MigLayout("wrap 1, insets 0, gapy " + gap(3), "[fill]"));
+        infoPanel.setOpaque(false);
+
         JLabel nameLabel = new JLabel(staff.name);
         nameLabel.setFont(Theme.FONT_H2);
         nameLabel.setForeground(staff.active ? Theme.NAVY : Theme.SLATE);
-        card.add(nameLabel, "wrap");
+        infoPanel.add(nameLabel);
 
-        // Role
         JLabel roleLabel = new JLabel(staff.role);
         roleLabel.setFont(Theme.FONT_BODY_LG);
         roleLabel.setForeground(Theme.TEXT_MUTED);
-        card.add(roleLabel, "wrap");
+        infoPanel.add(roleLabel);
 
-        // Rating
+        JPanel bottomPanel = new JPanel(new MigLayout("insets 0, gap " + gap(8), "[][]"));
+        bottomPanel.setOpaque(false);
+
         JLabel ratingLabel = new JLabel("⭐ 4.9 (100+)");
         ratingLabel.setFont(Theme.FONT_BODY_SM);
         ratingLabel.setForeground(Theme.AMBER);
-        card.add(ratingLabel, "wrap");
-
-        // Status + Radio
-        JPanel bottomPanel = new JPanel(new MigLayout("insets 0, fillx", "[grow][]"));
-        bottomPanel.setOpaque(false);
+        bottomPanel.add(ratingLabel);
 
         String statusText = staff.active ? "Đang làm việc" : "Nghỉ phép";
         Color statusColor = staff.active ? Theme.EMERALD : Theme.AMBER;
@@ -368,15 +399,15 @@ public class BookingWizardPanel extends JPanel {
         statusBadge.setForeground(Theme.TEXT_WHITE);
         statusBadge.setOpaque(false);
         statusBadge.setBorder(BorderFactory.createEmptyBorder(2, 8, 2, 8));
-        bottomPanel.add(statusBadge, "w min!");
+        bottomPanel.add(statusBadge, "w min!, h " + s(22) + "!");
+        infoPanel.add(bottomPanel);
 
         JRadioButton radio = new JRadioButton();
         radio.setOpaque(false);
         radio.setEnabled(staff.active);
         group.add(radio);
-        bottomPanel.add(radio);
-
-        card.add(bottomPanel, "growx");
+        card.add(infoPanel, "growx");
+        card.add(radio, "aligny center");
 
         // Click handler
         if (staff.active) {
@@ -408,15 +439,21 @@ public class BookingWizardPanel extends JPanel {
         JLabel title = new JLabel("Chọn ngày và khung giờ");
         title.setFont(Theme.FONT_H2);
         title.setForeground(Theme.NAVY);
-        panel.add(title, "gapbottom 12");
+        panel.add(title, "gapbottom " + gap(10));
 
         // Main content: Date picker left, Time slots right
-        JPanel mainArea = new JPanel(new MigLayout("fill, insets 0", "[35%]16[65%]", "[fill]"));
+        JPanel mainArea = new JPanel(new MigLayout(
+                "fill, insets 0, gap " + gap(16),
+                "[fill, grow 35][fill, grow 65]",
+                "[fill]"));
         mainArea.setOpaque(false);
 
         // Date picker
-        RoundedPanel datePanel = new RoundedPanel(12, Theme.BG_CARD, true);
-        datePanel.setLayout(new MigLayout("wrap 1, insets 24, fillx", "[fill]", "[]16[]16[]"));
+        RoundedPanel datePanel = new RoundedPanel(gap(12), Theme.BG_CARD, true);
+        datePanel.setLayout(new MigLayout(
+                "wrap 1, insets " + gap(20) + ", fillx",
+                "[fill]",
+                "[]" + gap(14) + "[]" + gap(14) + "[]"));
 
         JLabel dateTitle = new JLabel("📅 Chọn ngày");
         dateTitle.setFont(Theme.FONT_H3);
@@ -429,7 +466,7 @@ public class BookingWizardPanel extends JPanel {
         dateLabel.setHorizontalAlignment(SwingConstants.CENTER);
         datePanel.add(dateLabel, "gaptop 8");
 
-        JPanel dateButtons = new JPanel(new MigLayout("insets 0, fillx", "[50%]8[50%]"));
+        JPanel dateButtons = new JPanel(new MigLayout("insets 0, fillx, gap " + gap(8), "[50%][50%]"));
         dateButtons.setOpaque(false);
 
         JButton prevDay = createNavButton("← Trước", Theme.SLATE);
@@ -440,7 +477,7 @@ public class BookingWizardPanel extends JPanel {
                 dateLabel.setText(selectedDate.format(DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy", new Locale("vi", "VN"))));
             }
         });
-        dateButtons.add(prevDay, "h 36!, growx");
+        dateButtons.add(prevDay, "h " + s(36) + "!, growx");
 
         JButton nextDay = createNavButton("Sau →", Theme.EMERALD);
         nextDay.setFont(Theme.FONT_BODY_LG);
@@ -448,21 +485,26 @@ public class BookingWizardPanel extends JPanel {
             selectedDate = selectedDate.plusDays(1);
             dateLabel.setText(selectedDate.format(DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy", new Locale("vi", "VN"))));
         });
-        dateButtons.add(nextDay, "h 36!, growx");
+        dateButtons.add(nextDay, "h " + s(36) + "!, growx");
 
         datePanel.add(dateButtons);
         mainArea.add(datePanel);
 
         // Time slots grid
-        RoundedPanel slotsPanel = new RoundedPanel(12, Theme.BG_CARD, true);
-        slotsPanel.setLayout(new MigLayout("wrap 1, insets 24, fill", "[fill]", "[]12[grow]"));
+        RoundedPanel slotsPanel = new RoundedPanel(gap(12), Theme.BG_CARD, true);
+        slotsPanel.setLayout(new MigLayout(
+                "wrap 1, insets " + gap(20) + ", fill",
+                "[fill]",
+                "[]" + gap(12) + "[grow]"));
 
         JLabel slotsTitle = new JLabel("⏰ Khung giờ trống");
         slotsTitle.setFont(Theme.FONT_H3);
         slotsTitle.setForeground(Theme.NAVY);
         slotsPanel.add(slotsTitle);
 
-        JPanel slotsGrid = new JPanel(new MigLayout("wrap 4, gap 8, fillx", "[25%][25%][25%][25%]"));
+        JPanel slotsGrid = new JPanel(new MigLayout(
+                "wrap 3, gap " + gap(8) + ", fillx, insets 0",
+                "[fill, grow][fill, grow][fill, grow]"));
         slotsGrid.setOpaque(false);
 
         // Generate time slots from 08:00 to 20:00
@@ -476,7 +518,7 @@ public class BookingWizardPanel extends JPanel {
                 LocalTime time = LocalTime.of(h, m);
                 boolean available = !unavailableSlots.contains(time);
                 JButton slotBtn = createTimeSlotButton(time, available);
-                slotsGrid.add(slotBtn, "h 40!, growx");
+                slotsGrid.add(slotBtn, "h " + s(40) + "!, growx");
             }
         }
 
@@ -490,13 +532,15 @@ public class BookingWizardPanel extends JPanel {
         panel.add(mainArea, "grow");
 
         // Selected time display
-        RoundedPanel selectedBar = new RoundedPanel(10, Theme.BG_CARD, true);
-        selectedBar.setLayout(new MigLayout("insets 10 20 10 20, fillx", "[center]"));
+        RoundedPanel selectedBar = new RoundedPanel(gap(10), Theme.BG_CARD, true);
+        selectedBar.setLayout(new MigLayout(
+                "insets " + gap(10) + " " + gap(20) + " " + gap(10) + " " + gap(20) + ", fillx",
+                "[center]"));
         JLabel selLabel = new JLabel("Vui lòng chọn khung giờ phía trên");
         selLabel.setFont(Theme.FONT_H3);
         selLabel.setForeground(Theme.TEXT_MUTED);
         selectedBar.add(selLabel);
-        panel.add(selectedBar, "h 44!, gaptop 8");
+        panel.add(selectedBar, "h " + s(44) + "!, gaptop " + gap(8));
 
         return panel;
     }
@@ -850,86 +894,63 @@ public class BookingWizardPanel extends JPanel {
     // ========================= Step Indicator Panel =========================
     private static class StepIndicatorPanel extends RoundedPanel {
         private int currentStep = 0;
+        private final JLabel[] numberLabels = new JLabel[STEP_LABELS.length];
+        private final JLabel[] textLabels = new JLabel[STEP_LABELS.length];
 
         StepIndicatorPanel() {
-            super(12, Theme.BG_CARD, true);
+            super(gap(12), Theme.BG_CARD, true);
+            setLayout(new MigLayout(
+                    "insets " + gap(10) + " " + gap(18) + " " + gap(10) + " " + gap(18) + ", fillx",
+                    repeatColumns(STEP_LABELS.length),
+                    "[center]"));
+            for (int i = 0; i < STEP_LABELS.length; i++) {
+                JPanel item = new JPanel(new MigLayout("wrap 1, insets 0, gapy " + gap(4), "[center]"));
+                item.setOpaque(false);
+
+                JLabel number = new JLabel(String.valueOf(i + 1), SwingConstants.CENTER);
+                number.setFont(Theme.FONT_H3);
+                number.setOpaque(true);
+                number.setPreferredSize(new Dimension(s(30), s(30)));
+                number.setMinimumSize(new Dimension(s(30), s(30)));
+                number.setBorder(BorderFactory.createEmptyBorder());
+
+                JLabel label = new JLabel(STEP_LABELS[i], SwingConstants.CENTER);
+                label.setFont(Theme.FONT_BODY_SM);
+
+                numberLabels[i] = number;
+                textLabels[i] = label;
+                item.add(number, "w " + s(30) + "!, h " + s(30) + "!");
+                item.add(label);
+                add(item, "growx");
+            }
+            refreshState();
         }
 
         void setCurrentStep(int step) {
             this.currentStep = step;
+            refreshState();
+        }
+
+        private void refreshState() {
+            for (int i = 0; i < STEP_LABELS.length; i++) {
+                boolean complete = i < currentStep;
+                boolean active = i == currentStep;
+                JLabel number = numberLabels[i];
+                number.setText(complete ? "✓" : String.valueOf(i + 1));
+                number.setBackground(active || complete ? Theme.EMERALD : Theme.BORDER);
+                number.setForeground(active || complete ? Theme.TEXT_WHITE : Theme.SLATE);
+                textLabels[i].setForeground(active || complete ? Theme.NAVY : Theme.SLATE);
+            }
+            revalidate();
             repaint();
         }
 
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-
-            int w = getWidth();
-            int circleSize = 40;
-            int totalSteps = STEP_LABELS.length;
-            int spacing = (w - 80) / (totalSteps - 1);
-            int startX = 40;
-            int centerY = 32;
-
-            // Draw connecting lines
-            for (int i = 0; i < totalSteps - 1; i++) {
-                int x1 = startX + i * spacing + circleSize / 2;
-                int x2 = startX + (i + 1) * spacing - circleSize / 2;
-                g2.setColor(i < currentStep ? Theme.EMERALD : Theme.BORDER);
-                g2.setStroke(new BasicStroke(3f));
-                g2.drawLine(x1, centerY, x2, centerY);
+        private static String repeatColumns(int count) {
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < count; i++) {
+                builder.append("[fill, grow]");
             }
-
-            // Draw circles and labels
-            for (int i = 0; i < totalSteps; i++) {
-                int cx = startX + i * spacing;
-                int cy = centerY;
-
-                Color circleBg;
-                Color textColor;
-                String text;
-
-                if (i < currentStep) {
-                    // Completed
-                    circleBg = Theme.EMERALD;
-                    textColor = Theme.TEXT_WHITE;
-                    text = "✓";
-                } else if (i == currentStep) {
-                    // Current
-                    circleBg = Theme.EMERALD;
-                    textColor = Theme.TEXT_WHITE;
-                    text = String.valueOf(i + 1);
-                } else {
-                    // Future
-                    circleBg = Theme.BORDER;
-                    textColor = Theme.SLATE;
-                    text = String.valueOf(i + 1);
-                }
-
-                // Circle
-                g2.setColor(circleBg);
-                g2.fillOval(cx - circleSize / 2, cy - circleSize / 2, circleSize, circleSize);
-
-                // Number/check
-                g2.setColor(textColor);
-                g2.setFont(Theme.FONT_H2);
-                FontMetrics fm = g2.getFontMetrics();
-                int tw = fm.stringWidth(text);
-                int th = fm.getAscent();
-                g2.drawString(text, cx - tw / 2, cy + th / 2 - 2);
-
-                // Label below
-                g2.setColor(i <= currentStep ? Theme.NAVY : Theme.SLATE);
-                g2.setFont(Theme.FONT_BODY_SM);
-                fm = g2.getFontMetrics();
-                tw = fm.stringWidth(STEP_LABELS[i]);
-                g2.drawString(STEP_LABELS[i], cx - tw / 2, cy + circleSize / 2 + 18);
-            }
-
-            g2.dispose();
+            return builder.toString();
         }
     }
 }
