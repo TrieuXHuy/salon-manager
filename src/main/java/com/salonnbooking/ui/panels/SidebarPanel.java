@@ -2,43 +2,82 @@ package com.salonnbooking.ui.panels;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.BorderFactory;
+import java.awt.Dimension;
+import java.awt.Component;
+import java.awt.Color;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.BiConsumer;
+
 import com.salonnbooking.ui.components.SidebarButton;
 import com.salonnbooking.ui.theme.Theme;
 import net.miginfocom.swing.MigLayout;
-import java.awt.Dimension;
 
 public class SidebarPanel extends JPanel {
-    public SidebarPanel() {
+    private final BiConsumer<String, String> onMenuSelected;
+    private final Map<String, SidebarButton> buttons = new HashMap<>();
+
+    public SidebarPanel(BiConsumer<String, String> onMenuSelected) {
+        this.onMenuSelected = onMenuSelected;
+        
         setBackground(Theme.BG_SIDEBAR);
-        setPreferredSize(new Dimension(250, 0));
-        setLayout(new MigLayout("wrap 1, fillx, insets 20 0 20 0", "[fill]"));
+        setPreferredSize(new Dimension(260, 0));
+        setLayout(new MigLayout("wrap 1, fillx, insets 24 12 24 12", "[fill]", "[][]push[]"));
 
-        // Logo / Title
+        // 1. Logo / Title Section
+        JPanel logoPanel = new JPanel();
+        logoPanel.setOpaque(false);
+        logoPanel.setLayout(new BoxLayout(logoPanel, BoxLayout.Y_AXIS));
+        logoPanel.setBorder(BorderFactory.createEmptyBorder(10, 16, 30, 16));
+
         JLabel titleLabel = new JLabel("SalonManager");
-        titleLabel.setFont(Theme.FONT_H1);
-        titleLabel.setForeground(Theme.PRIMARY);
-        titleLabel.setHorizontalAlignment(JLabel.CENTER);
-        add(titleLabel, "gapbottom 30, center");
+        titleLabel.setFont(Theme.FONT_HERO.deriveFont(22f)); // Scaled brand title
+        titleLabel.setForeground(Theme.EMERALD);
+        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Menu Items
-        String[] menus = {
-            "Dashboard",
-            "Quản lý lịch hẹn",
-            "Khách hàng",
-            "Nhân viên",
-            "Dịch vụ",
-            "Thanh toán",
-            "Thống kê"
-        };
+        JLabel subtitleLabel = new JLabel("Hệ Thống Đặt Lịch & Quản Lý");
+        subtitleLabel.setFont(Theme.FONT_BODY_SM);
+        subtitleLabel.setForeground(new Color(148, 163, 184)); // Slate text
+        subtitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        boolean first = true;
-        for (String menu : menus) {
-            SidebarButton btn = new SidebarButton("  " + menu);
-            if (first) {
-                btn.setActive(true);
-                first = false;
+        logoPanel.add(titleLabel);
+        logoPanel.add(Box.createVerticalStrut(4));
+        logoPanel.add(subtitleLabel);
+        add(logoPanel, "growx");
+
+        // 2. Navigation Menu
+        JPanel menuPanel = new JPanel(new MigLayout("wrap 1, fillx, insets 0, gap 6", "[fill]"));
+        menuPanel.setOpaque(false);
+
+        // Menu definitions: Key -> {Label, ScreenTitle}
+        createMenuItem(menuPanel, "dashboard", "Dashboard", "Tổng quan");
+        createMenuItem(menuPanel, "appointment", "Lịch hẹn", "Quản lý Lịch Hẹn");
+        createMenuItem(menuPanel, "customer", "Khách hàng", "Quản lý Khách Hàng");
+        createMenuItem(menuPanel, "service", "Dịch vụ", "Quản lý Dịch Vụ");
+        createMenuItem(menuPanel, "employee", "Nhân viên", "Quản lý Nhân Viên");
+        createMenuItem(menuPanel, "settings", "Cấu hình", "Cấu hình hệ thống");
+
+        add(menuPanel, "growx");
+    }
+
+    private void createMenuItem(JPanel parent, String key, String label, String screenTitle) {
+        SidebarButton btn = new SidebarButton(label);
+        btn.addActionListener(e -> {
+            if (onMenuSelected != null) {
+                onMenuSelected.accept(key, screenTitle);
             }
-            add(btn, "h 45!, gapt 5");
-        }
+        });
+        buttons.put(key, btn);
+        parent.add(btn, "h 44!");
+    }
+
+    /**
+     * Highlights the selected sidebar button and de-selects all other buttons.
+     */
+    public void setActiveButton(String screenKey) {
+        buttons.forEach((key, btn) -> btn.setActive(key.equals(screenKey)));
     }
 }

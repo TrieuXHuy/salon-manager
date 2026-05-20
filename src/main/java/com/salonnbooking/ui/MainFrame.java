@@ -3,20 +3,34 @@ package com.salonnbooking.ui;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Dimension;
 
 import com.salonnbooking.ui.panels.SidebarPanel;
 import com.salonnbooking.ui.panels.HeaderPanel;
 import com.salonnbooking.ui.panels.DashboardPanel;
+import com.salonnbooking.ui.panels.AppointmentPanel;
+import com.salonnbooking.ui.panels.CustomerPanel;
+import com.salonnbooking.ui.panels.ServicePanel;
+import com.salonnbooking.ui.panels.EmployeePanel;
+import com.salonnbooking.ui.panels.SettingsPanel;
 import com.salonnbooking.ui.theme.Theme;
-import com.formdev.flatlaf.FlatLightLaf;
-import net.miginfocom.swing.MigLayout;
 
 public class MainFrame extends JFrame {
     
+    private CardLayout cardLayout;
+    private JPanel contentPanel;
+    private HeaderPanel headerPanel;
+    private SidebarPanel sidebarPanel;
+
     public MainFrame() {
-        setTitle("SalonManager - Hệ thống quản lý Salon chuyên nghiệp");
+        // Initialize Theme and Look and Feel properties before rendering
+        Theme.setupTheme();
+
+        setTitle("Salon Booking Manager - Hệ thống quản lý Salon chuyên nghiệp");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1200, 800);
+        setSize(1350, 850);
+        setMinimumSize(new Dimension(1100, 750));
         setLocationRelativeTo(null);
         
         initUI();
@@ -27,33 +41,54 @@ public class MainFrame extends JFrame {
         JPanel mainContainer = new JPanel(new BorderLayout());
         mainContainer.setBackground(Theme.BG_MAIN);
         
-        // Sidebar
-        SidebarPanel sidebar = new SidebarPanel();
-        mainContainer.add(sidebar, BorderLayout.WEST);
-        
-        // Right side (Header + Content)
+        // 1. Right panel which holds Header + Content
         JPanel rightPanel = new JPanel(new BorderLayout());
+        rightPanel.setBackground(Theme.BG_MAIN);
         
-        HeaderPanel header = new HeaderPanel();
-        rightPanel.add(header, BorderLayout.NORTH);
+        // Header
+        headerPanel = new HeaderPanel();
+        rightPanel.add(headerPanel, BorderLayout.NORTH);
         
-        // Content Area (Dashboard by default)
-        DashboardPanel dashboard = new DashboardPanel();
-        rightPanel.add(dashboard, BorderLayout.CENTER);
+        // Content Area using CardLayout
+        cardLayout = new CardLayout();
+        contentPanel = new JPanel(cardLayout);
+        contentPanel.setBackground(Theme.BG_MAIN);
         
+        // Add content panels as cards
+        contentPanel.add(new DashboardPanel(), "dashboard");
+        contentPanel.add(new AppointmentPanel(), "appointment");
+        contentPanel.add(new CustomerPanel(), "customer");
+        contentPanel.add(new ServicePanel(), "service");
+        contentPanel.add(new EmployeePanel(), "employee");
+        contentPanel.add(new SettingsPanel(), "settings");
+        
+        rightPanel.add(contentPanel, BorderLayout.CENTER);
+        
+        // 2. Sidebar Panel with Callback BiConsumer (screenKey, screenTitle)
+        sidebarPanel = new SidebarPanel((screenKey, screenTitle) -> {
+            showScreen(screenKey, screenTitle);
+        });
+        
+        // Assemble in main container
+        mainContainer.add(sidebarPanel, BorderLayout.WEST);
         mainContainer.add(rightPanel, BorderLayout.CENTER);
         
         setContentPane(mainContainer);
+        
+        // Default to Dashboard screen
+        showScreen("dashboard", "Tổng quan");
+    }
+    
+    /**
+     * Switch content panels and update the header title.
+     */
+    public void showScreen(String screenKey, String screenTitle) {
+        cardLayout.show(contentPanel, screenKey);
+        headerPanel.setScreenTitle(screenTitle);
+        sidebarPanel.setActiveButton(screenKey);
     }
     
     public static void start() {
-        // Apply FlatLaf for modern baseline styling
-        try {
-            FlatLightLaf.setup();
-        } catch (Exception ex) {
-            System.err.println("Failed to initialize LaF");
-        }
-        
         java.awt.EventQueue.invokeLater(() -> {
             new MainFrame().setVisible(true);
         });
