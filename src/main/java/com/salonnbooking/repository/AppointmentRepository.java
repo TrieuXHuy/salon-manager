@@ -11,6 +11,10 @@ import com.salonnbooking.domain.AppointmentStatus;
 
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
 
+    boolean existsByCustomerId(Long customerId);
+
+    boolean existsByStaffId(Long staffId);
+
     List<Appointment> findByStaffIdAndAppointmentStartLessThanAndAppointmentEndGreaterThanAndStatusIn(
             Long staffId,
             LocalDateTime endExclusive,

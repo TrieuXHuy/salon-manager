@@ -19,6 +19,15 @@ public final class AdminUserDtos {
             Boolean isActive) {
     }
 
+    public record CreateCustomerRequest(
+            String fullName,
+            String email,
+            String phone,
+            String password,
+            Gender gender,
+            Boolean isActive) {
+    }
+
     public record UpdateUserRequest(
             String fullName,
             String email,

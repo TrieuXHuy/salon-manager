@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
 
 import com.salonnbooking.api.dto.AdminUserDtos;
 import com.salonnbooking.service.AdminUserManagementService;
@@ -42,5 +44,11 @@ public class AdminStaffController {
     @PatchMapping("/{id}/toggle-active")
     public AdminUserDtos.UserResponse toggleActive(@PathVariable Long id) {
         return adminUserManagementService.toggleStaffActive(id);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        adminUserManagementService.deleteStaff(id);
+        return ResponseEntity.noContent().build();
     }
 }

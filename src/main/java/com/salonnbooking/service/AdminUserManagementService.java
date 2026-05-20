@@ -11,16 +11,30 @@ import com.salonnbooking.api.dto.AdminUserDtos;
 import com.salonnbooking.domain.Role;
 import com.salonnbooking.domain.User;
 import com.salonnbooking.exception.ResourceNotFoundException;
+import com.salonnbooking.repository.AppointmentRepository;
+import com.salonnbooking.repository.StaffServiceRepository;
+import com.salonnbooking.repository.StaffWorkingHourRepository;
 import com.salonnbooking.repository.UserRepository;
 
 @Service
 public class AdminUserManagementService {
 
     private final UserRepository userRepository;
+    private final AppointmentRepository appointmentRepository;
+    private final StaffServiceRepository staffServiceRepository;
+    private final StaffWorkingHourRepository staffWorkingHourRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public AdminUserManagementService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AdminUserManagementService(
+            UserRepository userRepository,
+            AppointmentRepository appointmentRepository,
+            StaffServiceRepository staffServiceRepository,
+            StaffWorkingHourRepository staffWorkingHourRepository,
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.appointmentRepository = appointmentRepository;
+        this.staffServiceRepository = staffServiceRepository;
+        this.staffWorkingHourRepository = staffWorkingHourRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -31,29 +45,14 @@ public class AdminUserManagementService {
 
     @Transactional
     public AdminUserDtos.UserResponse createStaff(AdminUserDtos.CreateStaffRequest request) {
-        if (request.email() == null || request.email().isBlank()) {
-            throw new IllegalArgumentException("Email is required");
-        }
-        if (request.password() == null || request.password().isBlank()) {
-            throw new IllegalArgumentException("Password is required");
-        }
-        if (userRepository.existsByEmail(request.email())) {
-            throw new IllegalArgumentException("Email already exists: " + request.email());
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        User user = User.builder()
-                .fullName(request.fullName())
-                .email(request.email())
-                .phone(request.phone())
-                .password(passwordEncoder.encode(request.password()))
-                .gender(request.gender())
-                .role(Role.STAFF)
-                .isActive(request.isActive() != null ? request.isActive() : true)
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-        return toResponse(userRepository.save(user));
+        return createUser(
+                request.fullName(),
+                request.email(),
+                request.phone(),
+                request.password(),
+                request.gender(),
+                Role.STAFF,
+                request.isActive());
     }
 
     @Transactional
@@ -71,9 +70,32 @@ public class AdminUserManagementService {
         return toResponse(userRepository.save(user));
     }
 
+    @Transactional
+    public void deleteStaff(Long id) {
+        User user = getUserByRole(id, Role.STAFF);
+        if (appointmentRepository.existsByStaffId(id)) {
+            throw new IllegalArgumentException("Cannot delete STAFF with existing appointments. Disable the account instead.");
+        }
+        staffServiceRepository.deleteAll(staffServiceRepository.findByStaffId(id));
+        staffWorkingHourRepository.deleteAll(staffWorkingHourRepository.findByStaffId(id));
+        userRepository.delete(user);
+    }
+
     @Transactional(readOnly = true)
     public List<AdminUserDtos.UserResponse> getCustomers() {
         return userRepository.findByRole(Role.CUSTOMER).stream().map(this::toResponse).toList();
+    }
+
+    @Transactional
+    public AdminUserDtos.UserResponse createCustomer(AdminUserDtos.CreateCustomerRequest request) {
+        return createUser(
+                request.fullName(),
+                request.email(),
+                request.phone(),
+                request.password(),
+                request.gender(),
+                Role.CUSTOMER,
+                request.isActive());
     }
 
     @Transactional
@@ -88,6 +110,48 @@ public class AdminUserManagementService {
         User user = getUserByRole(id, Role.CUSTOMER);
         user.setIsActive(!Boolean.TRUE.equals(user.getIsActive()));
         user.setUpdatedAt(LocalDateTime.now());
+        return toResponse(userRepository.save(user));
+    }
+
+    @Transactional
+    public void deleteCustomer(Long id) {
+        User user = getUserByRole(id, Role.CUSTOMER);
+        if (appointmentRepository.existsByCustomerId(id)) {
+            throw new IllegalArgumentException("Cannot delete CUSTOMER with existing appointments. Disable the account instead.");
+        }
+        userRepository.delete(user);
+    }
+
+    private AdminUserDtos.UserResponse createUser(
+            String fullName,
+            String email,
+            String phone,
+            String password,
+            com.salonnbooking.domain.Gender gender,
+            Role role,
+            Boolean isActive) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Email is required");
+        }
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException("Password is required");
+        }
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email already exists: " + email);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        User user = User.builder()
+                .fullName(fullName)
+                .email(email)
+                .phone(phone)
+                .password(passwordEncoder.encode(password))
+                .gender(gender)
+                .role(role)
+                .isActive(isActive != null ? isActive : true)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
         return toResponse(userRepository.save(user));
     }
 

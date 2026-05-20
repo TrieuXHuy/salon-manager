@@ -21,11 +21,24 @@ public class BootstrapAdminInitializer {
             SecurityProperties securityProperties) {
         return args -> {
             SecurityProperties.BootstrapAdmin admin = securityProperties.bootstrapAdmin();
-            if (admin == null || !admin.enabled() || userRepository.existsByRole(Role.ADMIN)) {
+            if (admin == null || !admin.enabled()) {
                 return;
             }
 
             LocalDateTime now = LocalDateTime.now();
+            User existingAdmin = userRepository.findByEmail(admin.email())
+                    .filter(user -> user.getRole() == Role.ADMIN)
+                    .orElse(null);
+            if (existingAdmin != null) {
+                existingAdmin.setFullName(admin.fullName());
+                existingAdmin.setPhone(admin.phone());
+                existingAdmin.setPassword(passwordEncoder.encode(admin.password()));
+                existingAdmin.setIsActive(true);
+                existingAdmin.setUpdatedAt(now);
+                userRepository.save(existingAdmin);
+                return;
+            }
+
             User user = User.builder()
                     .fullName(admin.fullName())
                     .email(admin.email())

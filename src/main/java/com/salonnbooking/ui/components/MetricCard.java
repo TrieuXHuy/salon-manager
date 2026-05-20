@@ -19,11 +19,21 @@ public class MetricCard extends RoundedPanel {
 
     private final JLabel valLabel;
 
+    private static int s(int value) {
+        return Theme.scaleDimension(value);
+    }
+
+    private static int gap(int value) {
+        float scale = Math.min(Theme.getDPIScaleFactor(), 1.25f);
+        return Math.round(value * scale);
+    }
+
     public MetricCard(String title, String value, String icon, Color iconBg, Color iconFg) {
-        super(16, Theme.BG_CARD, true);
+        super(gap(16), Theme.BG_CARD, true);
         
-        setLayout(new MigLayout("insets 16, fill", "[][grow]", "[center]"));
-        setPreferredSize(new Dimension(220, 100));
+        setLayout(new MigLayout("insets " + gap(16) + ", fill", "[][grow]", "[center]"));
+        setMinimumSize(new Dimension(0, s(96)));
+        setPreferredSize(new Dimension(s(190), s(104)));
         setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         // 1. Icon Badge Panel
@@ -39,22 +49,22 @@ public class MetricCard extends RoundedPanel {
             }
         };
         iconBadge.setOpaque(false);
-        iconBadge.setPreferredSize(new Dimension(48, 48));
+        iconBadge.setPreferredSize(new Dimension(s(48), s(48)));
         iconBadge.setLayout(new MigLayout("fill, insets 0", "[center]", "[center]"));
 
         JLabel iconLabel = new JLabel(icon);
-        iconLabel.setFont(Theme.FONT_HERO.deriveFont(20f));
+        iconLabel.setFont(Theme.FONT_H2);
         iconLabel.setForeground(iconFg);
         iconBadge.add(iconLabel);
 
-        add(iconBadge, "width 48!, height 48!, gapright 12");
+        add(iconBadge, "width " + s(48) + "!, height " + s(48) + "!, gapright " + gap(12));
 
         // 2. Text Details
-        JPanel textPanel = new JPanel(new MigLayout("wrap 1, insets 0, gapy 2", "[fill]"));
+        JPanel textPanel = new JPanel(new MigLayout("wrap 1, insets 0, gapy " + gap(2), "[fill]"));
         textPanel.setOpaque(false);
 
         valLabel = new JLabel(value);
-        valLabel.setFont(Theme.FONT_HERO.deriveFont(22f));
+        valLabel.setFont(Theme.FONT_H2);
         valLabel.setForeground(Theme.NAVY);
         textPanel.add(valLabel);
 

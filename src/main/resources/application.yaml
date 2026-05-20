@@ -27,5 +27,5 @@ app:
       enabled: true
       full-name: System Admin
       email: admin
-      password: admin
+      password: "123456"
       phone: "0900000000"

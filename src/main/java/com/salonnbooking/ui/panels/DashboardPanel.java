@@ -34,9 +34,21 @@ public class DashboardPanel extends JPanel {
     private final RevenueChartPanel chartPanel;
     private final DefaultTableModel tableModel;
 
+    private static int s(int value) {
+        return Theme.scaleDimension(value);
+    }
+
+    private static int gap(int value) {
+        float scale = Math.min(Theme.getDPIScaleFactor(), 1.25f);
+        return Math.round(value * scale);
+    }
+
     public DashboardPanel() {
         setBackground(Theme.BG_MAIN);
-        setLayout(new MigLayout("wrap 4, insets 30, gap 20, fill", "[fill, 25%][fill, 25%][fill, 25%][fill, 25%]", "[100!][grow]"));
+        setLayout(new MigLayout(
+                "wrap 1, insets " + gap(30) + ", gapy " + gap(20) + ", fill",
+                "[fill]",
+                "[][" + s(420) + "::, grow]"));
 
         // 1. Metric Cards (Hover effects, soft shadows, custom icons)
         revenueCard = new MetricCard(
@@ -68,33 +80,45 @@ public class DashboardPanel extends JPanel {
             new Color(219, 39, 119) // Dark pink
         );
 
-        add(revenueCard);
-        add(appointmentsCard);
-        add(popularServiceCard);
-        add(topEmployeeCard);
+        JPanel metricsPanel = new JPanel(new MigLayout(
+                "wrap 4, insets 0, gap " + gap(16) + ", fillx",
+                "[fill, grow 25, shrink 0][fill, grow 25, shrink 0][fill, grow 25, shrink 0][fill, grow 25, shrink 0]",
+                "[" + s(104) + "!]"));
+        metricsPanel.setOpaque(false);
+        metricsPanel.add(revenueCard, "grow");
+        metricsPanel.add(appointmentsCard, "grow");
+        metricsPanel.add(popularServiceCard, "grow");
+        metricsPanel.add(topEmployeeCard, "grow");
+        add(metricsPanel, "growx");
 
-        // 2. Revenue Chart Panel (Left - Span 2 columns)
-        RoundedPanel chartContainer = new RoundedPanel(16, Theme.BG_CARD, true);
-        chartContainer.setLayout(new MigLayout("insets 24, fill", "[fill]", "[][grow]"));
+        JPanel lowerPanel = new JPanel(new MigLayout(
+                "insets 0, gap " + gap(20) + ", fill",
+                "[fill, grow 40, shrink 0][fill, grow 60, shrink 0]",
+                "[fill, grow]"));
+        lowerPanel.setOpaque(false);
+
+        // 2. Revenue Chart Panel
+        RoundedPanel chartContainer = new RoundedPanel(gap(16), Theme.BG_CARD, true);
+        chartContainer.setLayout(new MigLayout("insets " + gap(24) + ", fill", "[fill]", "[][grow]"));
         
         JLabel chartTitle = new JLabel("Doanh thu tuần này (Triệu VNĐ)");
         chartTitle.setFont(Theme.FONT_H2);
         chartTitle.setForeground(Theme.NAVY);
-        chartContainer.add(chartTitle, "wrap, gapbottom 10");
+        chartContainer.add(chartTitle, "wrap, gapbottom " + gap(10));
 
         chartPanel = new RevenueChartPanel();
         chartContainer.add(chartPanel, "grow");
 
-        add(chartContainer, "span 2, grow");
+        lowerPanel.add(chartContainer, "grow");
 
-        // 3. Recent Appointments Table Panel (Right - Span 2 columns)
-        RoundedPanel tablePanel = new RoundedPanel(16, Theme.BG_CARD, true);
-        tablePanel.setLayout(new MigLayout("insets 24, fill", "[fill]", "[][grow]"));
+        // 3. Recent Appointments Table Panel
+        RoundedPanel tablePanel = new RoundedPanel(gap(16), Theme.BG_CARD, true);
+        tablePanel.setLayout(new MigLayout("insets " + gap(24) + ", fill", "[fill]", "[][grow]"));
         
         JLabel tableTitle = new JLabel("Lịch hẹn sắp tới");
         tableTitle.setFont(Theme.FONT_H2);
         tableTitle.setForeground(Theme.NAVY);
-        tablePanel.add(tableTitle, "wrap, gapbottom 10");
+        tablePanel.add(tableTitle, "wrap, gapbottom " + gap(10));
 
         // Columns
         String[] columns = {"Khách hàng", "Dịch vụ", "Thời gian", "Trạng thái"};
@@ -106,7 +130,7 @@ public class DashboardPanel extends JPanel {
         };
         
         JTable table = new JTable(tableModel);
-        table.setRowHeight(45);
+        table.setRowHeight(s(45));
         table.setFont(Theme.FONT_BODY_REG);
         table.setForeground(Theme.TEXT_PRIMARY);
         table.setSelectionBackground(new Color(241, 245, 249)); // Soft selection color
@@ -120,7 +144,7 @@ public class DashboardPanel extends JPanel {
         header.setFont(Theme.FONT_H3);
         header.setBackground(Theme.BG_CARD);
         header.setForeground(Theme.TEXT_MUTED);
-        header.setPreferredSize(new Dimension(0, 40));
+        header.setPreferredSize(new Dimension(0, s(40)));
         header.setReorderingAllowed(false);
 
         JScrollPane scrollPane = new JScrollPane(table);
@@ -128,7 +152,8 @@ public class DashboardPanel extends JPanel {
         scrollPane.getViewport().setBackground(Theme.BG_CARD);
 
         tablePanel.add(scrollPane, "grow");
-        add(tablePanel, "span 2, grow");
+        lowerPanel.add(tablePanel, "grow");
+        add(lowerPanel, "grow");
 
         // Load Dashboard Data
         loadDashboardData();

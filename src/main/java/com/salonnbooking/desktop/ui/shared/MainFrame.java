@@ -3,6 +3,8 @@ package com.salonnbooking.desktop.ui.shared;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Dimension;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.util.LinkedHashMap;
@@ -20,7 +22,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 import com.salonnbooking.desktop.session.AuthSession;
-import com.salonnbooking.desktop.ui.auth.AuthFrame;
+import com.salonnbooking.ui.LoginFrame;
 import com.salonnbooking.ui.ScreenRouter;
 import com.salonnbooking.ui.theme.Theme;
 import com.salonnbooking.ui.components.SidebarButton;
@@ -43,6 +45,24 @@ public class MainFrame extends JFrame {
     private final Map<String, JPanel> screens = new LinkedHashMap<>();
     private final Map<String, String> screenTitles = new LinkedHashMap<>();
 
+    private static int s(int value) {
+        return Theme.scaleDimension(value);
+    }
+
+    private static int gap(int value) {
+        float scale = Math.min(Theme.getDPIScaleFactor(), 1.25f);
+        return Math.round(value * scale);
+    }
+
+    private static Dimension dashboardWindowSize() {
+        Rectangle bounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        int preferredWidth = s(1250);
+        int preferredHeight = s(800);
+        int width = Math.min(preferredWidth, Math.max(1100, Math.round(bounds.width * 0.9f)));
+        int height = Math.min(preferredHeight, Math.max(720, Math.round(bounds.height * 0.88f)));
+        return new Dimension(width, height);
+    }
+
     public MainFrame(String title) {
         super(title);
 
@@ -50,7 +70,8 @@ public class MainFrame extends JFrame {
         Theme.setupTheme();
 
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        setMinimumSize(new Dimension(1250, 800));
+        setMinimumSize(new Dimension(Math.min(s(1100), 1400), Math.min(s(720), 900)));
+        setSize(dashboardWindowSize());
         setLocationRelativeTo(null);
 
         // Main Container
@@ -59,8 +80,11 @@ public class MainFrame extends JFrame {
 
         // 1. Setup Sidebar (Left, Width 260px, Navy Theme)
         sidebarPanel.setBackground(Theme.BG_SIDEBAR);
-        sidebarPanel.setPreferredSize(new Dimension(260, 0));
-        sidebarPanel.setLayout(new MigLayout("wrap 1, fillx, insets 24 12 24 12", "[fill]", "[][]push"));
+        sidebarPanel.setPreferredSize(new Dimension(s(260), 0));
+        sidebarPanel.setLayout(new MigLayout(
+                "wrap 1, fillx, insets " + gap(24) + " " + gap(12) + " " + gap(24) + " " + gap(12),
+                "[fill]",
+                "[][]push"));
 
         // Brand section
         JPanel logoPanel = new JPanel();
@@ -69,7 +93,7 @@ public class MainFrame extends JFrame {
         logoPanel.setBorder(BorderFactory.createEmptyBorder(10, 16, 30, 16));
 
         JLabel titleLabel = new JLabel("SalonManager");
-        titleLabel.setFont(Theme.FONT_HERO.deriveFont(22f));
+        titleLabel.setFont(Theme.FONT_H1);
         titleLabel.setForeground(Theme.EMERALD);
         titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -79,13 +103,13 @@ public class MainFrame extends JFrame {
         subtitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         logoPanel.add(titleLabel);
-        logoPanel.add(Box.createVerticalStrut(4));
+        logoPanel.add(Box.createVerticalStrut(gap(4)));
         logoPanel.add(subtitleLabel);
         sidebarPanel.add(logoPanel, "growx");
 
         // Menu container
         menuPanel.setOpaque(false);
-        menuPanel.setLayout(new MigLayout("wrap 1, fillx, insets 0, gap 6", "[fill]"));
+        menuPanel.setLayout(new MigLayout("wrap 1, fillx, insets 0, gap " + gap(6), "[fill]"));
         sidebarPanel.add(menuPanel, "growx");
 
         // 2. Right panel (Header + CardLayout Content)
@@ -93,7 +117,9 @@ public class MainFrame extends JFrame {
         rightPanel.setBackground(Theme.BG_MAIN);
 
         // Header Panel
-        JPanel headerPanel = new JPanel(new MigLayout("insets 16 30 16 30, fillx", "[left]push[right]"));
+        JPanel headerPanel = new JPanel(new MigLayout(
+                "insets " + gap(16) + " " + gap(30) + " " + gap(16) + " " + gap(30) + ", fillx",
+                "[left]push[right]"));
         headerPanel.setBackground(Theme.BG_CARD);
         headerPanel.setBorder(new MatteBorder(0, 0, 1, 0, Theme.BORDER));
 
@@ -103,7 +129,7 @@ public class MainFrame extends JFrame {
 
         // Profile details container
         headerProfilePanel.setOpaque(false);
-        headerProfilePanel.setLayout(new MigLayout("insets 0, gap 16", "[][]"));
+        headerProfilePanel.setLayout(new MigLayout("insets 0, gap " + gap(16), "[][]"));
 
         userNameLabel.setFont(Theme.FONT_H3);
         userNameLabel.setForeground(Theme.TEXT_PRIMARY);
@@ -144,7 +170,7 @@ public class MainFrame extends JFrame {
         SidebarButton button = new SidebarButton(label);
         button.addActionListener(e -> showScreen(key));
         sidebarButtons.put(key, button);
-        menuPanel.add(button, "h 44!");
+        menuPanel.add(button, "h " + s(44) + "!");
         menuPanel.revalidate();
         menuPanel.repaint();
     }
@@ -177,11 +203,11 @@ public class MainFrame extends JFrame {
         textPanel.setOpaque(false);
         textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
         textPanel.add(userNameLabel);
-        textPanel.add(Box.createVerticalStrut(2));
+        textPanel.add(Box.createVerticalStrut(gap(2)));
         textPanel.add(userRoleLabel);
         headerProfilePanel.add(textPanel);
         
-        avatarComponent = new CircleAvatar(name, 40, Theme.EMERALD, Theme.TEXT_WHITE);
+        avatarComponent = new CircleAvatar(name, s(40), Theme.EMERALD, Theme.TEXT_WHITE);
         headerProfilePanel.add(avatarComponent);
         
         JButton logoutButton = new JButton("Đăng xuất");
@@ -191,7 +217,7 @@ public class MainFrame extends JFrame {
         logoutButton.setFocusPainted(false);
         logoutButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
         logoutButton.addActionListener(e -> logout());
-        headerProfilePanel.add(logoutButton, "h 34!");
+        headerProfilePanel.add(logoutButton, "h " + s(34) + "!");
         
         headerProfilePanel.revalidate();
         headerProfilePanel.repaint();
@@ -201,8 +227,8 @@ public class MainFrame extends JFrame {
         AuthSession.getInstance().clear();
         SwingUtilities.invokeLater(() -> {
             dispose();
-            AuthFrame authFrame = new AuthFrame();
-            authFrame.setVisible(true);
+            LoginFrame loginFrame = new LoginFrame();
+            loginFrame.setVisible(true);
         });
     }
 }
