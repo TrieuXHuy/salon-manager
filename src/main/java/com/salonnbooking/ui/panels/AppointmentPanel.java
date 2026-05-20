@@ -8,6 +8,7 @@ import com.salonnbooking.desktop.model.Role;
 import com.salonnbooking.desktop.session.AuthSession;
 import com.salonnbooking.desktop.util.JsonUtil;
 import com.salonnbooking.domain.AppointmentStatus;
+import com.salonnbooking.ui.ScreenRouter;
 import com.salonnbooking.ui.components.RoundedPanel;
 import com.salonnbooking.ui.theme.Theme;
 import net.miginfocom.swing.MigLayout;
@@ -83,6 +84,7 @@ public class AppointmentPanel extends JPanel {
         addButton.setBackground(Theme.EMERALD);
         addButton.setFocusPainted(false);
         addButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        addButton.addActionListener(e -> ScreenRouter.go("booking", "Đặt lịch"));
         filterBar.add(addButton, "h 38!");
 
         add(filterBar, "gapbottom 15");
