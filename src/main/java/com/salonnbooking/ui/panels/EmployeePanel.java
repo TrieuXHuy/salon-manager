@@ -103,6 +103,10 @@ public class EmployeePanel extends JPanel {
         SwingWorker<List<AdminUserDtos.UserResponse>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<AdminUserDtos.UserResponse> doInBackground() throws Exception {
+                // Skip API call in mock mode
+                if (com.salonnbooking.desktop.session.AuthSession.getInstance().isMockSession()) {
+                    return createMockData();
+                }
                 try {
                     String json = apiClient.getRaw("/api/admin/staff");
                     Type type = new TypeToken<List<AdminUserDtos.UserResponse>>() {

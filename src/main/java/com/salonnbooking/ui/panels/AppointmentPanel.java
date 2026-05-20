@@ -214,6 +214,10 @@ public class AppointmentPanel extends JPanel {
         SwingWorker<List<BookingDtos.AppointmentResponse>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<BookingDtos.AppointmentResponse> doInBackground() throws Exception {
+                // Skip API call in mock mode
+                if (AuthSession.getInstance().isMockSession()) {
+                    return createMockData();
+                }
                 boolean isAdmin = AuthSession.getInstance().getRole() == Role.ADMIN;
                 String path = isAdmin ? "/api/admin/appointments" : "/api/staff/appointments";
                 try {

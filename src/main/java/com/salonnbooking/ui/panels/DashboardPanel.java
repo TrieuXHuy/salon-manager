@@ -142,6 +142,11 @@ public class DashboardPanel extends JPanel {
             protected DashboardData doInBackground() throws Exception {
                 DashboardData data = new DashboardData();
                 
+                // Skip all API calls in mock mode — UI already has fallback values
+                if (com.salonnbooking.desktop.session.AuthSession.getInstance().isMockSession()) {
+                    return data;
+                }
+                
                 // 1. Fetch Summary
                 try {
                     String json = apiClient.getRaw("/api/admin/dashboard/summary");

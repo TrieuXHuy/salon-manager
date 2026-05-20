@@ -144,6 +144,10 @@ public class ServicePanel extends JPanel {
         SwingWorker<List<ServiceDtos.Response>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<ServiceDtos.Response> doInBackground() throws Exception {
+                // Skip API call in mock mode
+                if (com.salonnbooking.desktop.session.AuthSession.getInstance().isMockSession()) {
+                    return createMockData();
+                }
                 try {
                     String json = apiClient.getRaw("/api/admin/services");
                     Type type = new TypeToken<List<ServiceDtos.Response>>() {}.getType();
