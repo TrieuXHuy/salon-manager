@@ -23,6 +23,7 @@ import javax.swing.WindowConstants;
 
 import com.salonnbooking.desktop.session.AuthSession;
 import com.salonnbooking.ui.LoginFrame;
+import com.salonnbooking.ui.ScreenLifecycle;
 import com.salonnbooking.ui.ScreenRouter;
 import com.salonnbooking.ui.theme.Theme;
 import com.salonnbooking.ui.components.SidebarButton;
@@ -177,6 +178,10 @@ public class MainFrame extends JFrame {
 
     public void showScreen(String key) {
         cardLayout.show(contentPanel, key);
+        JPanel screen = screens.get(key);
+        if (screen instanceof ScreenLifecycle lifecycle) {
+            lifecycle.onScreenShown();
+        }
         
         // Update active states
         sidebarButtons.forEach((k, btn) -> btn.setActive(k.equals(key)));

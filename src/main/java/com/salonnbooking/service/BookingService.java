@@ -6,10 +6,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.salonnbooking.api.dto.BookingDtos;
 import com.salonnbooking.domain.Appointment;
@@ -33,6 +36,7 @@ import com.salonnbooking.security.CurrentUserService;
 @Service
 public class BookingService {
 
+    private static final Logger log = LoggerFactory.getLogger(BookingService.class);
     private static final int SLOT_STEP_MINUTES = 15;
     private static final Collection<AppointmentStatus> BLOCKING_STATUSES = List.of(
             AppointmentStatus.PENDING,
@@ -79,6 +83,18 @@ public class BookingService {
     }
 
     @Transactional(readOnly = true)
+    public List<BookingDtos.StaffResponse> getStaffByServices(List<Long> serviceIds) {
+        List<com.salonnbooking.domain.Service> services = getActiveServices(serviceIds);
+        List<BookingDtos.StaffResponse> matchingStaff = userRepository.findByRole(Role.STAFF).stream()
+                .filter(user -> Boolean.TRUE.equals(user.getIsActive()))
+                .filter(user -> staffCanDoAllServices(user.getId(), services))
+                .map(this::toStaffResponse)
+                .toList();
+        log.info("Booking staff lookup serviceIds={} matchedStaffCount={}", serviceIds, matchingStaff.size());
+        return matchingStaff;
+    }
+
+    @Transactional(readOnly = true)
     public List<BookingDtos.AvailableSlotResponse> getAvailableSlots(Long staffId, LocalDate date, List<Long> serviceIds) {
         User staff = getActiveStaff(staffId);
         List<com.salonnbooking.domain.Service> services = getActiveServices(serviceIds);
@@ -108,6 +124,7 @@ public class BookingService {
 
         return workingHours.stream()
                 .flatMap(hour -> buildSlots(date, hour, totalDuration, existingAppointments).stream())
+                .sorted((a, b) -> a.start().compareTo(b.start()))
                 .toList();
     }
 
@@ -213,7 +230,8 @@ public class BookingService {
                 appointmentStart.toLocalDate(),
                 services.stream().map(com.salonnbooking.domain.Service::getId).toList());
         boolean available = slots.stream().anyMatch(slot -> slot.start().equals(appointmentStart)
-                && slot.end().equals(appointmentEnd));
+                && slot.end().equals(appointmentEnd)
+                && Boolean.TRUE.equals(slot.available()));
         if (!available) {
             throw new IllegalArgumentException("Selected slot is not available");
         }
@@ -226,11 +244,15 @@ public class BookingService {
             List<Appointment> existingAppointments) {
         LocalDateTime cursor = LocalDateTime.of(date, hour.getStartTime());
         LocalDateTime workEnd = LocalDateTime.of(date, hour.getEndTime());
+        LocalDateTime now = LocalDateTime.now();
 
         return java.util.stream.Stream.iterate(cursor, slotStart -> !slotStart.plusMinutes(totalDuration).isAfter(workEnd),
                         slotStart -> slotStart.plusMinutes(SLOT_STEP_MINUTES))
-                .filter(slotStart -> !overlapsExisting(slotStart, slotStart.plusMinutes(totalDuration), existingAppointments))
-                .map(slotStart -> new BookingDtos.AvailableSlotResponse(slotStart, slotStart.plusMinutes(totalDuration)))
+                .map(slotStart -> {
+                    LocalDateTime slotEnd = slotStart.plusMinutes(totalDuration);
+                    boolean available = !slotStart.isBefore(now) && !overlapsExisting(slotStart, slotEnd, existingAppointments);
+                    return new BookingDtos.AvailableSlotResponse(slotStart, slotEnd, available);
+                })
                 .toList();
     }
 
@@ -275,16 +297,32 @@ public class BookingService {
     }
 
     private void ensureStaffCanDoServices(Long staffId, List<com.salonnbooking.domain.Service> services) {
-        Set<Long> staffServiceIds = staffServiceRepository.findByStaffId(staffId).stream()
-                .map(StaffService::getService)
-                .filter(service -> service != null)
-                .map(com.salonnbooking.domain.Service::getId)
-                .collect(java.util.stream.Collectors.toSet());
-
-        boolean canDoAll = services.stream().allMatch(service -> staffServiceIds.contains(service.getId()));
-        if (!canDoAll) {
+        if (!staffCanDoAllServices(staffId, services)) {
             throw new IllegalArgumentException("Staff cannot perform one or more selected services");
         }
+    }
+
+    private boolean staffCanDoAllServices(Long staffId, List<com.salonnbooking.domain.Service> services) {
+        List<com.salonnbooking.domain.Service> assignedServices = staffServiceRepository.findByStaffId(staffId).stream()
+                .map(StaffService::getService)
+                .filter(service -> service != null)
+                .toList();
+        Set<Long> staffServiceIds = assignedServices.stream()
+                .map(com.salonnbooking.domain.Service::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        Set<String> staffServiceNames = assignedServices.stream()
+                .map(com.salonnbooking.domain.Service::getName)
+                .map(this::normalizeServiceName)
+                .filter(name -> !name.isBlank())
+                .collect(java.util.stream.Collectors.toSet());
+
+        return services.stream().allMatch(service ->
+                staffServiceIds.contains(service.getId())
+                        || staffServiceNames.contains(normalizeServiceName(service.getName())));
+    }
+
+    private String normalizeServiceName(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 
     private BookingDtos.StaffResponse toStaffResponse(User staff) {

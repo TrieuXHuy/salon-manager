@@ -1,12 +1,11 @@
 package com.salonnbooking.ui.panels;
 
 import com.google.gson.reflect.TypeToken;
-import com.salonnbooking.api.dto.AdminUserDtos;
 import com.salonnbooking.api.dto.BookingDtos;
 import com.salonnbooking.api.dto.ServiceDtos;
 import com.salonnbooking.desktop.api.ApiClient;
 import com.salonnbooking.desktop.util.JsonUtil;
-import com.salonnbooking.domain.Role;
+import com.salonnbooking.ui.ScreenLifecycle;
 import com.salonnbooking.ui.ScreenRouter;
 import com.salonnbooking.ui.components.CircleAvatar;
 import com.salonnbooking.ui.components.RoundedPanel;
@@ -19,17 +18,20 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 
-public class BookingWizardPanel extends JPanel {
+public class BookingWizardPanel extends JPanel implements ScreenLifecycle {
 
     private static final String BASE_URL = "http://localhost:8080";
 
@@ -58,6 +60,8 @@ public class BookingWizardPanel extends JPanel {
     // Step 3 state
     private JButton selectedTimeButton;
     private JLabel dateLabel;
+    private JLabel selectedTimeLabel;
+    private JPanel slotsGrid;
 
     // Step 4 widgets
     private JPanel confirmServicesPanel;
@@ -134,6 +138,11 @@ public class BookingWizardPanel extends JPanel {
 
     public void setOnBookingConfirmed(Consumer<BookingSummary> callback) {
         this.onBookingConfirmed = callback;
+    }
+
+    @Override
+    public void onScreenShown() {
+        resetForNewBooking();
     }
 
     // ========================= STEP 1: Chọn dịch vụ =========================
@@ -336,7 +345,14 @@ public class BookingWizardPanel extends JPanel {
         grid.setOpaque(false);
 
         ButtonGroup staffGroup = new ButtonGroup();
-        for (StaffInfo staff : loadStaff()) {
+        List<StaffInfo> staffList = loadStaff();
+        if (staffList.isEmpty()) {
+            JLabel empty = new JLabel("Không có nhân viên đang hoạt động được phân công đủ dịch vụ đã chọn", SwingConstants.CENTER);
+            empty.setFont(Theme.FONT_H3);
+            empty.setForeground(Theme.TEXT_MUTED);
+            grid.add(empty, "h " + s(80) + "!, growx");
+        }
+        for (StaffInfo staff : staffList) {
             grid.add(createStaffCard(staff, staffGroup), "h " + s(104) + "!, growx");
         }
 
@@ -442,54 +458,36 @@ public class BookingWizardPanel extends JPanel {
         title.setForeground(Theme.NAVY);
         panel.add(title, "gapbottom " + gap(10));
 
-        // Main content: Date picker left, Time slots right
         JPanel mainArea = new JPanel(new MigLayout(
                 "fill, insets 0, gap " + gap(16),
-                "[fill, grow 35][fill, grow 65]",
+                "[fill, grow 55][fill, grow 45]",
                 "[fill]"));
         mainArea.setOpaque(false);
 
-        // Date picker
         RoundedPanel datePanel = new RoundedPanel(gap(12), Theme.BG_CARD, true);
         datePanel.setLayout(new MigLayout(
                 "wrap 1, insets " + gap(20) + ", fillx",
-                "[fill]",
-                "[]" + gap(14) + "[]" + gap(14) + "[]"));
+                "[center]",
+                "[]" + gap(18) + "[]" + gap(18) + "[]push"));
 
         JLabel dateTitle = new JLabel("📅 Chọn ngày");
         dateTitle.setFont(Theme.FONT_H3);
         dateTitle.setForeground(Theme.NAVY);
-        datePanel.add(dateTitle);
+        datePanel.add(dateTitle, "align left, growx");
 
-        dateLabel = new JLabel(selectedDate.format(DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy", new Locale("vi", "VN"))));
-        dateLabel.setFont(Theme.FONT_H1);
+        dateLabel = new JLabel(formatSelectedDate());
+        dateLabel.setFont(Theme.FONT_H2);
         dateLabel.setForeground(Theme.NAVY);
         dateLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        datePanel.add(dateLabel, "gaptop 8");
+        dateLabel.setPreferredSize(new Dimension(s(320), s(32)));
+        datePanel.add(dateLabel, "w " + s(320) + "!, h " + s(32) + "!");
 
-        JPanel dateButtons = new JPanel(new MigLayout("insets 0, fillx, gap " + gap(8), "[50%][50%]"));
-        dateButtons.setOpaque(false);
+        JButton calendarBtn = createNavButton("📅 Mở lịch", Theme.EMERALD);
+        calendarBtn.setFont(Theme.FONT_BODY_LG);
+        calendarBtn.addActionListener(e -> showCalendarDialog());
+        datePanel.add(calendarBtn, "h " + s(42) + "!, w " + s(220) + "!");
 
-        JButton prevDay = createNavButton("← Trước", Theme.SLATE);
-        prevDay.setFont(Theme.FONT_BODY_LG);
-        prevDay.addActionListener(e -> {
-            if (selectedDate.isAfter(LocalDate.now())) {
-                selectedDate = selectedDate.minusDays(1);
-                dateLabel.setText(selectedDate.format(DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy", new Locale("vi", "VN"))));
-            }
-        });
-        dateButtons.add(prevDay, "h " + s(36) + "!, growx");
-
-        JButton nextDay = createNavButton("Sau →", Theme.EMERALD);
-        nextDay.setFont(Theme.FONT_BODY_LG);
-        nextDay.addActionListener(e -> {
-            selectedDate = selectedDate.plusDays(1);
-            dateLabel.setText(selectedDate.format(DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy", new Locale("vi", "VN"))));
-        });
-        dateButtons.add(nextDay, "h " + s(36) + "!, growx");
-
-        datePanel.add(dateButtons);
-        mainArea.add(datePanel);
+        mainArea.add(datePanel, "grow");
 
         // Time slots grid
         RoundedPanel slotsPanel = new RoundedPanel(gap(12), Theme.BG_CARD, true);
@@ -503,25 +501,16 @@ public class BookingWizardPanel extends JPanel {
         slotsTitle.setForeground(Theme.NAVY);
         slotsPanel.add(slotsTitle);
 
-        JPanel slotsGrid = new JPanel(new MigLayout(
+        JPanel legend = new JPanel(new MigLayout("insets 0, gap " + gap(10), "[][]"));
+        legend.setOpaque(false);
+        legend.add(createSlotLegend("Trống", new Color(209, 250, 229), new Color(6, 95, 70)));
+        legend.add(createSlotLegend("Đã đặt / không hợp lệ", new Color(229, 231, 235), Theme.SLATE));
+        slotsPanel.add(legend, "growx");
+
+        slotsGrid = new JPanel(new MigLayout(
                 "wrap 3, gap " + gap(8) + ", fillx, insets 0",
                 "[fill, grow][fill, grow][fill, grow]"));
         slotsGrid.setOpaque(false);
-
-        // Generate time slots from 08:00 to 20:00
-        List<LocalTime> unavailableSlots = List.of(
-            LocalTime.of(10, 0), LocalTime.of(10, 30),
-            LocalTime.of(14, 0), LocalTime.of(14, 30)
-        );
-
-        for (int h = 8; h < 20; h++) {
-            for (int m = 0; m < 60; m += 30) {
-                LocalTime time = LocalTime.of(h, m);
-                boolean available = !unavailableSlots.contains(time);
-                JButton slotBtn = createTimeSlotButton(time, available);
-                slotsGrid.add(slotBtn, "h " + s(40) + "!, growx");
-            }
-        }
 
         JScrollPane slotsScroll = new JScrollPane(slotsGrid);
         slotsScroll.setBorder(null);
@@ -537,12 +526,13 @@ public class BookingWizardPanel extends JPanel {
         selectedBar.setLayout(new MigLayout(
                 "insets " + gap(10) + " " + gap(20) + " " + gap(10) + " " + gap(20) + ", fillx",
                 "[center]"));
-        JLabel selLabel = new JLabel("Vui lòng chọn khung giờ phía trên");
-        selLabel.setFont(Theme.FONT_H3);
-        selLabel.setForeground(Theme.TEXT_MUTED);
-        selectedBar.add(selLabel);
+        selectedTimeLabel = new JLabel(selectedTimeText());
+        selectedTimeLabel.setFont(Theme.FONT_H3);
+        selectedTimeLabel.setForeground(Theme.TEXT_MUTED);
+        selectedBar.add(selectedTimeLabel);
         panel.add(selectedBar, "h " + s(44) + "!, gaptop " + gap(8));
 
+        loadAvailableSlots();
         return panel;
     }
 
@@ -553,44 +543,321 @@ public class BookingWizardPanel extends JPanel {
         btn.setFocusPainted(false);
         btn.setBorderPainted(false);
 
-        if (available) {
-            btn.setBackground(new Color(209, 250, 229));
-            btn.setForeground(new Color(6, 95, 70));
-            btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-            btn.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseEntered(MouseEvent e) {
-                    if (btn != selectedTimeButton) {
-                        btn.setBackground(new Color(167, 243, 208));
-                    }
-                }
-                @Override
-                public void mouseExited(MouseEvent e) {
-                    if (btn != selectedTimeButton) {
-                        btn.setBackground(new Color(209, 250, 229));
-                    }
-                }
-            });
-
-            btn.addActionListener(e -> {
-                // Deselect previous
-                if (selectedTimeButton != null) {
-                    selectedTimeButton.setBackground(new Color(209, 250, 229));
-                    selectedTimeButton.setForeground(new Color(6, 95, 70));
-                }
-                selectedTimeButton = btn;
-                btn.setBackground(Theme.EMERALD);
-                btn.setForeground(Theme.TEXT_WHITE);
-                selectedTime = time;
-            });
-        } else {
+        if (!available) {
             btn.setBackground(new Color(229, 231, 235));
             btn.setForeground(Theme.SLATE);
             btn.setEnabled(false);
+            btn.setToolTipText("Khung giờ đã có lịch hoặc không còn hợp lệ");
+            return btn;
         }
 
+        btn.setBackground(new Color(209, 250, 229));
+        btn.setForeground(new Color(6, 95, 70));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setToolTipText("Khung giờ trống");
+        btn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                if (btn != selectedTimeButton) {
+                    btn.setBackground(new Color(167, 243, 208));
+                }
+            }
+            @Override
+            public void mouseExited(MouseEvent e) {
+                if (btn != selectedTimeButton) {
+                    btn.setBackground(new Color(209, 250, 229));
+                }
+            }
+        });
+
+        btn.addActionListener(e -> {
+            if (selectedTimeButton != null) {
+                selectedTimeButton.setBackground(new Color(209, 250, 229));
+                selectedTimeButton.setForeground(new Color(6, 95, 70));
+            }
+            selectedTimeButton = btn;
+            btn.setBackground(Theme.EMERALD);
+            btn.setForeground(Theme.TEXT_WHITE);
+            selectedTime = time;
+            if (selectedTimeLabel != null) {
+                selectedTimeLabel.setText(selectedTimeText());
+                selectedTimeLabel.setForeground(Theme.EMERALD);
+            }
+        });
+
         return btn;
+    }
+
+    private JLabel createSlotLegend(String text, Color bg, Color fg) {
+        JLabel label = new JLabel(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(bg);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        label.setFont(Theme.FONT_BODY_SM);
+        label.setForeground(fg);
+        label.setHorizontalAlignment(SwingConstants.CENTER);
+        label.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8));
+        return label;
+    }
+
+    private void loadAvailableSlots() {
+        if (slotsGrid == null || selectedStaffId == null || selectedServices.isEmpty()) {
+            return;
+        }
+
+        selectedTime = null;
+        selectedTimeButton = null;
+        if (selectedTimeLabel != null) {
+            selectedTimeLabel.setText("Đang tải khung giờ trống...");
+            selectedTimeLabel.setForeground(Theme.TEXT_MUTED);
+        }
+        slotsGrid.removeAll();
+        JLabel loading = new JLabel("Đang tải...", SwingConstants.CENTER);
+        loading.setFont(Theme.FONT_BODY_LG);
+        loading.setForeground(Theme.TEXT_MUTED);
+        slotsGrid.add(loading, "span 3, growx, h " + s(48) + "!");
+        slotsGrid.revalidate();
+        slotsGrid.repaint();
+
+        Long staffId = selectedStaffId;
+        LocalDate date = selectedDate;
+        List<Long> serviceIds = selectedServices.stream().map(ServiceDtos.Response::id).toList();
+
+        SwingWorker<List<BookingDtos.AvailableSlotResponse>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected List<BookingDtos.AvailableSlotResponse> doInBackground() throws Exception {
+                String ids = serviceIds.stream().map(String::valueOf).reduce((a, b) -> a + "," + b).orElse("");
+                String path = "/api/booking/available-slots?staffId=" + staffId
+                        + "&date=" + date
+                        + "&serviceIds=" + URLEncoder.encode(ids, StandardCharsets.UTF_8);
+                String json = apiClient.getRaw(path);
+                Type type = new TypeToken<List<BookingDtos.AvailableSlotResponse>>() {}.getType();
+                return JsonUtil.fromJson(json, type);
+            }
+
+            @Override
+            protected void done() {
+                if (!staffId.equals(selectedStaffId) || !date.equals(selectedDate)
+                        || !serviceIds.equals(selectedServices.stream().map(ServiceDtos.Response::id).toList())) {
+                    return;
+                }
+                slotsGrid.removeAll();
+                try {
+                    List<BookingDtos.AvailableSlotResponse> slots = get();
+                    if (slots == null || slots.isEmpty()) {
+                        JLabel empty = new JLabel("Nhân viên không có ca làm trong ngày này", SwingConstants.CENTER);
+                        empty.setFont(Theme.FONT_BODY_LG);
+                        empty.setForeground(Theme.TEXT_MUTED);
+                        slotsGrid.add(empty, "span 3, growx, h " + s(56) + "!");
+                    } else {
+                        boolean hasAvailableSlot = false;
+                        for (BookingDtos.AvailableSlotResponse slot : slots) {
+                            boolean available = Boolean.TRUE.equals(slot.available());
+                            hasAvailableSlot = hasAvailableSlot || available;
+                            slotsGrid.add(createTimeSlotButton(
+                                    slot.start().toLocalTime(),
+                                    available), "h " + s(40) + "!, growx");
+                        }
+                        if (!hasAvailableSlot && selectedTimeLabel != null) {
+                            selectedTimeLabel.setText(noAvailableSlotText());
+                            selectedTimeLabel.setForeground(Theme.AMBER);
+                        }
+                    }
+                    if (selectedTimeLabel != null && slots != null && slots.stream().anyMatch(slot -> Boolean.TRUE.equals(slot.available()))) {
+                        selectedTimeLabel.setText(selectedTimeText());
+                        selectedTimeLabel.setForeground(Theme.TEXT_MUTED);
+                    }
+                } catch (Exception ex) {
+                    JLabel error = new JLabel("Không tải được khung giờ trống", SwingConstants.CENTER);
+                    error.setFont(Theme.FONT_BODY_LG);
+                    error.setForeground(Theme.CRIMSON);
+                    slotsGrid.add(error, "span 3, growx, h " + s(56) + "!");
+                    JOptionPane.showMessageDialog(BookingWizardPanel.this,
+                            "Không tải được khung giờ trống: " + rootMessage(ex),
+                            "Lỗi tải dữ liệu",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+                slotsGrid.revalidate();
+                slotsGrid.repaint();
+            }
+        };
+        worker.execute();
+    }
+
+    private String noAvailableSlotText() {
+        if (selectedDate.equals(LocalDate.now())) {
+            return "Hôm nay không còn khung giờ trống, vui lòng chọn ngày khác";
+        }
+        return "Ngày này không còn khung giờ trống, vui lòng chọn ngày khác";
+    }
+
+    private void showCalendarDialog() {
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Chọn ngày", Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        dialog.setResizable(false);
+
+        JPanel root = new JPanel(new MigLayout(
+                "wrap 1, insets " + gap(16) + ", fillx",
+                "[fill]",
+                "[][]"));
+        root.setBackground(Theme.BG_CARD);
+
+        YearMonth[] visibleMonth = {YearMonth.from(selectedDate)};
+        JLabel monthLabel = new JLabel("", SwingConstants.CENTER);
+        monthLabel.setFont(Theme.FONT_H2);
+        monthLabel.setForeground(Theme.NAVY);
+
+        JPanel header = new JPanel(new MigLayout("insets 0, fillx", "[]push[grow]push[]"));
+        header.setOpaque(false);
+        JButton prevMonth = createNavButton("‹", Theme.SLATE);
+        JButton nextMonth = createNavButton("›", Theme.EMERALD);
+        header.add(prevMonth, "w " + s(42) + "!, h " + s(34) + "!");
+        header.add(monthLabel, "growx");
+        header.add(nextMonth, "w " + s(42) + "!, h " + s(34) + "!");
+        root.add(header);
+
+        JPanel calendarGrid = new JPanel();
+        calendarGrid.setOpaque(false);
+        root.add(calendarGrid, "growx");
+
+        Runnable refreshCalendar = () -> {
+            renderCalendarGrid(calendarGrid, monthLabel, visibleMonth[0], dialog);
+            YearMonth currentMonth = YearMonth.from(LocalDate.now());
+            prevMonth.setEnabled(visibleMonth[0].isAfter(currentMonth));
+            root.revalidate();
+            root.repaint();
+            dialog.pack();
+        };
+
+        prevMonth.addActionListener(e -> {
+            YearMonth currentMonth = YearMonth.from(LocalDate.now());
+            if (visibleMonth[0].isAfter(currentMonth)) {
+                visibleMonth[0] = visibleMonth[0].minusMonths(1);
+                refreshCalendar.run();
+            }
+        });
+        nextMonth.addActionListener(e -> {
+            visibleMonth[0] = visibleMonth[0].plusMonths(1);
+            refreshCalendar.run();
+        });
+
+        dialog.setContentPane(root);
+        refreshCalendar.run();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private void renderCalendarGrid(JPanel calendarGrid, JLabel monthLabel, YearMonth month, JDialog dialog) {
+        calendarGrid.removeAll();
+        calendarGrid.setLayout(new MigLayout(
+                "wrap 7, insets 0, gap " + gap(6),
+                repeatFixedColumns(7, s(44)),
+                ""));
+
+        monthLabel.setText("Tháng " + month.getMonthValue() + "/" + month.getYear());
+
+        String[] dayNames = {"T2", "T3", "T4", "T5", "T6", "T7", "CN"};
+        for (String dayName : dayNames) {
+            JLabel label = new JLabel(dayName, SwingConstants.CENTER);
+            label.setFont(Theme.FONT_BODY_SM.deriveFont(Font.BOLD));
+            label.setForeground(Theme.TEXT_MUTED);
+            calendarGrid.add(label, "w " + s(44) + "!, h " + s(24) + "!");
+        }
+
+        int firstDayOffset = month.atDay(1).getDayOfWeek().getValue() - 1;
+        for (int i = 0; i < firstDayOffset; i++) {
+            calendarGrid.add(Box.createRigidArea(new Dimension(s(44), s(38))), "w " + s(44) + "!, h " + s(38) + "!");
+        }
+
+        LocalDate today = LocalDate.now();
+        for (int day = 1; day <= month.lengthOfMonth(); day++) {
+            LocalDate date = month.atDay(day);
+            JButton dayBtn = new JButton(String.valueOf(day));
+            dayBtn.setFont(Theme.FONT_BODY_LG);
+            dayBtn.setFocusPainted(false);
+            dayBtn.setBorderPainted(false);
+
+            boolean disabled = date.isBefore(today);
+            boolean selected = date.equals(selectedDate);
+            if (disabled) {
+                dayBtn.setEnabled(false);
+                dayBtn.setBackground(new Color(229, 231, 235));
+                dayBtn.setForeground(Theme.SLATE);
+            } else if (selected) {
+                dayBtn.setBackground(Theme.EMERALD);
+                dayBtn.setForeground(Theme.TEXT_WHITE);
+            } else {
+                dayBtn.setBackground(new Color(209, 250, 229));
+                dayBtn.setForeground(new Color(6, 95, 70));
+                dayBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            }
+
+            dayBtn.addActionListener(e -> {
+                updateSelectedDate(date);
+                dialog.dispose();
+            });
+            calendarGrid.add(dayBtn, "w " + s(44) + "!, h " + s(38) + "!");
+        }
+    }
+
+    private void updateSelectedDate(LocalDate date) {
+        if (date.isBefore(LocalDate.now())) {
+            return;
+        }
+        if (selectedTimeButton != null) {
+            selectedTimeButton.setBackground(new Color(209, 250, 229));
+            selectedTimeButton.setForeground(new Color(6, 95, 70));
+        }
+        selectedDate = date;
+        selectedTime = null;
+        selectedTimeButton = null;
+        if (dateLabel != null) {
+            dateLabel.setText(formatSelectedDate());
+        }
+        if (selectedTimeLabel != null) {
+            selectedTimeLabel.setText(selectedTimeText());
+            selectedTimeLabel.setForeground(Theme.TEXT_MUTED);
+        }
+        loadAvailableSlots();
+    }
+
+    private void ensureTodayAsDefaultDate() {
+        selectedDate = LocalDate.now();
+        selectedTime = null;
+        selectedTimeButton = null;
+        if (dateLabel != null) {
+            dateLabel.setText(formatSelectedDate());
+        }
+        if (selectedTimeLabel != null) {
+            selectedTimeLabel.setText(selectedTimeText());
+            selectedTimeLabel.setForeground(Theme.TEXT_MUTED);
+        }
+    }
+
+    private String formatSelectedDate() {
+        return selectedDate.format(DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy", new Locale("vi", "VN")));
+    }
+
+    private String selectedTimeText() {
+        if (selectedTime == null) {
+            return "Vui lòng chọn khung giờ phía trên";
+        }
+        return "Đã chọn: " + selectedTime.format(DateTimeFormatter.ofPattern("HH:mm")) + " - " + formatSelectedDate();
+    }
+
+    private static String repeatFixedColumns(int count, int width) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            builder.append("[").append(width).append("!]");
+        }
+        return builder.toString();
     }
 
     // ========================= STEP 4: Xác nhận =========================
@@ -793,6 +1060,9 @@ public class BookingWizardPanel extends JPanel {
     }
 
     private void updateStep() {
+        if (currentStep == 1) {
+            refreshStep2();
+        }
         cardLayout.show(contentPanel, "step" + (currentStep + 1));
         stepIndicator.setCurrentStep(currentStep);
         backBtn.setVisible(currentStep > 0);
@@ -804,6 +1074,16 @@ public class BookingWizardPanel extends JPanel {
             nextBtn.setText("Tiếp theo →");
             nextBtn.setBackground(Theme.EMERALD);
         }
+    }
+
+    private void refreshStep2() {
+        contentPanel.removeAll();
+        contentPanel.add(createStep1(), "step1");
+        contentPanel.add(createStep2(), "step2");
+        contentPanel.add(createStep3(), "step3");
+        contentPanel.add(createStep4(), "step4");
+        contentPanel.revalidate();
+        contentPanel.repaint();
     }
 
     private BookingSummary buildSummary() {
@@ -854,19 +1134,12 @@ public class BookingWizardPanel extends JPanel {
                 nextBtn.setEnabled(true);
                 backBtn.setEnabled(true);
                 try {
-                    get();
-                    JOptionPane.showMessageDialog(BookingWizardPanel.this,
-                            "Đặt lịch thành công!\n\n" +
-                                    "Dịch vụ: " + selectedServices.size() + " dịch vụ\n" +
-                                    "Nhân viên: " + selectedStaffName + "\n" +
-                                    "Thời gian: " + selectedDate + " " + selectedTime + "\n\n" +
-                                    "Lịch hẹn đã được lưu vào hệ thống.",
-                            "Đặt lịch thành công",
-                            JOptionPane.INFORMATION_MESSAGE);
+                    BookingDtos.AppointmentResponse response = get();
+                    showBookingSuccessDialog(response);
                     if (onBookingConfirmed != null) {
                         onBookingConfirmed.accept(buildSummary());
                     }
-                    resetForm();
+                    resetForNewBooking();
                     ScreenRouter.go("appointments");
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(BookingWizardPanel.this,
@@ -877,6 +1150,88 @@ public class BookingWizardPanel extends JPanel {
             }
         };
         worker.execute();
+    }
+
+    private void showBookingSuccessDialog(BookingDtos.AppointmentResponse response) {
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Đặt lịch thành công", Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        dialog.setResizable(false);
+
+        JPanel root = new JPanel(new MigLayout(
+                "wrap 1, insets " + gap(24) + ", fillx",
+                "[fill]",
+                "[]12[]18[]"));
+        root.setBackground(Theme.BG_CARD);
+
+        JPanel header = new JPanel(new MigLayout("insets 0, gap " + gap(12), "[]12[grow]", "[]"));
+        header.setOpaque(false);
+
+        JLabel check = new JLabel("✓", SwingConstants.CENTER) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Theme.EMERALD);
+                g2.fillOval(0, 0, getWidth(), getHeight());
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        check.setOpaque(false);
+        check.setForeground(Theme.TEXT_WHITE);
+        check.setFont(Theme.FONT_H1);
+        header.add(check, "w " + s(48) + "!, h " + s(48) + "!");
+
+        JPanel titleBlock = new JPanel(new MigLayout("wrap 1, insets 0, gapy 2", "[fill]"));
+        titleBlock.setOpaque(false);
+        JLabel title = new JLabel("Đặt lịch thành công");
+        title.setFont(Theme.FONT_H1);
+        title.setForeground(Theme.NAVY);
+        titleBlock.add(title);
+        JLabel subtitle = new JLabel("Lịch hẹn đã được lưu vào hệ thống");
+        subtitle.setFont(Theme.FONT_BODY_LG);
+        subtitle.setForeground(Theme.TEXT_MUTED);
+        titleBlock.add(subtitle);
+        header.add(titleBlock, "growx");
+        root.add(header);
+
+        JPanel details = new JPanel(new MigLayout(
+                "wrap 2, insets " + gap(14) + ", gapx " + gap(18) + ", gapy " + gap(8),
+                "[right][grow]",
+                ""));
+        details.setBackground(new Color(248, 250, 252));
+        details.setBorder(BorderFactory.createLineBorder(Theme.BORDER, 1));
+
+        String idText = response != null && response.id() != null ? "#" + response.id() : "-";
+        String serviceText = selectedServices.size() + " dịch vụ";
+        String staffText = selectedStaffName != null ? selectedStaffName : "-";
+        String timeText = selectedDate + " " + selectedTime;
+        addSuccessRow(details, "Mã lịch", idText);
+        addSuccessRow(details, "Dịch vụ", serviceText);
+        addSuccessRow(details, "Nhân viên", staffText);
+        addSuccessRow(details, "Thời gian", timeText);
+        root.add(details, "growx");
+
+        JButton ok = createNavButton("Hoàn tất", Theme.EMERALD);
+        ok.addActionListener(e -> dialog.dispose());
+        root.add(ok, "align right, w " + s(130) + "!, h " + s(40) + "!");
+
+        dialog.setContentPane(root);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private void addSuccessRow(JPanel parent, String label, String value) {
+        JLabel labelView = new JLabel(label + ":");
+        labelView.setFont(Theme.FONT_BODY_LG);
+        labelView.setForeground(Theme.TEXT_MUTED);
+        parent.add(labelView);
+
+        JLabel valueView = new JLabel(value);
+        valueView.setFont(Theme.FONT_H3);
+        valueView.setForeground(Theme.NAVY);
+        parent.add(valueView, "growx");
     }
 
     private List<ServiceDtos.Response> loadServices() {
@@ -898,12 +1253,19 @@ public class BookingWizardPanel extends JPanel {
 
     private List<StaffInfo> loadStaff() {
         try {
-            String json = apiClient.getRaw("/api/admin/staff");
-            Type type = new TypeToken<List<AdminUserDtos.UserResponse>>() {}.getType();
-            List<AdminUserDtos.UserResponse> staff = JsonUtil.fromJson(json, type);
-            return staff.stream()
-                    .filter(user -> user.role() == Role.STAFF)
-                    .map(user -> new StaffInfo(user.id(), user.fullName(), "Nhân viên", Boolean.TRUE.equals(user.isActive())))
+            if (selectedServices.isEmpty()) {
+                return List.of();
+            }
+            String serviceIds = selectedServices.stream()
+                    .map(ServiceDtos.Response::id)
+                    .map(String::valueOf)
+                    .collect(java.util.stream.Collectors.joining(","));
+            String encodedServiceIds = URLEncoder.encode(serviceIds, StandardCharsets.UTF_8);
+            String json = apiClient.getRaw("/api/booking/staff?serviceIds=" + encodedServiceIds);
+            Type type = new TypeToken<List<BookingDtos.StaffResponse>>() {}.getType();
+            List<BookingDtos.StaffResponse> staffList = JsonUtil.fromJson(json, type);
+            return staffList.stream()
+                    .map(staff -> new StaffInfo(staff.id(), staff.fullName(), "Nhân viên", Boolean.TRUE.equals(staff.isActive())))
                     .toList();
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this,
@@ -914,13 +1276,13 @@ public class BookingWizardPanel extends JPanel {
         }
     }
 
-    private void resetForm() {
+    private void resetForNewBooking() {
         currentStep = 0;
         selectedServices.clear();
         selectedStaffId = null;
         selectedStaffName = null;
         selectedStaffRole = null;
-        selectedDate = LocalDate.now();
+        ensureTodayAsDefaultDate();
         selectedTime = null;
         selectedTimeButton = null;
         note = "";

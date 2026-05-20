@@ -25,7 +25,8 @@ public final class BookingDtos {
 
     public record AvailableSlotResponse(
             LocalDateTime start,
-            LocalDateTime end) {
+            LocalDateTime end,
+            Boolean available) {
     }
 
     public record CreateAppointmentRequest(

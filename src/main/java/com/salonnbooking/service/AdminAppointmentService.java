@@ -29,18 +29,21 @@ public class AdminAppointmentService {
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
     private final ServiceRepository serviceRepository;
+    private final BookingService bookingService;
 
     public AdminAppointmentService(
             AppointmentRepository appointmentRepository,
             AppointmentServiceRepository appointmentServiceRepository,
             PaymentRepository paymentRepository,
             UserRepository userRepository,
-            ServiceRepository serviceRepository) {
+            ServiceRepository serviceRepository,
+            BookingService bookingService) {
         this.appointmentRepository = appointmentRepository;
         this.appointmentServiceRepository = appointmentServiceRepository;
         this.paymentRepository = paymentRepository;
         this.userRepository = userRepository;
         this.serviceRepository = serviceRepository;
+        this.bookingService = bookingService;
     }
 
     @Transactional(readOnly = true)
@@ -112,6 +115,8 @@ public class AdminAppointmentService {
         if (totalDuration <= 0) {
             throw new IllegalArgumentException("Total duration must be greater than 0");
         }
+        LocalDateTime appointmentEnd = request.appointmentStart().plusMinutes(totalDuration);
+        ensureSlotAvailable(staff.getId(), request.appointmentStart(), appointmentEnd, request.serviceIds());
 
         BigDecimal totalAmount = services.stream()
                 .map(com.salonnbooking.domain.Service::getPrice)
@@ -122,7 +127,7 @@ public class AdminAppointmentService {
                 .customer(customer)
                 .staff(staff)
                 .appointmentStart(request.appointmentStart())
-                .appointmentEnd(request.appointmentStart().plusMinutes(totalDuration))
+                .appointmentEnd(appointmentEnd)
                 .status(AppointmentStatus.PENDING)
                 .note(request.note())
                 .totalAmount(totalAmount)
@@ -149,6 +154,22 @@ public class AdminAppointmentService {
                 .build());
 
         return toAppointmentResponse(appointment);
+    }
+
+    private void ensureSlotAvailable(
+            Long staffId,
+            LocalDateTime appointmentStart,
+            LocalDateTime appointmentEnd,
+            List<Long> serviceIds) {
+        boolean available = bookingService
+                .getAvailableSlots(staffId, appointmentStart.toLocalDate(), serviceIds)
+                .stream()
+                .anyMatch(slot -> slot.start().equals(appointmentStart)
+                        && slot.end().equals(appointmentEnd)
+                        && Boolean.TRUE.equals(slot.available()));
+        if (!available) {
+            throw new IllegalArgumentException("Khung giờ này đã được đặt hoặc không nằm trong giờ làm việc");
+        }
     }
 
     private User resolveCustomer(Long customerId) {

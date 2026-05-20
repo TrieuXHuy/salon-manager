@@ -59,6 +59,21 @@ public class ApiClient {
         return send(request, responseType);
     }
 
+    public <T> T put(String path, Object body, Class<T> responseType) throws Exception {
+        String json = body == null ? "" : JsonUtil.toJson(body);
+        HttpRequest request = baseRequest(path)
+                .PUT(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
+                .build();
+        return send(request, responseType);
+    }
+
+    public <T> T delete(String path, Class<T> responseType) throws Exception {
+        HttpRequest request = baseRequest(path)
+                .DELETE()
+                .build();
+        return send(request, responseType);
+    }
+
     private HttpRequest.Builder baseRequest(String path) {
         String resolved = path.startsWith("/") ? path : ("/" + path);
         HttpRequest.Builder builder = HttpRequest.newBuilder()

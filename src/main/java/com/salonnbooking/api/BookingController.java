@@ -29,6 +29,11 @@ public class BookingController {
         return bookingService.getStaffByService(serviceId);
     }
 
+    @GetMapping("/staff")
+    public List<BookingDtos.StaffResponse> getStaffByServices(@RequestParam String serviceIds) {
+        return bookingService.getStaffByServices(parseIds(serviceIds));
+    }
+
     @GetMapping("/available-slots")
     public List<BookingDtos.AvailableSlotResponse> getAvailableSlots(
             @RequestParam Long staffId,
