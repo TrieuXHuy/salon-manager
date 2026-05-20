@@ -1,26 +1,17 @@
 package com.salonnbooking.desktop.ui.shared;
 
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-
 public class AdminDashboardFrame extends MainFrame {
 
     public AdminDashboardFrame() {
         super("Salon Booking Manager - ADMIN");
 
-        addScreen("dashboard", "Dashboard", simplePlaceholder("Admin Dashboard"));
-        addScreen("users", "Users", simplePlaceholder("User Management (TODO)"));
-        addScreen("serviceCategories", "Service Categories", simplePlaceholder("Service Categories (TODO)"));
-        addScreen("services", "Services", simplePlaceholder("Service Management (TODO)"));
-        addScreen("appointments", "Appointments", simplePlaceholder("Appointment Management (TODO)"));
-        addScreen("payments", "Payments", simplePlaceholder("Payment Panel (TODO)"));
+        addScreen("dashboard", "Dashboard", new com.salonnbooking.ui.panels.DashboardPanel());
+        addScreen("appointments", "Lịch hẹn", new com.salonnbooking.ui.panels.AppointmentPanel());
+        addScreen("customers", "Khách hàng", new com.salonnbooking.ui.panels.CustomerPanel());
+        addScreen("services", "Dịch vụ", new com.salonnbooking.ui.panels.ServicePanel());
+        addScreen("employees", "Nhân viên", new com.salonnbooking.ui.panels.EmployeePanel());
+        addScreen("settings", "Cấu hình", new com.salonnbooking.ui.panels.SettingsPanel());
 
         showScreen("dashboard");
-    }
-
-    private JPanel simplePlaceholder(String text) {
-        JPanel panel = new JPanel();
-        panel.add(new JLabel(text));
-        return panel;
     }
 }

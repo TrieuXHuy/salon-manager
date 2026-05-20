@@ -90,7 +90,7 @@ public class SettingsPanel extends JPanel {
         btnBar.add(resetBtn, "h 38!");
 
         settingsCard.add(new JLabel(""), ""); // spacer
-        settingsCard.add(btnBar, "gapt 15, wrap");
+        settingsCard.add(btnBar, "gaptop 15, wrap");
 
         add(settingsCard, "growx");
     }
