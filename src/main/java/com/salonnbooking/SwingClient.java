@@ -16,8 +16,8 @@ public class SwingClient {
 
         SwingUtilities.invokeLater(() -> {
             try {
-                AuthFrame authFrame = new AuthFrame();
-                authFrame.setVisible(true);
+                com.salonnbooking.ui.LoginFrame loginFrame = new com.salonnbooking.ui.LoginFrame();
+                loginFrame.setVisible(true);
             } catch (Exception e) {
                 e.printStackTrace();
                 JOptionPane.showMessageDialog(

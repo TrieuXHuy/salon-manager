@@ -26,6 +26,6 @@ app:
     bootstrap-admin:
       enabled: true
       full-name: System Admin
-      email: admin@salon.local
-      password: admin123
+      email: admin
+      password: admin
       phone: "0900000000"
