@@ -1,20 +1,13 @@
 package com.salonnbooking.api;
 
-import java.time.LocalDate;
-import java.util.List;
-
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
 import com.salonnbooking.api.dto.BookingDtos;
 import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.service.AdminAppointmentService;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/appointments")
@@ -45,6 +38,13 @@ public class AdminAppointmentController {
             @PathVariable Long id,
             @RequestBody(required = false) BookingDtos.CancelAppointmentRequest request) {
         return adminAppointmentService.cancelAppointment(id, request);
+    }
+
+    @PatchMapping("/{id}/status")
+    public BookingDtos.AppointmentResponse updateStatus(
+            @PathVariable Long id,
+            @RequestParam AppointmentStatus status) {
+        return adminAppointmentService.updateStatus(id, status);
     }
 
     @PatchMapping("/{id}/payment")

@@ -1,18 +1,12 @@
 package com.salonnbooking.ui.components;
 
-import java.awt.Color;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-
 import com.salonnbooking.ui.theme.Theme;
 import net.miginfocom.swing.MigLayout;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 public class MetricCard extends RoundedPanel {
 
@@ -22,6 +16,8 @@ public class MetricCard extends RoundedPanel {
     private final Color hoverBorder = Theme.EMERALD;
 
     private boolean isHovered = false;
+
+    private final JLabel valLabel;
 
     public MetricCard(String title, String value, String icon, Color iconBg, Color iconFg) {
         super(16, Theme.BG_CARD, true);
@@ -57,7 +53,7 @@ public class MetricCard extends RoundedPanel {
         JPanel textPanel = new JPanel(new MigLayout("wrap 1, insets 0, gapy 2", "[fill]"));
         textPanel.setOpaque(false);
 
-        JLabel valLabel = new JLabel(value);
+        valLabel = new JLabel(value);
         valLabel.setFont(Theme.FONT_HERO.deriveFont(22f));
         valLabel.setForeground(Theme.NAVY);
         textPanel.add(valLabel);
@@ -85,6 +81,10 @@ public class MetricCard extends RoundedPanel {
                 repaint();
             }
         });
+    }
+
+    public void setValue(String value) {
+        valLabel.setText(value);
     }
 
     @Override

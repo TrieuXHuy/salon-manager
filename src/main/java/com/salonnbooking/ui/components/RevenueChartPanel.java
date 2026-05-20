@@ -1,30 +1,40 @@
 package com.salonnbooking.ui.components;
 
-import java.awt.BasicStroke;
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.GradientPaint;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Point;
-import java.awt.RenderingHints;
+import com.salonnbooking.ui.theme.Theme;
+
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.GeneralPath;
 import java.util.ArrayList;
 import java.util.List;
-import javax.swing.JPanel;
-
-import com.salonnbooking.ui.theme.Theme;
 
 public class RevenueChartPanel extends JPanel {
 
-    private final String[] days = {"Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"};
-    private final double[] values = {1.8, 2.5, 1.5, 3.2, 4.0, 6.5, 5.2}; // Revenue in Million VND
-    private final double maxValue = 8.0;
+    private String[] days = {"Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"};
+    private double[] values = {1.8, 2.5, 1.5, 3.2, 4.0, 6.5, 5.2}; // Revenue in Million VND
+    private double maxValue = 8.0;
 
     private final int padding = 50;
     private final int labelPadding = 25;
+
+    public void setData(String[] newDays, double[] newValues) {
+        if (newDays == null || newValues == null || newDays.length != newValues.length || newDays.length == 0) {
+            return;
+        }
+        this.days = newDays;
+        this.values = newValues;
+        
+        double max = 1.0;
+        for (double v : newValues) {
+            if (v > max) max = v;
+        }
+        this.maxValue = Math.ceil(max * 1.2);
+        if (this.maxValue < 1.0) this.maxValue = 1.0;
+        
+        repaint();
+    }
 
     private Point hoveredPoint = null;
     private int hoveredIndex = -1;

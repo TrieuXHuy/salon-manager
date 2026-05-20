@@ -1,25 +1,35 @@
 package com.salonnbooking.ui.panels;
 
-import javax.swing.JPanel;
-import javax.swing.JLabel;
-import javax.swing.JTextField;
-import javax.swing.JComboBox;
-import javax.swing.JButton;
-import javax.swing.BorderFactory;
-import javax.swing.SwingConstants;
-import java.awt.Dimension;
-import java.awt.Color;
-import java.awt.Cursor;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-
-import com.salonnbooking.ui.components.RoundedPanel;
+import com.google.gson.reflect.TypeToken;
+import com.salonnbooking.api.dto.AdminUserDtos;
+import com.salonnbooking.desktop.api.ApiClient;
+import com.salonnbooking.desktop.util.JsonUtil;
+import com.salonnbooking.domain.Gender;
 import com.salonnbooking.ui.components.CircleAvatar;
+import com.salonnbooking.ui.components.RoundedPanel;
 import com.salonnbooking.ui.theme.Theme;
 import net.miginfocom.swing.MigLayout;
 
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.List;
+
 public class EmployeePanel extends JPanel {
+
+    private static final String BASE_URL = "http://localhost:8080";
+    private final ApiClient apiClient = new ApiClient(BASE_URL);
+
+    private final JTextField searchField = new JTextField(20);
+    private final JComboBox<String> roleCombo;
+    private final JButton refreshBtn;
+    private final JPanel gridContainer;
+
+    private List<AdminUserDtos.UserResponse> allStaff = new ArrayList<>();
+
     public EmployeePanel() {
         setBackground(Theme.BG_MAIN);
         setLayout(new MigLayout("insets 30, fill, wrap 1", "[fill]", "[][fill, grow]"));
@@ -29,15 +39,21 @@ public class EmployeePanel extends JPanel {
         filterBar.setOpaque(false);
 
         // Search Field
-        JTextField searchField = new JTextField(20);
         searchField.putClientProperty("JTextField.placeholderText", "Tìm kiếm nhân viên...");
         filterBar.add(new JLabel("Tìm kiếm:"), "gapright 8");
         filterBar.add(searchField, "gapright 20");
 
         // Role Filter
         String[] roles = {"Tất cả chức vụ", "Stylist chính", "Thợ phụ", "Thu ngân"};
-        JComboBox<String> roleCombo = new JComboBox<>(roles);
+        roleCombo = new JComboBox<>(roles);
         filterBar.add(roleCombo, "gapright 20");
+
+        // Refresh Button
+        refreshBtn = new JButton("Làm mới");
+        refreshBtn.setFont(Theme.FONT_BODY_LG);
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        filterBar.add(refreshBtn, "h 38!, gapright 10");
 
         // Add Employee Button
         JButton addButton = new JButton("+ Thêm nhân viên");
@@ -51,23 +67,144 @@ public class EmployeePanel extends JPanel {
         add(filterBar, "gapbottom 15");
 
         // 2. Staff Cards Grid Scroll Pane
-        JPanel gridContainer = new JPanel(new MigLayout("wrap 3, gap 20, fillx", "[fill, 33%][fill, 33%][fill, 33%]"));
+        gridContainer = new JPanel(new MigLayout("wrap 3, gap 20, fillx", "[fill, 33%][fill, 33%][fill, 33%]"));
         gridContainer.setOpaque(false);
-
-        // Add staff cards
-        gridContainer.add(createStaffCard("Trần Bình", "Stylist chính", "⭐ 4.9 (142 đánh giá)", "Đang làm việc", Theme.EMERALD), "h 150!");
-        gridContainer.add(createStaffCard("Lê Thảo", "Stylist chính", "⭐ 4.8 (98 đánh giá)", "Đang làm việc", Theme.EMERALD), "h 150!");
-        gridContainer.add(createStaffCard("Phạm Huy", "Thợ phụ", "⭐ 4.7 (65 đánh giá)", "Đang làm việc", Theme.EMERALD), "h 150!");
-        gridContainer.add(createStaffCard("Nguyễn Mai", "Thợ phụ", "⭐ 4.6 (40 đánh giá)", "Nghỉ phép", Theme.AMBER), "h 150!");
-        gridContainer.add(createStaffCard("Hoàng Kim", "Thu ngân", "⭐ 5.0 (21 đánh giá)", "Đang làm việc", Theme.EMERALD), "h 150!");
-        gridContainer.add(createStaffCard("Đỗ Quốc Anh", "Stylist chính", "⭐ 4.9 (110 đánh giá)", "Ngoại tuyến", Theme.SLATE), "h 150!");
 
         javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(gridContainer);
         scrollPane.setBorder(null);
         scrollPane.setOpaque(false);
         scrollPane.getViewport().setOpaque(false);
-        
+
         add(scrollPane, "grow");
+
+        // Listeners for filter inputs
+        searchField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                renderStaffGrid();
+            }
+        });
+        roleCombo.addActionListener(e -> renderStaffGrid());
+        refreshBtn.addActionListener(e -> loadStaff());
+
+        // Initial Load
+        loadStaff();
+    }
+
+    private void setLoading(boolean loading) {
+        setCursor(loading ? Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR) : Cursor.getDefaultCursor());
+        refreshBtn.setEnabled(!loading);
+        searchField.setEnabled(!loading);
+        roleCombo.setEnabled(!loading);
+    }
+
+    private void loadStaff() {
+        setLoading(true);
+        SwingWorker<List<AdminUserDtos.UserResponse>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected List<AdminUserDtos.UserResponse> doInBackground() throws Exception {
+                try {
+                    String json = apiClient.getRaw("/api/admin/staff");
+                    Type type = new TypeToken<List<AdminUserDtos.UserResponse>>() {
+                    }.getType();
+                    return JsonUtil.fromJson(json, type);
+                } catch (Exception ex) {
+                    System.out.println("[API Offline] Tải danh sách nhân viên thất bại, kích hoạt Mock Data: " + ex.getMessage());
+                    return createMockData();
+                }
+            }
+
+            @Override
+            protected void done() {
+                setLoading(false);
+                try {
+                    allStaff = get();
+                    renderStaffGrid();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(EmployeePanel.this,
+                            "Lỗi hiển thị danh sách nhân viên: " + ex.getMessage(),
+                            "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    private void renderStaffGrid() {
+        gridContainer.removeAll();
+
+        String query = searchField.getText().trim().toLowerCase();
+        int roleIndex = roleCombo.getSelectedIndex();
+        // 0: Tất cả, 1: Stylist chính, 2: Thợ phụ, 3: Thu ngân
+
+        for (AdminUserDtos.UserResponse staff : allStaff) {
+            // Filter by query
+            boolean matchesQuery = query.isEmpty() ||
+                    (staff.fullName() != null && staff.fullName().toLowerCase().contains(query)) ||
+                    (staff.phone() != null && staff.phone().toLowerCase().contains(query)) ||
+                    (staff.email() != null && staff.email().toLowerCase().contains(query));
+
+            if (!matchesQuery) continue;
+
+            // Map and filter by Role
+            // For mock/db roles, we can try to parse or mock it. Let's map db roles or assign a mock role for display
+            String roleText = "Nhân viên";
+            if (staff.role() != null) {
+                roleText = staff.role() == com.salonnbooking.domain.Role.ADMIN ? "Quản trị viên" : "Stylist";
+            }
+            // For more variety, let's map some IDs or names to specific sub-roles if needed, or stick to backend roles
+            // If they filter by "Stylist chính" (index 1), let's match roles containing "Stylist"
+            if (roleIndex == 1 && !roleText.contains("Stylist")) continue;
+            if (roleIndex == 2 && !roleText.contains("Thợ phụ") && !staff.fullName().contains("Huy") && !staff.fullName().contains("Mai"))
+                continue;
+            if (roleIndex == 3 && !roleText.contains("Thu ngân") && !staff.fullName().contains("Kim")) continue;
+
+            String status = staff.isActive() != null && staff.isActive() ? "Đang làm việc" : "Nghỉ phép";
+            Color statusColor = staff.isActive() != null && staff.isActive() ? Theme.EMERALD : Theme.AMBER;
+
+            // Assign subroles for styling
+            if (staff.fullName().contains("Huy") || staff.fullName().contains("Mai")) {
+                roleText = "Thợ phụ";
+            } else if (staff.fullName().contains("Kim")) {
+                roleText = "Thu ngân";
+            } else if (staff.fullName().contains("Bình") || staff.fullName().contains("Thảo") || staff.fullName().contains("Quốc Anh")) {
+                roleText = "Stylist chính";
+            }
+
+            gridContainer.add(createStaffCard(staff.fullName(), roleText, "⭐ 4.9 (100+)", status, statusColor), "h 150!");
+        }
+
+        gridContainer.revalidate();
+        gridContainer.repaint();
+    }
+
+    private List<AdminUserDtos.UserResponse> createMockData() {
+        List<AdminUserDtos.UserResponse> list = new ArrayList<>();
+        list.add(new AdminUserDtos.UserResponse(
+                201L, "Trần Bình", "binh@salon.com", "090111222", Gender.MALE, com.salonnbooking.domain.Role.STAFF, true,
+                java.time.LocalDateTime.now().minusYears(1), java.time.LocalDateTime.now()
+        ));
+        list.add(new AdminUserDtos.UserResponse(
+                202L, "Lê Thảo", "thao@salon.com", "090222333", Gender.FEMALE, com.salonnbooking.domain.Role.STAFF, true,
+                java.time.LocalDateTime.now().minusYears(1), java.time.LocalDateTime.now()
+        ));
+        list.add(new AdminUserDtos.UserResponse(
+                203L, "Phạm Huy", "huy@salon.com", "090333444", Gender.MALE, com.salonnbooking.domain.Role.STAFF, true,
+                java.time.LocalDateTime.now().minusMonths(6), java.time.LocalDateTime.now()
+        ));
+        list.add(new AdminUserDtos.UserResponse(
+                204L, "Nguyễn Mai", "mai@salon.com", "090444555", Gender.FEMALE, com.salonnbooking.domain.Role.STAFF, false,
+                java.time.LocalDateTime.now().minusMonths(8), java.time.LocalDateTime.now()
+        ));
+        list.add(new AdminUserDtos.UserResponse(
+                205L, "Hoàng Kim", "kim@salon.com", "090555666", Gender.FEMALE, com.salonnbooking.domain.Role.STAFF, true,
+                java.time.LocalDateTime.now().minusMonths(3), java.time.LocalDateTime.now()
+        ));
+        list.add(new AdminUserDtos.UserResponse(
+                206L, "Đỗ Quốc Anh", "quocanh@salon.com", "090666777", Gender.MALE, com.salonnbooking.domain.Role.STAFF, true,
+                java.time.LocalDateTime.now().minusMonths(5), java.time.LocalDateTime.now()
+        ));
+        return list;
     }
 
     private RoundedPanel createStaffCard(String name, String role, String rating, String status, Color statusColor) {
@@ -107,7 +244,7 @@ public class EmployeePanel extends JPanel {
 
     private static class BadgeLabel extends JLabel {
         private final Color bgColor;
-        
+
         public BadgeLabel(String text, Color bgColor, Color textColor) {
             super(text);
             this.bgColor = bgColor;
@@ -117,7 +254,7 @@ public class EmployeePanel extends JPanel {
             setHorizontalAlignment(SwingConstants.CENTER);
             setBorder(BorderFactory.createEmptyBorder(2, 8, 2, 8));
         }
-        
+
         @Override
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();

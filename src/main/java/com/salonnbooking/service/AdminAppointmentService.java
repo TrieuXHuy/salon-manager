@@ -1,22 +1,20 @@
 package com.salonnbooking.service;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.salonnbooking.api.dto.BookingDtos;
 import com.salonnbooking.domain.Appointment;
 import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.Payment;
-import com.salonnbooking.domain.PaymentMethod;
 import com.salonnbooking.domain.PaymentStatus;
 import com.salonnbooking.exception.ResourceNotFoundException;
 import com.salonnbooking.repository.AppointmentRepository;
 import com.salonnbooking.repository.AppointmentServiceRepository;
 import com.salonnbooking.repository.PaymentRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class AdminAppointmentService {
@@ -92,6 +90,15 @@ public class AdminAppointmentService {
 
         appointment.setStatus(AppointmentStatus.CANCELLED);
         appointment.setCancelReason(request != null ? request.cancelReason() : null);
+        appointment.setUpdatedAt(LocalDateTime.now());
+        return toAppointmentResponse(appointmentRepository.save(appointment));
+    }
+
+    @Transactional
+    public BookingDtos.AppointmentResponse updateStatus(Long id, AppointmentStatus status) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + id));
+        appointment.setStatus(status);
         appointment.setUpdatedAt(LocalDateTime.now());
         return toAppointmentResponse(appointmentRepository.save(appointment));
     }
