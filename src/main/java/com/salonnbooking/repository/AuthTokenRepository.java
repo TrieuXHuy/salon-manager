@@ -4,12 +4,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.salonnbooking.domain.AuthToken;
 
 public interface AuthTokenRepository extends JpaRepository<AuthToken, Long> {
 
+    @EntityGraph(attributePaths = {"user"})
     Optional<AuthToken> findByTokenAndIsActiveTrue(String token);
 
     List<AuthToken> findByUserIdAndIsActiveTrue(Long userId);
