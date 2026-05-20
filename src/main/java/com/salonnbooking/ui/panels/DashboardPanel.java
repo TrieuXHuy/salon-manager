@@ -166,63 +166,33 @@ public class DashboardPanel extends JPanel {
             @Override
             protected DashboardData doInBackground() throws Exception {
                 DashboardData data = new DashboardData();
-                
-                // Skip all API calls in mock mode — UI already has fallback values
-                if (com.salonnbooking.desktop.session.AuthSession.getInstance().isMockSession()) {
-                    return data;
-                }
-                
-                // 1. Fetch Summary
-                try {
-                    String json = apiClient.getRaw("/api/admin/dashboard/summary");
-                    data.summary = JsonUtil.fromJson(json, DashboardReportDtos.DashboardSummaryResponse.class);
-                } catch (Exception e) {
-                    System.out.println("Summary API offline: " + e.getMessage());
+
+                String summaryJson = apiClient.getRaw("/api/admin/dashboard/summary");
+                data.summary = JsonUtil.fromJson(summaryJson, DashboardReportDtos.DashboardSummaryResponse.class);
+
+                String topServiceJson = apiClient.getRaw("/api/admin/reports/top-services?limit=1");
+                Type topServiceType = new TypeToken<List<DashboardReportDtos.TopServiceResponse>>(){}.getType();
+                List<DashboardReportDtos.TopServiceResponse> topServices = JsonUtil.fromJson(topServiceJson, topServiceType);
+                if (topServices != null && !topServices.isEmpty()) {
+                    data.topService = topServices.get(0);
                 }
 
-                // 2. Fetch Top Service
-                try {
-                    String json = apiClient.getRaw("/api/admin/reports/top-services?limit=1");
-                    Type type = new TypeToken<List<DashboardReportDtos.TopServiceResponse>>(){}.getType();
-                    List<DashboardReportDtos.TopServiceResponse> list = JsonUtil.fromJson(json, type);
-                    if (list != null && !list.isEmpty()) {
-                        data.topService = list.get(0);
-                    }
-                } catch (Exception e) {
-                    System.out.println("Top Service API offline: " + e.getMessage());
+                String topStaffJson = apiClient.getRaw("/api/admin/reports/top-staff?limit=1");
+                Type topStaffType = new TypeToken<List<DashboardReportDtos.TopStaffResponse>>(){}.getType();
+                List<DashboardReportDtos.TopStaffResponse> topStaff = JsonUtil.fromJson(topStaffJson, topStaffType);
+                if (topStaff != null && !topStaff.isEmpty()) {
+                    data.topStaff = topStaff.get(0);
                 }
 
-                // 3. Fetch Top Staff
-                try {
-                    String json = apiClient.getRaw("/api/admin/reports/top-staff?limit=1");
-                    Type type = new TypeToken<List<DashboardReportDtos.TopStaffResponse>>(){}.getType();
-                    List<DashboardReportDtos.TopStaffResponse> list = JsonUtil.fromJson(json, type);
-                    if (list != null && !list.isEmpty()) {
-                        data.topStaff = list.get(0);
-                    }
-                } catch (Exception e) {
-                    System.out.println("Top Staff API offline: " + e.getMessage());
-                }
+                LocalDate start = LocalDate.now().minusDays(6);
+                LocalDate end = LocalDate.now();
+                String chartJson = apiClient.getRaw("/api/admin/reports/revenue-daily?startDate=" + start + "&endDate=" + end);
+                Type chartType = new TypeToken<List<DashboardReportDtos.DailyRevenueResponse>>(){}.getType();
+                data.chartRevenues = JsonUtil.fromJson(chartJson, chartType);
 
-                // 4. Fetch Daily Revenue for Chart
-                try {
-                    LocalDate start = LocalDate.now().minusDays(6);
-                    LocalDate end = LocalDate.now();
-                    String json = apiClient.getRaw("/api/admin/reports/revenue-daily?startDate=" + start + "&endDate=" + end);
-                    Type type = new TypeToken<List<DashboardReportDtos.DailyRevenueResponse>>(){}.getType();
-                    data.chartRevenues = JsonUtil.fromJson(json, type);
-                } catch (Exception e) {
-                    System.out.println("Daily Revenue API offline: " + e.getMessage());
-                }
-
-                // 5. Fetch Recent Appointments
-                try {
-                    String json = apiClient.getRaw("/api/admin/appointments");
-                    Type type = new TypeToken<List<BookingDtos.AppointmentResponse>>(){}.getType();
-                    data.appointments = JsonUtil.fromJson(json, type);
-                } catch (Exception e) {
-                    System.out.println("Appointments API offline: " + e.getMessage());
-                }
+                String appointmentsJson = apiClient.getRaw("/api/admin/appointments");
+                Type appointmentsType = new TypeToken<List<BookingDtos.AppointmentResponse>>(){}.getType();
+                data.appointments = JsonUtil.fromJson(appointmentsJson, appointmentsType);
 
                 return data;
             }
@@ -251,28 +221,28 @@ public class DashboardPanel extends JPanel {
         if (data.summary != null && data.summary.todayRevenue() != null) {
             revenueCard.setValue(nf.format(data.summary.todayRevenue()) + "đ");
         } else {
-            revenueCard.setValue("2.500.000đ"); // Mock fallback
+            revenueCard.setValue("0đ");
         }
 
         // 2. Update Metric 2: Today Appointments
         if (data.summary != null) {
             appointmentsCard.setValue(data.summary.todayAppointments() + " Lượt");
         } else {
-            appointmentsCard.setValue("12 Lượt"); // Mock fallback
+            appointmentsCard.setValue("0 Lượt");
         }
 
         // 3. Update Metric 3: Top Service
         if (data.topService != null && data.topService.serviceName() != null) {
             popularServiceCard.setValue(data.topService.serviceName());
         } else {
-            popularServiceCard.setValue("Uốn tóc Hàn Quốc"); // Mock fallback
+            popularServiceCard.setValue("Chưa có dữ liệu");
         }
 
         // 4. Update Metric 4: Top Staff
         if (data.topStaff != null && data.topStaff.staffName() != null) {
             topEmployeeCard.setValue(data.topStaff.staffName());
         } else {
-            topEmployeeCard.setValue("Trần Bình (Stylist)"); // Mock fallback
+            topEmployeeCard.setValue("Chưa có dữ liệu");
         }
 
         // 5. Update Revenue Chart
@@ -290,9 +260,8 @@ public class DashboardPanel extends JPanel {
             }
             chartPanel.setData(days, vals);
         } else {
-            // Default mock chart data
-            String[] days = {"Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"};
-            double[] values = {1.8, 2.5, 1.5, 3.2, 4.0, 6.5, 5.2};
+            String[] days = {"", "", "", "", "", "", ""};
+            double[] values = {0, 0, 0, 0, 0, 0, 0};
             chartPanel.setData(days, values);
         }
 
@@ -334,12 +303,6 @@ public class DashboardPanel extends JPanel {
                 });
                 count++;
             }
-        } else {
-            // Default mock table data
-            tableModel.addRow(new Object[] {"Nguyễn Văn A", "Cắt tóc nam", "10:00 - Hôm nay", "Đã xác nhận"});
-            tableModel.addRow(new Object[] {"Trần Thị B", "Nhuộm tóc + Phục hồi", "11:30 - Hôm nay", "Đang phục vụ"});
-            tableModel.addRow(new Object[] {"Lê Văn M", "Gội đầu thảo dược", "14:00 - Hôm nay", "Chờ xác nhận"});
-            tableModel.addRow(new Object[] {"Phạm Hoàng Nam", "Uốn tóc kiểu Hàn", "16:00 - Hôm nay", "Đã xác nhận"});
         }
     }
 

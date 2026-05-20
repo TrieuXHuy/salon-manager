@@ -82,16 +82,6 @@ public class ServiceListPanel extends JPanel {
         SwingWorker<List<ServiceModels.ServiceResponse>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<ServiceModels.ServiceResponse> doInBackground() throws Exception {
-                // Skip API call in mock mode
-                if (com.salonnbooking.desktop.session.AuthSession.getInstance().isMockSession()) {
-                    return List.of(
-                        new ServiceModels.ServiceResponse(10L, 1L, "Cắt & Tạo kiểu", "Cắt tóc nam (bao gồm gội)", "Cắt tóc cơ bản và gội đầu", new BigDecimal("150000"), 30, true, null),
-                        new ServiceModels.ServiceResponse(11L, 1L, "Cắt & Tạo kiểu", "Cắt tóc nữ & Tạo kiểu", "Tạo kiểu layer, uốn lọn nhẹ", new BigDecimal("250000"), 45, true, null),
-                        new ServiceModels.ServiceResponse(12L, 2L, "Nhuộm & Uốn", "Uốn tóc nữ kiểu Hàn Quốc", "Uốn sóng nước, uốn cụp", new BigDecimal("800000"), 120, true, null),
-                        new ServiceModels.ServiceResponse(13L, 2L, "Nhuộm & Uốn", "Nhuộm màu thời trang", "Tẩy tóc, nhuộm khói", new BigDecimal("650000"), 90, true, null),
-                        new ServiceModels.ServiceResponse(14L, 3L, "Chăm sóc tóc", "Gội đầu dưỡng sinh thảo dược", "Massage đầu, gội dầu thảo dược", new BigDecimal("200000"), 45, true, null)
-                    );
-                }
                 String path = resolvedCategoryId == null ? "/api/services"
                         : ("/api/services?categoryId=" + resolvedCategoryId);
                 String json = apiClient.getRaw(path);

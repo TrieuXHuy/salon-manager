@@ -35,6 +35,14 @@ public final class BookingDtos {
             String note) {
     }
 
+    public record AdminCreateAppointmentRequest(
+            Long customerId,
+            Long staffId,
+            LocalDateTime appointmentStart,
+            List<Long> serviceIds,
+            String note) {
+    }
+
     public record CancelAppointmentRequest(String cancelReason) {
     }
 

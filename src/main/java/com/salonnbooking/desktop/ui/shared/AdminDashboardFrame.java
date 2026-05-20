@@ -15,10 +15,13 @@ public class AdminDashboardFrame extends MainFrame {
         super("Salon Booking Manager - ADMIN");
 
         addScreen("dashboard", "Dashboard", new DashboardPanel());
-        addScreen("appointments", "Lịch hẹn", new AppointmentPanel());
+        AppointmentPanel appointmentPanel = new AppointmentPanel();
+        addScreen("appointments", "Lịch hẹn", appointmentPanel);
 
         // Booking flow (opened from "+ Đặt lịch mới" in AppointmentPanel)
-        addScreen("booking", "Đặt lịch", new BookingWizardPanel());
+        BookingWizardPanel bookingWizardPanel = new BookingWizardPanel();
+        bookingWizardPanel.setOnBookingConfirmed(summary -> appointmentPanel.loadAppointments());
+        addScreen("booking", "Đặt lịch", bookingWizardPanel);
         addScreen("checkout", "Thanh toán", new CheckoutPanel());
 
         addScreen("customers", "Khách hàng", new CustomerPanel());
@@ -29,4 +32,3 @@ public class AdminDashboardFrame extends MainFrame {
         showScreen("dashboard");
     }
 }
-

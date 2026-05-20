@@ -5,13 +5,18 @@ import com.salonnbooking.domain.Appointment;
 import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.Payment;
 import com.salonnbooking.domain.PaymentStatus;
+import com.salonnbooking.domain.Role;
+import com.salonnbooking.domain.User;
 import com.salonnbooking.exception.ResourceNotFoundException;
 import com.salonnbooking.repository.AppointmentRepository;
 import com.salonnbooking.repository.AppointmentServiceRepository;
 import com.salonnbooking.repository.PaymentRepository;
+import com.salonnbooking.repository.ServiceRepository;
+import com.salonnbooking.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,14 +27,20 @@ public class AdminAppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final AppointmentServiceRepository appointmentServiceRepository;
     private final PaymentRepository paymentRepository;
+    private final UserRepository userRepository;
+    private final ServiceRepository serviceRepository;
 
     public AdminAppointmentService(
             AppointmentRepository appointmentRepository,
             AppointmentServiceRepository appointmentServiceRepository,
-            PaymentRepository paymentRepository) {
+            PaymentRepository paymentRepository,
+            UserRepository userRepository,
+            ServiceRepository serviceRepository) {
         this.appointmentRepository = appointmentRepository;
         this.appointmentServiceRepository = appointmentServiceRepository;
         this.paymentRepository = paymentRepository;
+        this.userRepository = userRepository;
+        this.serviceRepository = serviceRepository;
     }
 
     @Transactional(readOnly = true)
@@ -74,6 +85,83 @@ public class AdminAppointmentService {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + id));
         return toAppointmentResponse(appointment);
+    }
+
+    @Transactional
+    public BookingDtos.AppointmentResponse createAppointment(BookingDtos.AdminCreateAppointmentRequest request) {
+        if (request == null || request.staffId() == null || request.appointmentStart() == null
+                || request.serviceIds() == null || request.serviceIds().isEmpty()) {
+            throw new IllegalArgumentException("staffId, appointmentStart and serviceIds are required");
+        }
+
+        User customer = resolveCustomer(request.customerId());
+        User staff = userRepository.findById(request.staffId())
+                .filter(user -> user.getRole() == Role.STAFF)
+                .filter(user -> Boolean.TRUE.equals(user.getIsActive()))
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found with id: " + request.staffId()));
+
+        List<com.salonnbooking.domain.Service> services = request.serviceIds().stream()
+                .map(serviceId -> serviceRepository.findById(serviceId)
+                        .filter(service -> Boolean.TRUE.equals(service.getIsActive()))
+                        .orElseThrow(() -> new ResourceNotFoundException("Service not found with id: " + serviceId)))
+                .toList();
+
+        int totalDuration = services.stream()
+                .map(com.salonnbooking.domain.Service::getDurationMinutes)
+                .reduce(0, Integer::sum);
+        if (totalDuration <= 0) {
+            throw new IllegalArgumentException("Total duration must be greater than 0");
+        }
+
+        BigDecimal totalAmount = services.stream()
+                .map(com.salonnbooking.domain.Service::getPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        LocalDateTime now = LocalDateTime.now();
+
+        Appointment appointment = Appointment.builder()
+                .customer(customer)
+                .staff(staff)
+                .appointmentStart(request.appointmentStart())
+                .appointmentEnd(request.appointmentStart().plusMinutes(totalDuration))
+                .status(AppointmentStatus.PENDING)
+                .note(request.note())
+                .totalAmount(totalAmount)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        appointment = appointmentRepository.save(appointment);
+
+        for (com.salonnbooking.domain.Service service : services) {
+            appointmentServiceRepository.save(com.salonnbooking.domain.AppointmentService.builder()
+                    .appointment(appointment)
+                    .service(service)
+                    .priceSnapshot(service.getPrice())
+                    .durationSnapshot(service.getDurationMinutes())
+                    .build());
+        }
+
+        paymentRepository.save(Payment.builder()
+                .appointment(appointment)
+                .amount(totalAmount)
+                .paymentMethod(null)
+                .paymentStatus(PaymentStatus.UNPAID)
+                .createdAt(now)
+                .build());
+
+        return toAppointmentResponse(appointment);
+    }
+
+    private User resolveCustomer(Long customerId) {
+        if (customerId != null) {
+            return userRepository.findById(customerId)
+                    .filter(user -> user.getRole() == Role.CUSTOMER)
+                    .filter(user -> Boolean.TRUE.equals(user.getIsActive()))
+                    .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+        }
+        return userRepository.findByRole(Role.CUSTOMER).stream()
+                .filter(user -> Boolean.TRUE.equals(user.getIsActive()))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("No active customer found"));
     }
 
     @Transactional

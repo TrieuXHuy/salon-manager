@@ -33,6 +33,12 @@ public class AdminAppointmentController {
         return adminAppointmentService.getAppointmentDetail(id);
     }
 
+    @PostMapping
+    public BookingDtos.AppointmentResponse createAppointment(
+            @RequestBody BookingDtos.AdminCreateAppointmentRequest request) {
+        return adminAppointmentService.createAppointment(request);
+    }
+
     @PatchMapping("/{id}/cancel")
     public BookingDtos.AppointmentResponse cancelAppointment(
             @PathVariable Long id,

@@ -1,6 +1,13 @@
 package com.salonnbooking.ui.panels;
 
+import com.google.gson.reflect.TypeToken;
+import com.salonnbooking.api.dto.AdminUserDtos;
+import com.salonnbooking.api.dto.BookingDtos;
 import com.salonnbooking.api.dto.ServiceDtos;
+import com.salonnbooking.desktop.api.ApiClient;
+import com.salonnbooking.desktop.util.JsonUtil;
+import com.salonnbooking.domain.Role;
+import com.salonnbooking.ui.ScreenRouter;
 import com.salonnbooking.ui.components.CircleAvatar;
 import com.salonnbooking.ui.components.RoundedPanel;
 import com.salonnbooking.ui.theme.Theme;
@@ -10,6 +17,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
@@ -23,6 +31,9 @@ import java.util.function.Consumer;
 
 public class BookingWizardPanel extends JPanel {
 
+    private static final String BASE_URL = "http://localhost:8080";
+
+    private final ApiClient apiClient = new ApiClient(BASE_URL);
     private int currentStep = 0;
     private static final String[] STEP_LABELS = {"Chọn dịch vụ", "Chọn nhân viên", "Chọn ngày giờ", "Xác nhận"};
 
@@ -80,17 +91,7 @@ public class BookingWizardPanel extends JPanel {
         return Math.round(value * scale);
     }
 
-    // Mock data
     private record StaffInfo(Long id, String name, String role, boolean active) {}
-
-    private final List<StaffInfo> mockStaff = List.of(
-        new StaffInfo(201L, "Trần Bình", "Stylist chính", true),
-        new StaffInfo(202L, "Lê Thảo", "Stylist chính", true),
-        new StaffInfo(203L, "Phạm Huy", "Thợ phụ", true),
-        new StaffInfo(204L, "Nguyễn Mai", "Thợ phụ", false),
-        new StaffInfo(205L, "Hoàng Kim", "Thu ngân", true),
-        new StaffInfo(206L, "Đỗ Quốc Anh", "Stylist chính", true)
-    );
 
     public BookingWizardPanel() {
         setBackground(Theme.BG_MAIN);
@@ -152,7 +153,7 @@ public class BookingWizardPanel extends JPanel {
                 ""));
         grid.setOpaque(false);
 
-        List<ServiceDtos.Response> services = loadMockServices();
+        List<ServiceDtos.Response> services = loadServices();
         for (ServiceDtos.Response svc : services) {
             grid.add(createServiceCard(svc), "h " + s(92) + "!, growx");
         }
@@ -335,7 +336,7 @@ public class BookingWizardPanel extends JPanel {
         grid.setOpaque(false);
 
         ButtonGroup staffGroup = new ButtonGroup();
-        for (StaffInfo staff : mockStaff) {
+        for (StaffInfo staff : loadStaff()) {
             grid.add(createStaffCard(staff, staffGroup), "h " + s(104) + "!, growx");
         }
 
@@ -754,20 +755,8 @@ public class BookingWizardPanel extends JPanel {
         if (!validateCurrentStep()) return;
 
         if (currentStep == 3) {
-            // Confirm booking
             note = noteArea.getText();
-            JOptionPane.showMessageDialog(this,
-                "Đặt lịch thành công!\n\n" +
-                "Dịch vụ: " + selectedServices.size() + " dịch vụ\n" +
-                "Nhân viên: " + selectedStaffName + "\n" +
-                "Thời gian: " + selectedDate + " " + selectedTime + "\n\n" +
-                "Cảm ơn bạn đã sử dụng dịch vụ!",
-                "✅ Đặt lịch thành công",
-                JOptionPane.INFORMATION_MESSAGE
-            );
-            if (onBookingConfirmed != null) {
-                onBookingConfirmed.accept(buildSummary());
-            }
+            confirmBooking();
             return;
         }
 
@@ -844,6 +833,119 @@ public class BookingWizardPanel extends JPanel {
         );
     }
 
+    private void confirmBooking() {
+        nextBtn.setEnabled(false);
+        backBtn.setEnabled(false);
+
+        SwingWorker<BookingDtos.AppointmentResponse, Void> worker = new SwingWorker<>() {
+            @Override
+            protected BookingDtos.AppointmentResponse doInBackground() throws Exception {
+                BookingDtos.AdminCreateAppointmentRequest request = new BookingDtos.AdminCreateAppointmentRequest(
+                        null,
+                        selectedStaffId,
+                        LocalDateTime.of(selectedDate, selectedTime),
+                        selectedServices.stream().map(ServiceDtos.Response::id).toList(),
+                        note);
+                return apiClient.post("/api/admin/appointments", request, BookingDtos.AppointmentResponse.class);
+            }
+
+            @Override
+            protected void done() {
+                nextBtn.setEnabled(true);
+                backBtn.setEnabled(true);
+                try {
+                    get();
+                    JOptionPane.showMessageDialog(BookingWizardPanel.this,
+                            "Đặt lịch thành công!\n\n" +
+                                    "Dịch vụ: " + selectedServices.size() + " dịch vụ\n" +
+                                    "Nhân viên: " + selectedStaffName + "\n" +
+                                    "Thời gian: " + selectedDate + " " + selectedTime + "\n\n" +
+                                    "Lịch hẹn đã được lưu vào hệ thống.",
+                            "Đặt lịch thành công",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    if (onBookingConfirmed != null) {
+                        onBookingConfirmed.accept(buildSummary());
+                    }
+                    resetForm();
+                    ScreenRouter.go("appointments");
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(BookingWizardPanel.this,
+                            "Không lưu được lịch hẹn: " + rootMessage(ex),
+                            "Lỗi đặt lịch",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    private List<ServiceDtos.Response> loadServices() {
+        try {
+            String json = apiClient.getRaw("/api/admin/services");
+            Type type = new TypeToken<List<ServiceDtos.Response>>() {}.getType();
+            List<ServiceDtos.Response> services = JsonUtil.fromJson(json, type);
+            return services.stream()
+                    .filter(service -> Boolean.TRUE.equals(service.isActive()))
+                    .toList();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Không tải được danh sách dịch vụ từ API: " + rootMessage(ex),
+                    "Lỗi tải dữ liệu",
+                    JOptionPane.ERROR_MESSAGE);
+            return List.of();
+        }
+    }
+
+    private List<StaffInfo> loadStaff() {
+        try {
+            String json = apiClient.getRaw("/api/admin/staff");
+            Type type = new TypeToken<List<AdminUserDtos.UserResponse>>() {}.getType();
+            List<AdminUserDtos.UserResponse> staff = JsonUtil.fromJson(json, type);
+            return staff.stream()
+                    .filter(user -> user.role() == Role.STAFF)
+                    .map(user -> new StaffInfo(user.id(), user.fullName(), "Nhân viên", Boolean.TRUE.equals(user.isActive())))
+                    .toList();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Không tải được danh sách nhân viên từ API: " + rootMessage(ex),
+                    "Lỗi tải dữ liệu",
+                    JOptionPane.ERROR_MESSAGE);
+            return List.of();
+        }
+    }
+
+    private void resetForm() {
+        currentStep = 0;
+        selectedServices.clear();
+        selectedStaffId = null;
+        selectedStaffName = null;
+        selectedStaffRole = null;
+        selectedDate = LocalDate.now();
+        selectedTime = null;
+        selectedTimeButton = null;
+        note = "";
+        if (noteArea != null) {
+            noteArea.setText("");
+        }
+        contentPanel.removeAll();
+        contentPanel.add(createStep1(), "step1");
+        contentPanel.add(createStep2(), "step2");
+        contentPanel.add(createStep3(), "step3");
+        contentPanel.add(createStep4(), "step4");
+        updateServiceSummary();
+        updateStep();
+        contentPanel.revalidate();
+        contentPanel.repaint();
+    }
+
+    private String rootMessage(Exception ex) {
+        Throwable cause = ex;
+        while (cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        return cause.getMessage() != null ? cause.getMessage() : ex.getMessage();
+    }
+
     // ========================= Helpers =========================
     private JButton createNavButton(String text, Color bg) {
         JButton btn = new JButton(text);
@@ -877,18 +979,6 @@ public class BookingWizardPanel extends JPanel {
         if (category.contains("Nhuộm") || category.contains("Uốn")) return new Color(254, 243, 199);
         if (category.contains("Chăm sóc")) return new Color(209, 250, 229);
         return new Color(251, 207, 232);
-    }
-
-    private List<ServiceDtos.Response> loadMockServices() {
-        List<ServiceDtos.Response> list = new ArrayList<>();
-        list.add(new ServiceDtos.Response(10L, 1L, "Cắt & Tạo kiểu", "Cắt tóc nam (bao gồm gội)", "Cắt tóc cơ bản và gội đầu", new BigDecimal("150000"), 30, true, null));
-        list.add(new ServiceDtos.Response(11L, 1L, "Cắt & Tạo kiểu", "Cắt tóc nữ & Tạo kiểu", "Tạo kiểu layer, uốn lọn nhẹ", new BigDecimal("250000"), 45, true, null));
-        list.add(new ServiceDtos.Response(12L, 2L, "Nhuộm & Uốn", "Uốn tóc nữ kiểu Hàn Quốc", "Uốn sóng nước, uốn cụp", new BigDecimal("800000"), 120, true, null));
-        list.add(new ServiceDtos.Response(13L, 2L, "Nhuộm & Uốn", "Nhuộm màu thời trang (L'Oreal)", "Tẩy tóc, nhuộm khói, xám tro", new BigDecimal("650000"), 90, true, null));
-        list.add(new ServiceDtos.Response(14L, 3L, "Chăm sóc tóc", "Gội đầu dưỡng sinh thảo dược", "Massage đầu, gội dầu thảo dược", new BigDecimal("200000"), 45, true, null));
-        list.add(new ServiceDtos.Response(15L, 3L, "Chăm sóc tóc", "Phục hồi tóc hư tổn Olaplex", "Ủ dưỡng chất phục hồi tóc xơ", new BigDecimal("500000"), 60, true, null));
-        list.add(new ServiceDtos.Response(16L, 4L, "Dịch vụ khác", "Nối mi Volume tự nhiên", "Nối mi dầy, uốn mi cong", new BigDecimal("350000"), 75, true, null));
-        return list;
     }
 
     // ========================= Step Indicator Panel =========================

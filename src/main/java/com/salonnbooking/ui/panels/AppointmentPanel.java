@@ -21,8 +21,6 @@ import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.lang.reflect.Type;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -211,25 +209,16 @@ public class AppointmentPanel extends JPanel {
         statusCombo.setEnabled(!loading);
     }
 
-    private void loadAppointments() {
+    public void loadAppointments() {
         setLoading(true);
         SwingWorker<List<BookingDtos.AppointmentResponse>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<BookingDtos.AppointmentResponse> doInBackground() throws Exception {
-                // Skip API call in mock mode
-                if (AuthSession.getInstance().isMockSession()) {
-                    return createMockData();
-                }
                 boolean isAdmin = AuthSession.getInstance().getRole() == Role.ADMIN;
                 String path = isAdmin ? "/api/admin/appointments" : "/api/staff/appointments";
-                try {
-                    String json = apiClient.getRaw(path);
-                    Type type = new TypeToken<List<BookingDtos.AppointmentResponse>>() {}.getType();
-                    return JsonUtil.fromJson(json, type);
-                } catch (Exception ex) {
-                    System.out.println("[API Offline] Tải danh sách lịch hẹn thất bại, kích hoạt Mock Data: " + ex.getMessage());
-                    return createMockData();
-                }
+                String json = apiClient.getRaw(path);
+                Type type = new TypeToken<List<BookingDtos.AppointmentResponse>>() {}.getType();
+                return JsonUtil.fromJson(json, type);
             }
 
             @Override
@@ -369,93 +358,13 @@ public class AppointmentPanel extends JPanel {
                         "Thành công", JOptionPane.INFORMATION_MESSAGE);
                     loadAppointments();
                 } catch (Exception ex) {
-                    System.out.println("[API Offline] Thay đổi trạng thái thất bại, cập nhật cục bộ (Mock Mode): " + ex.getMessage());
-                    
-                    // Update mock locally
-                    boolean updatedMock = false;
-                    for (BookingDtos.AppointmentResponse app : allAppointments) {
-                        if (app.id().equals(appointmentId)) {
-                            // Rebuild record with new status
-                            BookingDtos.AppointmentResponse newApp = new BookingDtos.AppointmentResponse(
-                                app.id(), app.customerId(), app.customerName(), app.staffId(), app.staffName(),
-                                app.appointmentStart(), app.appointmentEnd(), targetStatus, app.note(), reason,
-                                app.totalAmount(), app.services(), app.payments(), app.createdAt(), LocalDateTime.now()
-                            );
-                            int index = allAppointments.indexOf(app);
-                            allAppointments.set(index, newApp);
-                            updatedMock = true;
-                            break;
-                        }
-                    }
-
-                    if (updatedMock) {
-                        JOptionPane.showMessageDialog(AppointmentPanel.this, 
-                            "Cập nhật trạng thái thành công (Mock Mode)!", 
-                            "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                        filterAndRenderTable();
-                        updateButtonStates();
-                    } else {
-                        JOptionPane.showMessageDialog(AppointmentPanel.this, 
-                            "Lỗi cập nhật trạng thái: " + ex.getMessage(), 
-                            "Thỗi", JOptionPane.ERROR_MESSAGE);
-                    }
+                    JOptionPane.showMessageDialog(AppointmentPanel.this,
+                        "Lỗi cập nhật trạng thái: " + ex.getMessage(),
+                        "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
             }
         };
         worker.execute();
-    }
-
-    private List<BookingDtos.AppointmentResponse> createMockData() {
-        List<BookingDtos.AppointmentResponse> list = new ArrayList<>();
-        list.add(new BookingDtos.AppointmentResponse(
-            1L, 101L, "Nguyễn Văn A", 201L, "Trần Bình", 
-            LocalDateTime.now().plusHours(2), LocalDateTime.now().plusHours(3), 
-            AppointmentStatus.CONFIRMED, "Cắt ngắn", null, 
-            new BigDecimal("150000"), 
-            List.of(new BookingDtos.AppointmentServiceResponse(10L, "Cắt tóc nam", new BigDecimal("150000"), 30)),
-            List.of(), LocalDateTime.now(), LocalDateTime.now()
-        ));
-        list.add(new BookingDtos.AppointmentResponse(
-            2L, 102L, "Trần Thị B", 202L, "Lê Thảo", 
-            LocalDateTime.now().plusHours(4), LocalDateTime.now().plusHours(6), 
-            AppointmentStatus.COMPLETED, "Nhuộm kỹ", null, 
-            new BigDecimal("1200000"), 
-            List.of(new BookingDtos.AppointmentServiceResponse(11L, "Nhuộm tóc + Phục hồi", new BigDecimal("1200000"), 120)),
-            List.of(), LocalDateTime.now(), LocalDateTime.now()
-        ));
-        list.add(new BookingDtos.AppointmentResponse(
-            3L, 103L, "Lê Văn M", 203L, "Phạm Huy", 
-            LocalDateTime.now().plusHours(1), LocalDateTime.now().plusHours(2), 
-            AppointmentStatus.PENDING, "Gội thảo dược nhẹ", null, 
-            new BigDecimal("200000"), 
-            List.of(new BookingDtos.AppointmentServiceResponse(12L, "Gội đầu thảo dược", new BigDecimal("200000"), 45)),
-            List.of(), LocalDateTime.now(), LocalDateTime.now()
-        ));
-        list.add(new BookingDtos.AppointmentResponse(
-            4L, 104L, "Phạm Hoàng Nam", 201L, "Trần Bình", 
-            LocalDateTime.now().plusHours(5), LocalDateTime.now().plusHours(6), 
-            AppointmentStatus.CONFIRMED, "Uốn phồng", null, 
-            new BigDecimal("450000"), 
-            List.of(new BookingDtos.AppointmentServiceResponse(13L, "Uốn tóc kiểu Hàn", new BigDecimal("450000"), 60)),
-            List.of(), LocalDateTime.now(), LocalDateTime.now()
-        ));
-        list.add(new BookingDtos.AppointmentResponse(
-            5L, 105L, "Hoàng Thu Trang", 204L, "Nguyễn Mai", 
-            LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(1).plusHours(2), 
-            AppointmentStatus.PENDING, "Nối mi dầy", null, 
-            new BigDecimal("350000"), 
-            List.of(new BookingDtos.AppointmentServiceResponse(14L, "Nối mi volume", new BigDecimal("350000"), 90)),
-            List.of(), LocalDateTime.now(), LocalDateTime.now()
-        ));
-        list.add(new BookingDtos.AppointmentResponse(
-            6L, 106L, "Đặng Minh Quân", 203L, "Phạm Huy", 
-            LocalDateTime.now().minusDays(1), LocalDateTime.now().minusDays(1).plusHours(1), 
-            AppointmentStatus.CANCELLED, "Bận việc đột xuất", "Khách yêu cầu hủy", 
-            new BigDecimal("180000"), 
-            List.of(new BookingDtos.AppointmentServiceResponse(15L, "Cạo mặt + Massage", new BigDecimal("180000"), 40)),
-            List.of(), LocalDateTime.now(), LocalDateTime.now()
-        ));
-        return list;
     }
 
     private static class StatusRenderer extends DefaultTableCellRenderer {

@@ -22,15 +22,6 @@ public final class AuthSession {
         return token != null && !token.isBlank();
     }
 
-    /**
-     * Returns true when the session was established via mock/offline login
-     * (i.e. the token is not a real JWT issued by the server).
-     * Panels should skip real API calls and use local mock data instead.
-     */
-    public boolean isMockSession() {
-        return "mock-session-token".equals(token);
-    }
-
     public void clear() {
         token = null;
         userId = null;

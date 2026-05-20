@@ -16,7 +16,6 @@ import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.lang.reflect.Type;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -144,18 +143,9 @@ public class ServicePanel extends JPanel {
         SwingWorker<List<ServiceDtos.Response>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<ServiceDtos.Response> doInBackground() throws Exception {
-                // Skip API call in mock mode
-                if (com.salonnbooking.desktop.session.AuthSession.getInstance().isMockSession()) {
-                    return createMockData();
-                }
-                try {
-                    String json = apiClient.getRaw("/api/admin/services");
-                    Type type = new TypeToken<List<ServiceDtos.Response>>() {}.getType();
-                    return JsonUtil.fromJson(json, type);
-                } catch (Exception ex) {
-                    System.out.println("[API Offline] Tải danh sách dịch vụ thất bại, kích hoạt Mock Data: " + ex.getMessage());
-                    return createMockData();
-                }
+                String json = apiClient.getRaw("/api/admin/services");
+                Type type = new TypeToken<List<ServiceDtos.Response>>() {}.getType();
+                return JsonUtil.fromJson(json, type);
             }
 
             @Override
@@ -213,39 +203,6 @@ public class ServicePanel extends JPanel {
                 statusStr
             });
         }
-    }
-
-    private List<ServiceDtos.Response> createMockData() {
-        List<ServiceDtos.Response> list = new ArrayList<>();
-        list.add(new ServiceDtos.Response(
-            10L, 1L, "Cắt & Tạo kiểu", "Cắt tóc nam (bao gồm gội)", "Cắt tóc cơ bản và gội đầu thư giãn", 
-            new BigDecimal("150000"), 30, true, java.time.LocalDateTime.now()
-        ));
-        list.add(new ServiceDtos.Response(
-            11L, 1L, "Cắt & Tạo kiểu", "Cắt tóc nữ & Tạo kiểu", "Tạo kiểu layer, uốn lọn nhẹ", 
-            new BigDecimal("250000"), 45, true, java.time.LocalDateTime.now()
-        ));
-        list.add(new ServiceDtos.Response(
-            12L, 2L, "Nhuộm & Uốn", "Uốn tóc nữ kiểu Hàn Quốc", "Uốn sóng nước, uốn cụp cụ thể", 
-            new BigDecimal("800000"), 120, true, java.time.LocalDateTime.now()
-        ));
-        list.add(new ServiceDtos.Response(
-            13L, 2L, "Nhuộm & Uốn", "Nhuộm màu thời trang (L'Oreal)", "Tẩy tóc, nhuộm khói, xám tro", 
-            new BigDecimal("650000"), 90, true, java.time.LocalDateTime.now()
-        ));
-        list.add(new ServiceDtos.Response(
-            14L, 3L, "Chăm sóc tóc", "Gội đầu dưỡng sinh thảo dược", "Massage đầu, gội sạch bằng dầu thảo dược", 
-            new BigDecimal("200000"), 45, true, java.time.LocalDateTime.now()
-        ));
-        list.add(new ServiceDtos.Response(
-            15L, 3L, "Chăm sóc tóc", "Phục hồi tóc hư tổn Olaplex", "Ủ dưỡng chất phục hồi tóc xơ", 
-            new BigDecimal("500000"), 60, true, java.time.LocalDateTime.now()
-        ));
-        list.add(new ServiceDtos.Response(
-            16L, 4L, "Dịch vụ khác", "Nối mi Volume tự nhiên", "Nối mi dầy, uốn mi cong", 
-            new BigDecimal("350000"), 75, false, java.time.LocalDateTime.now()
-        ));
-        return list;
     }
 
     private static class StatusRenderer extends DefaultTableCellRenderer {

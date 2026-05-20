@@ -136,18 +136,9 @@ public class CustomerPanel extends JPanel {
         SwingWorker<List<AdminUserDtos.UserResponse>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<AdminUserDtos.UserResponse> doInBackground() throws Exception {
-                // Skip API call in mock mode
-                if (com.salonnbooking.desktop.session.AuthSession.getInstance().isMockSession()) {
-                    return createMockData();
-                }
-                try {
-                    String json = apiClient.getRaw("/api/admin/customers");
-                    Type type = new TypeToken<List<AdminUserDtos.UserResponse>>() {}.getType();
-                    return JsonUtil.fromJson(json, type);
-                } catch (Exception ex) {
-                    System.out.println("[API Offline] Tải danh sách khách hàng thất bại, kích hoạt Mock Data: " + ex.getMessage());
-                    return createMockData();
-                }
+                String json = apiClient.getRaw("/api/admin/customers");
+                Type type = new TypeToken<List<AdminUserDtos.UserResponse>>() {}.getType();
+                return JsonUtil.fromJson(json, type);
             }
 
             @Override
@@ -199,35 +190,6 @@ public class CustomerPanel extends JPanel {
                 joinDate
             });
         }
-    }
-
-    private List<AdminUserDtos.UserResponse> createMockData() {
-        List<AdminUserDtos.UserResponse> list = new ArrayList<>();
-        list.add(new AdminUserDtos.UserResponse(
-            1L, "Nguyễn Văn A", "vana@gmail.com", "0901 234 567", Gender.MALE, com.salonnbooking.domain.Role.CUSTOMER, true, 
-            java.time.LocalDateTime.now().minusMonths(3), java.time.LocalDateTime.now()
-        ));
-        list.add(new AdminUserDtos.UserResponse(
-            2L, "Trần Thị B", "thib@gmail.com", "0987 654 321", Gender.FEMALE, com.salonnbooking.domain.Role.CUSTOMER, true, 
-            java.time.LocalDateTime.now().minusMonths(6), java.time.LocalDateTime.now()
-        ));
-        list.add(new AdminUserDtos.UserResponse(
-            3L, "Lê Văn M", "vanm@gmail.com", "0912 345 678", Gender.MALE, com.salonnbooking.domain.Role.CUSTOMER, true, 
-            java.time.LocalDateTime.now().minusMonths(1), java.time.LocalDateTime.now()
-        ));
-        list.add(new AdminUserDtos.UserResponse(
-            4L, "Phạm Hoàng Nam", "namph@gmail.com", "0933 111 222", Gender.MALE, com.salonnbooking.domain.Role.CUSTOMER, true, 
-            java.time.LocalDateTime.now().minusMonths(2), java.time.LocalDateTime.now()
-        ));
-        list.add(new AdminUserDtos.UserResponse(
-            5L, "Hoàng Thu Trang", "tranght@gmail.com", "0977 444 555", Gender.FEMALE, com.salonnbooking.domain.Role.CUSTOMER, true, 
-            java.time.LocalDateTime.now().minusMonths(4), java.time.LocalDateTime.now()
-        ));
-        list.add(new AdminUserDtos.UserResponse(
-            6L, "Đặng Minh Quân", "quandm@gmail.com", "0905 888 999", Gender.MALE, com.salonnbooking.domain.Role.CUSTOMER, false, 
-            java.time.LocalDateTime.now().minusWeeks(2), java.time.LocalDateTime.now()
-        ));
-        return list;
     }
 
     private static class StatusRenderer extends DefaultTableCellRenderer {

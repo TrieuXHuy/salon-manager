@@ -4,7 +4,6 @@ import com.google.gson.reflect.TypeToken;
 import com.salonnbooking.api.dto.AdminUserDtos;
 import com.salonnbooking.desktop.api.ApiClient;
 import com.salonnbooking.desktop.util.JsonUtil;
-import com.salonnbooking.domain.Gender;
 import com.salonnbooking.ui.components.CircleAvatar;
 import com.salonnbooking.ui.components.RoundedPanel;
 import com.salonnbooking.ui.theme.Theme;
@@ -103,19 +102,10 @@ public class EmployeePanel extends JPanel {
         SwingWorker<List<AdminUserDtos.UserResponse>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<AdminUserDtos.UserResponse> doInBackground() throws Exception {
-                // Skip API call in mock mode
-                if (com.salonnbooking.desktop.session.AuthSession.getInstance().isMockSession()) {
-                    return createMockData();
-                }
-                try {
-                    String json = apiClient.getRaw("/api/admin/staff");
-                    Type type = new TypeToken<List<AdminUserDtos.UserResponse>>() {
-                    }.getType();
-                    return JsonUtil.fromJson(json, type);
-                } catch (Exception ex) {
-                    System.out.println("[API Offline] Tải danh sách nhân viên thất bại, kích hoạt Mock Data: " + ex.getMessage());
-                    return createMockData();
-                }
+                String json = apiClient.getRaw("/api/admin/staff");
+                Type type = new TypeToken<List<AdminUserDtos.UserResponse>>() {
+                }.getType();
+                return JsonUtil.fromJson(json, type);
             }
 
             @Override
@@ -150,14 +140,10 @@ public class EmployeePanel extends JPanel {
 
             if (!matchesQuery) continue;
 
-            // Map and filter by Role
-            // For mock/db roles, we can try to parse or mock it. Let's map db roles or assign a mock role for display
             String roleText = "Nhân viên";
             if (staff.role() != null) {
                 roleText = staff.role() == com.salonnbooking.domain.Role.ADMIN ? "Quản trị viên" : "Stylist";
             }
-            // For more variety, let's map some IDs or names to specific sub-roles if needed, or stick to backend roles
-            // If they filter by "Stylist chính" (index 1), let's match roles containing "Stylist"
             if (roleIndex == 1 && !roleText.contains("Stylist")) continue;
             if (roleIndex == 2 && !roleText.contains("Thợ phụ") && !staff.fullName().contains("Huy") && !staff.fullName().contains("Mai"))
                 continue;
@@ -180,35 +166,6 @@ public class EmployeePanel extends JPanel {
 
         gridContainer.revalidate();
         gridContainer.repaint();
-    }
-
-    private List<AdminUserDtos.UserResponse> createMockData() {
-        List<AdminUserDtos.UserResponse> list = new ArrayList<>();
-        list.add(new AdminUserDtos.UserResponse(
-                201L, "Trần Bình", "binh@salon.com", "090111222", Gender.MALE, com.salonnbooking.domain.Role.STAFF, true,
-                java.time.LocalDateTime.now().minusYears(1), java.time.LocalDateTime.now()
-        ));
-        list.add(new AdminUserDtos.UserResponse(
-                202L, "Lê Thảo", "thao@salon.com", "090222333", Gender.FEMALE, com.salonnbooking.domain.Role.STAFF, true,
-                java.time.LocalDateTime.now().minusYears(1), java.time.LocalDateTime.now()
-        ));
-        list.add(new AdminUserDtos.UserResponse(
-                203L, "Phạm Huy", "huy@salon.com", "090333444", Gender.MALE, com.salonnbooking.domain.Role.STAFF, true,
-                java.time.LocalDateTime.now().minusMonths(6), java.time.LocalDateTime.now()
-        ));
-        list.add(new AdminUserDtos.UserResponse(
-                204L, "Nguyễn Mai", "mai@salon.com", "090444555", Gender.FEMALE, com.salonnbooking.domain.Role.STAFF, false,
-                java.time.LocalDateTime.now().minusMonths(8), java.time.LocalDateTime.now()
-        ));
-        list.add(new AdminUserDtos.UserResponse(
-                205L, "Hoàng Kim", "kim@salon.com", "090555666", Gender.FEMALE, com.salonnbooking.domain.Role.STAFF, true,
-                java.time.LocalDateTime.now().minusMonths(3), java.time.LocalDateTime.now()
-        ));
-        list.add(new AdminUserDtos.UserResponse(
-                206L, "Đỗ Quốc Anh", "quocanh@salon.com", "090666777", Gender.MALE, com.salonnbooking.domain.Role.STAFF, true,
-                java.time.LocalDateTime.now().minusMonths(5), java.time.LocalDateTime.now()
-        ));
-        return list;
     }
 
     private RoundedPanel createStaffCard(String name, String role, String rating, String status, Color statusColor) {
