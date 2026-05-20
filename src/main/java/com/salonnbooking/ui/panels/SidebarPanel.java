@@ -55,6 +55,7 @@ public class SidebarPanel extends JPanel {
         // Menu definitions: Key -> {Label, ScreenTitle}
         createMenuItem(menuPanel, "dashboard", "Dashboard", "Tổng quan");
         createMenuItem(menuPanel, "appointment", "Lịch hẹn", "Quản lý Lịch Hẹn");
+        createMenuItem(menuPanel, "booking", "Đặt lịch (Wizard)", "Đặt lịch");
         createMenuItem(menuPanel, "customer", "Khách hàng", "Quản lý Khách Hàng");
         createMenuItem(menuPanel, "service", "Dịch vụ", "Quản lý Dịch Vụ");
         createMenuItem(menuPanel, "employee", "Nhân viên", "Quản lý Nhân Viên");

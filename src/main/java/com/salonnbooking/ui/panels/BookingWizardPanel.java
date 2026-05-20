@@ -19,6 +19,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 public class BookingWizardPanel extends JPanel {
 
@@ -54,7 +55,20 @@ public class BookingWizardPanel extends JPanel {
     private JLabel confirmTotalLabel;
     private JTextArea noteArea;
 
-    private Runnable onBookingConfirmed;
+    public record BookingSummary(
+        List<ServiceDtos.Response> services,
+        Long staffId,
+        String staffName,
+        String staffRole,
+        LocalDate date,
+        LocalTime time,
+        String note,
+        BigDecimal subtotal,
+        BigDecimal discount,
+        BigDecimal total
+    ) {}
+
+    private Consumer<BookingSummary> onBookingConfirmed;
     private final NumberFormat nf = NumberFormat.getInstance(new Locale("vi", "VN"));
 
     // Mock data
@@ -103,7 +117,7 @@ public class BookingWizardPanel extends JPanel {
         updateStep();
     }
 
-    public void setOnBookingConfirmed(Runnable callback) {
+    public void setOnBookingConfirmed(Consumer<BookingSummary> callback) {
         this.onBookingConfirmed = callback;
     }
 
@@ -708,7 +722,7 @@ public class BookingWizardPanel extends JPanel {
                 JOptionPane.INFORMATION_MESSAGE
             );
             if (onBookingConfirmed != null) {
-                onBookingConfirmed.run();
+                onBookingConfirmed.accept(buildSummary());
             }
             return;
         }
@@ -757,6 +771,33 @@ public class BookingWizardPanel extends JPanel {
             nextBtn.setText("Tiếp theo →");
             nextBtn.setBackground(Theme.EMERALD);
         }
+    }
+
+    private BookingSummary buildSummary() {
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (ServiceDtos.Response svc : selectedServices) {
+            if (svc.price() != null) subtotal = subtotal.add(svc.price());
+        }
+
+        // Demo discount rule: 5% when selecting 2+ services.
+        BigDecimal discount = BigDecimal.ZERO;
+        if (selectedServices.size() >= 2) {
+            discount = subtotal.multiply(new BigDecimal("0.05"));
+        }
+        BigDecimal total = subtotal.subtract(discount);
+
+        return new BookingSummary(
+            List.copyOf(selectedServices),
+            selectedStaffId,
+            selectedStaffName,
+            selectedStaffRole,
+            selectedDate,
+            selectedTime,
+            noteArea != null ? noteArea.getText() : note,
+            subtotal,
+            discount,
+            total
+        );
     }
 
     // ========================= Helpers =========================

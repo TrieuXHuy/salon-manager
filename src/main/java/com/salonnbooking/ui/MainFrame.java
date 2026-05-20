@@ -14,6 +14,8 @@ import com.salonnbooking.ui.panels.CustomerPanel;
 import com.salonnbooking.ui.panels.ServicePanel;
 import com.salonnbooking.ui.panels.EmployeePanel;
 import com.salonnbooking.ui.panels.SettingsPanel;
+import com.salonnbooking.ui.panels.BookingWizardPanel;
+import com.salonnbooking.ui.panels.CheckoutPanel;
 import com.salonnbooking.ui.theme.Theme;
 
 public class MainFrame extends JFrame {
@@ -22,6 +24,10 @@ public class MainFrame extends JFrame {
     private JPanel contentPanel;
     private HeaderPanel headerPanel;
     private SidebarPanel sidebarPanel;
+
+    // Flow panels
+    private BookingWizardPanel bookingWizardPanel;
+    private CheckoutPanel checkoutPanel;
 
     public MainFrame() {
         // Initialize Theme and Look and Feel properties before rendering
@@ -61,6 +67,18 @@ public class MainFrame extends JFrame {
         contentPanel.add(new ServicePanel(), "service");
         contentPanel.add(new EmployeePanel(), "employee");
         contentPanel.add(new SettingsPanel(), "settings");
+
+        bookingWizardPanel = new BookingWizardPanel();
+        checkoutPanel = new CheckoutPanel();
+
+        // Wire booking -> checkout
+        bookingWizardPanel.setOnBookingConfirmed(summary -> {
+            checkoutPanel.setBookingSummary(summary);
+            showScreen("checkout", "Thanh toán");
+        });
+
+        contentPanel.add(bookingWizardPanel, "booking");
+        contentPanel.add(checkoutPanel, "checkout");
         
         rightPanel.add(contentPanel, BorderLayout.CENTER);
         
