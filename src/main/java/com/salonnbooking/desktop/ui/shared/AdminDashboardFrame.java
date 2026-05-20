@@ -1,17 +1,32 @@
 package com.salonnbooking.desktop.ui.shared;
 
+import com.salonnbooking.ui.panels.AppointmentPanel;
+import com.salonnbooking.ui.panels.BookingWizardPanel;
+import com.salonnbooking.ui.panels.CheckoutPanel;
+import com.salonnbooking.ui.panels.CustomerPanel;
+import com.salonnbooking.ui.panels.DashboardPanel;
+import com.salonnbooking.ui.panels.EmployeePanel;
+import com.salonnbooking.ui.panels.ServicePanel;
+import com.salonnbooking.ui.panels.SettingsPanel;
+
 public class AdminDashboardFrame extends MainFrame {
 
     public AdminDashboardFrame() {
         super("Salon Booking Manager - ADMIN");
 
-        addScreen("dashboard", "Dashboard", new com.salonnbooking.ui.panels.DashboardPanel());
-        addScreen("appointments", "Lịch hẹn", new com.salonnbooking.ui.panels.AppointmentPanel());
-        addScreen("customers", "Khách hàng", new com.salonnbooking.ui.panels.CustomerPanel());
-        addScreen("services", "Dịch vụ", new com.salonnbooking.ui.panels.ServicePanel());
-        addScreen("employees", "Nhân viên", new com.salonnbooking.ui.panels.EmployeePanel());
-        addScreen("settings", "Cấu hình", new com.salonnbooking.ui.panels.SettingsPanel());
+        addScreen("dashboard", "Dashboard", new DashboardPanel());
+        addScreen("appointments", "Lịch hẹn", new AppointmentPanel());
+
+        // Booking flow (opened from "+ Đặt lịch mới" in AppointmentPanel)
+        addScreen("booking", "Đặt lịch", new BookingWizardPanel());
+        addScreen("checkout", "Thanh toán", new CheckoutPanel());
+
+        addScreen("customers", "Khách hàng", new CustomerPanel());
+        addScreen("services", "Dịch vụ", new ServicePanel());
+        addScreen("employees", "Nhân viên", new EmployeePanel());
+        addScreen("settings", "Cấu hình", new SettingsPanel());
 
         showScreen("dashboard");
     }
 }
+

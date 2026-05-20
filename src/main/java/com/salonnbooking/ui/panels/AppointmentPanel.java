@@ -84,7 +84,7 @@ public class AppointmentPanel extends JPanel {
         addButton.setBackground(Theme.EMERALD);
         addButton.setFocusPainted(false);
         addButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        addButton.addActionListener(e -> ScreenRouter.go("booking", "Đặt lịch"));
+        addButton.addActionListener(e -> ScreenRouter.go("booking"));
         filterBar.add(addButton, "h 38!");
 
         add(filterBar, "gapbottom 15");

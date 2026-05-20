@@ -21,6 +21,7 @@ import javax.swing.WindowConstants;
 
 import com.salonnbooking.desktop.session.AuthSession;
 import com.salonnbooking.desktop.ui.auth.AuthFrame;
+import com.salonnbooking.ui.ScreenRouter;
 import com.salonnbooking.ui.theme.Theme;
 import com.salonnbooking.ui.components.SidebarButton;
 import com.salonnbooking.ui.components.CircleAvatar;
@@ -123,6 +124,9 @@ public class MainFrame extends JFrame {
         mainContainer.add(sidebarPanel, BorderLayout.WEST);
         mainContainer.add(rightPanel, BorderLayout.CENTER);
         setContentPane(mainContainer);
+
+        // Panels can request navigation via ScreenRouter (e.g. "+ Đặt lịch mới" in AppointmentPanel).
+        ScreenRouter.setNavigator((String key) -> showScreen(key));
     }
 
     public void addScreen(String key, String label, JPanel panel) {

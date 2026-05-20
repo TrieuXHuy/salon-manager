@@ -1,10 +1,8 @@
 package com.salonnbooking;
 
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-
-import com.salonnbooking.desktop.ui.auth.AuthFrame;
 import com.salonnbooking.ui.theme.Theme;
+
+import javax.swing.*;
 
 public class SwingClient {
 
