@@ -17,3 +17,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.SQLServerDialect
+
+resend:
+  api-key: "re_MK2fthsW_8WrBeTDRz9NhtAZBvbtEdbVu"
+  from-email: "onboarding@resend.dev"
