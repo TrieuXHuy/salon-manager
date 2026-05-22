@@ -1152,33 +1152,8 @@ public class SalonFxApplication extends Application {
 					super.updateItem(item, empty);
 					if (empty || item == null) {
 						setText(null);
-						setDisable(false);
-						setStyle("");
 					} else {
-						boolean occupied = false;
-						ServiceRequests.Response selectedService = service.getValue();
-						LocalDate selectedDate = date.getValue();
-						if (selectedService != null && selectedDate != null) {
-							try {
-								LocalTime selectedTime = LocalTime.parse(time.getText().trim(), TIME_INPUT);
-								LocalDateTime startTime = LocalDateTime.of(selectedDate, selectedTime);
-								int duration = serviceDuration(selectedService);
-								LocalDateTime endTime = startTime.plusMinutes(duration);
-								String conflict = findAppointmentConflict(appointments, appointment, null, item.id(), startTime, endTime, services);
-								if (conflict != null) {
-									occupied = true;
-								}
-							} catch (Exception ignored) {}
-						}
-						if (occupied) {
-							setText(item.name() + " (Đã có lịch)");
-							setDisable(true);
-							setStyle("-fx-text-fill: -text-muted; -fx-opacity: 0.55;");
-						} else {
-							setText(item.name());
-							setDisable(false);
-							setStyle("");
-						}
+						setText(item.name());
 					}
 				}
 			});
