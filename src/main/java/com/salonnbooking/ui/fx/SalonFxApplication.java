@@ -201,9 +201,17 @@ public class SalonFxApplication extends Application {
 			return null;
 		}, ignored -> showLogin(), ex -> showLogin()));
 
-		VBox user = new VBox(4, new Label(username), new Label(role.getDisplayName()), new Label("Online"));
+		Label nameLabel = new Label(username);
+		nameLabel.getStyleClass().add("user-name");
+		Label roleLabel = new Label(role.getDisplayName());
+		roleLabel.getStyleClass().add("user-role");
+		javafx.scene.shape.Circle dot = new javafx.scene.shape.Circle(4, javafx.scene.paint.Color.web("#10B981"));
+		Label onlineLabel = new Label("Online");
+		onlineLabel.getStyleClass().add("user-online");
+		HBox statusBox = new HBox(6, dot, onlineLabel);
+		statusBox.setAlignment(Pos.CENTER_LEFT);
+		VBox user = new VBox(4, nameLabel, roleLabel, statusBox);
 		user.getStyleClass().add("user-card");
-		user.getChildren().forEach(n -> n.getStyleClass().add("muted"));
 
 		sidebar.getChildren().addAll(brand, menu, logout, user);
 		return sidebar;
@@ -328,7 +336,7 @@ public class SalonFxApplication extends Application {
 		private Node customerFilters() {
 			customerSearch.setPromptText("Tìm theo tên, điện thoại hoặc email");
 			customerSearch.textProperty().addListener((obs, old, value) -> applyCustomerFilter());
-			Button clearSearch = ghostButton("Xóa tìm kiếm");
+			Button clearSearch = secondaryButton("Xóa tìm kiếm");
 			clearSearch.setOnAction(e -> customerSearch.clear());
 			HBox box = new HBox(10, customerSearch, clearSearch);
 			HBox.setHgrow(customerSearch, Priority.ALWAYS);
@@ -348,7 +356,7 @@ public class SalonFxApplication extends Application {
 			grid.addRow(1, labeled("Email", email), labeled("Giới tính", gender));
 			grid.addRow(2, labeled("Điểm tích lũy", loyaltyPoints));
 			grid.add(labeled("Ghi chú chăm sóc", customerNote), 0, 3, 2, 1);
-			HBox actions = actions(primaryButton("Thêm"), ghostButton("Cập nhật"), ghostButton("Xóa"), ghostButton("Xóa form"));
+			HBox actions = actions(primaryButton("Thêm"), secondaryButton("Cập nhật"), dangerButton("Xóa"), ghostButton("Xóa form"));
 			((Button) actions.getChildren().get(0)).setOnAction(e -> save(false));
 			((Button) actions.getChildren().get(1)).setOnAction(e -> save(true));
 			((Button) actions.getChildren().get(2)).setOnAction(e -> delete());
@@ -500,7 +508,7 @@ public class SalonFxApplication extends Application {
 			grid.addRow(0, labeled("Tên dịch vụ", name), labeled("Giá (VND)", price));
 			grid.addRow(1, labeled("Thời lượng (phút)", duration), active);
 			grid.add(labeled("Mô tả", description), 0, 2, 2, 1);
-			HBox actions = actions(primaryButton("Thêm"), ghostButton("Cập nhật"), ghostButton("Xóa"), ghostButton("Xóa form"));
+			HBox actions = actions(primaryButton("Thêm"), secondaryButton("Cập nhật"), dangerButton("Xóa"), ghostButton("Xóa form"));
 			((Button) actions.getChildren().get(0)).setOnAction(e -> save(false));
 			((Button) actions.getChildren().get(1)).setOnAction(e -> save(true));
 			((Button) actions.getChildren().get(2)).setOnAction(e -> delete());
@@ -629,7 +637,7 @@ public class SalonFxApplication extends Application {
 			grid.addRow(0, labeled("Tên phòng/khu", name), active);
 			grid.add(labeled("Mô tả", description), 0, 1, 2, 1);
 
-			HBox actions = actions(primaryButton("Thêm"), ghostButton("Cập nhật"), ghostButton("Xóa"), ghostButton("Xóa form"));
+			HBox actions = actions(primaryButton("Thêm"), secondaryButton("Cập nhật"), dangerButton("Xóa"), ghostButton("Xóa form"));
 			((Button) actions.getChildren().get(0)).setOnAction(e -> save(false));
 			((Button) actions.getChildren().get(1)).setOnAction(e -> save(true));
 			((Button) actions.getChildren().get(2)).setOnAction(e -> delete());
@@ -743,8 +751,8 @@ public class SalonFxApplication extends Application {
 			search.setPromptText("Tìm khách hàng hoặc dịch vụ");
 			statusFilter.getItems().setAll(AppointmentStatus.values());
 			statusFilter.setPromptText("Tất cả trạng thái");
-			Button clear = ghostButton("Xóa lọc");
-			Button today = ghostButton("Hôm nay");
+			Button clear = secondaryButton("Xóa lọc");
+			Button today = secondaryButton("Hôm nay");
 			today.setTooltip(new Tooltip("Lọc nhanh lịch hẹn trong ngày hôm nay"));
 			today.setOnAction(e -> {
 				LocalDate now = LocalDate.now();
@@ -771,12 +779,12 @@ public class SalonFxApplication extends Application {
 
 		private Node appointmentToolbar() {
 			Button add = primaryButton("Thêm");
-			Button edit = ghostButton("Sửa");
-			Button delete = ghostButton("Xóa");
-			Button confirm = ghostButton("Xác nhận");
-			Button complete = ghostButton("Hoàn thành");
-			Button pay = ghostButton("Thanh toán");
-			Button remind = ghostButton("Nhắc lịch");
+			Button edit = secondaryButton("Sửa");
+			Button delete = dangerButton("Xóa");
+			Button confirm = secondaryButton("Xác nhận");
+			Button complete = secondaryButton("Hoàn thành");
+			Button pay = secondaryButton("Thanh toán");
+			Button remind = secondaryButton("Nhắc lịch");
 			add.setOnAction(e -> openAppointmentDialog(null));
 			edit.setOnAction(e -> {
 				AppointmentRow row = table.getSelectionModel().getSelectedItem();
@@ -1463,6 +1471,18 @@ public class SalonFxApplication extends Application {
 	private Button primaryButton(String text) {
 		Button button = new Button(text);
 		button.getStyleClass().add("primary-button");
+		return button;
+	}
+
+	private Button secondaryButton(String text) {
+		Button button = new Button(text);
+		button.getStyleClass().add("secondary-button");
+		return button;
+	}
+
+	private Button dangerButton(String text) {
+		Button button = new Button(text);
+		button.getStyleClass().add("danger-button");
 		return button;
 	}
 

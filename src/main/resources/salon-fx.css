@@ -3,11 +3,12 @@
     -primary-color: #7C3AED;
     -primary-hover: #6D28D9;
     -primary-light: #EDE9FE;
-    -bg-color: #F8FAFC;
+    -bg-color: #F1F5F9;
+    -sidebar-bg: #F8FAFC;
     -card-bg: #FFFFFF;
-    -border-color: #E2E8F0;
+    -border-color: #CBD5E1;
     -text-main: #0F172A;
-    -text-muted: #64748B;
+    -text-muted: #475569;
 
     /* Status Badge Variables */
     -success-bg: #D1FAE5;
@@ -25,7 +26,7 @@
 
     /* JavaFX Overrides */
     -fx-font-family: "Segoe UI", "Arial", sans-serif;
-    -fx-font-size: 13px;
+    -fx-font-size: 14px;
     -fx-background-color: -bg-color;
     -fx-text-fill: -text-main;
 }
@@ -57,7 +58,7 @@
 }
 
 .sidebar {
-    -fx-background-color: -card-bg;
+    -fx-background-color: -sidebar-bg;
     -fx-padding: 24px 16px;
     -fx-border-color: transparent -border-color transparent transparent;
     -fx-border-width: 1px;
@@ -109,7 +110,7 @@
 }
 
 .field-label {
-    -fx-font-size: 12px;
+    -fx-font-size: 12.5px;
     -fx-font-weight: 700;
     -fx-text-fill: -text-muted;
     -fx-padding: 0 0 2px 0;
@@ -131,7 +132,8 @@
     -fx-background-radius: 8px;
     -fx-text-fill: white;
     -fx-font-weight: 700;
-    -fx-padding: 8px 16px;
+    -fx-padding: 10px 18px;
+    -fx-font-size: 13.5px;
     -fx-cursor: hand;
 }
 
@@ -139,18 +141,57 @@
     -fx-background-color: -primary-hover;
 }
 
-.ghost-button {
+.secondary-button {
     -fx-background-color: -primary-light;
     -fx-background-radius: 8px;
+    -fx-border-color: #C7D2FE;
+    -fx-border-width: 1px;
+    -fx-border-radius: 8px;
     -fx-text-fill: -primary-color;
     -fx-font-weight: 700;
-    -fx-padding: 8px 16px;
+    -fx-padding: 9px 17px;
+    -fx-font-size: 13.5px;
+    -fx-cursor: hand;
+}
+
+.secondary-button:hover {
+    -fx-background-color: -primary-color;
+    -fx-border-color: -primary-hover;
+    -fx-text-fill: white;
+}
+
+.danger-button {
+    -fx-background-color: #FEE2E2;
+    -fx-background-radius: 8px;
+    -fx-border-color: #FCA5A5;
+    -fx-border-width: 1px;
+    -fx-border-radius: 8px;
+    -fx-text-fill: #DC2626;
+    -fx-font-weight: 700;
+    -fx-padding: 9px 17px;
+    -fx-font-size: 13.5px;
+    -fx-cursor: hand;
+}
+
+.danger-button:hover {
+    -fx-background-color: #EF4444;
+    -fx-border-color: #DC2626;
+    -fx-text-fill: white;
+}
+
+.ghost-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 8px;
+    -fx-text-fill: -text-muted;
+    -fx-font-weight: 600;
+    -fx-padding: 10px 18px;
+    -fx-font-size: 13.5px;
     -fx-cursor: hand;
 }
 
 .ghost-button:hover {
-    -fx-background-color: -primary-color;
-    -fx-text-fill: white;
+    -fx-background-color: #F1F5F9;
+    -fx-text-fill: -text-main;
 }
 
 .nav-button {
@@ -158,12 +199,13 @@
     -fx-background-radius: 8px;
     -fx-text-fill: -text-muted;
     -fx-font-weight: 600;
-    -fx-padding: 10px 14px;
+    -fx-padding: 12px 16px;
+    -fx-font-size: 14px;
     -fx-cursor: hand;
 }
 
 .nav-button:hover {
-    -fx-background-color: #F1F5F9;
+    -fx-background-color: #E2E8F0;
     -fx-text-fill: -text-main;
 }
 
@@ -176,10 +218,11 @@
 .text-field, .password-field, .text-area, .combo-box-base, .date-picker {
     -fx-background-color: -card-bg;
     -fx-background-radius: 8px;
-    -fx-border-color: #CBD5E1;
+    -fx-border-color: -border-color;
     -fx-border-radius: 8px;
-    -fx-padding: 8px 12px;
+    -fx-padding: 10px 12px;
     -fx-text-fill: -text-main;
+    -fx-font-size: 13.5px;
 }
 
 .text-field:focused, .password-field:focused, .text-area:focused, .combo-box-base:focused, .date-picker:focused {
@@ -189,11 +232,28 @@
 }
 
 .user-card {
-    -fx-background-color: #F8FAFC;
+    -fx-background-color: -bg-color;
     -fx-background-radius: 12px;
     -fx-border-color: -border-color;
     -fx-border-radius: 12px;
-    -fx-padding: 12px;
+    -fx-padding: 14px;
+}
+
+.user-name {
+    -fx-font-weight: 700;
+    -fx-text-fill: -text-main;
+    -fx-font-size: 13.5px;
+}
+
+.user-role {
+    -fx-text-fill: -text-muted;
+    -fx-font-size: 12px;
+}
+
+.user-online {
+    -fx-text-fill: #059669;
+    -fx-font-weight: 600;
+    -fx-font-size: 12px;
 }
 
 /* Dashboard Stat Cards */
@@ -204,34 +264,38 @@
     -fx-border-radius: 12px;
     -fx-padding: 18px;
     -fx-min-width: 190px;
-    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.02), 6, 0, 0, 1);
-    -fx-border-width: 1px;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.03), 8, 0, 0, 2);
 }
 
 .stat-value {
-    -fx-font-size: 22px;
+    -fx-font-size: 26px;
     -fx-font-weight: 800;
     -fx-text-fill: -text-main;
 }
 
 .stat-revenue {
-    -fx-border-color: transparent transparent transparent #10B981;
-    -fx-border-width: 1px 1px 1px 4px;
+    -fx-border-color: -border-color -border-color -border-color #10B981;
+    -fx-border-width: 1px 1px 1px 5px;
 }
 
 .stat-customers {
-    -fx-border-color: transparent transparent transparent -primary-color;
-    -fx-border-width: 1px 1px 1px 4px;
+    -fx-border-color: -border-color -border-color -border-color -primary-color;
+    -fx-border-width: 1px 1px 1px 5px;
 }
 
 .stat-appointments {
-    -fx-border-color: transparent transparent transparent #3B82F6;
-    -fx-border-width: 1px 1px 1px 4px;
+    -fx-border-color: -border-color -border-color -border-color #3B82F6;
+    -fx-border-width: 1px 1px 1px 5px;
 }
 
 .stat-pending {
-    -fx-border-color: transparent transparent transparent #F59E0B;
-    -fx-border-width: 1px 1px 1px 4px;
+    -fx-border-color: -border-color -border-color -border-color #F59E0B;
+    -fx-border-width: 1px 1px 1px 5px;
+}
+
+.stat-default {
+    -fx-border-color: -border-color -border-color -border-color -primary-light;
+    -fx-border-width: 1px 1px 1px 5px;
 }
 
 .filter-bar {
@@ -245,26 +309,32 @@
 }
 
 .table-view .column-header-background {
-    -fx-background-color: #F1F5F9;
+    -fx-background-color: #EEF2F7;
     -fx-background-radius: 8px 8px 0 0;
 }
 
 .table-view .column-header, .table-view .filler {
     -fx-background-color: transparent;
-    -fx-size: 44px;
+    -fx-size: 48px;
     -fx-border-color: transparent transparent -border-color transparent;
 }
 
 .table-view .column-header .label {
-    -fx-text-fill: -text-muted;
+    -fx-text-fill: -text-main;
     -fx-font-weight: 700;
+    -fx-font-size: 13px;
 }
 
 .table-row-cell {
     -fx-background-color: -card-bg;
     -fx-border-color: transparent transparent -border-color transparent;
-    -fx-cell-size: 46px;
-    -fx-text-fill: -text-main;
+    -fx-cell-size: 48px;
+    -fx-text-fill: #334155;
+    -fx-font-size: 13.5px;
+}
+
+.table-cell {
+    -fx-border-color: transparent;
 }
 
 .table-row-cell:odd {
@@ -287,9 +357,9 @@
 
 /* Status Badges & Chips */
 .status-badge {
-    -fx-padding: 4px 10px;
+    -fx-padding: 5px 12px;
     -fx-background-radius: 99px;
-    -fx-font-size: 11px;
+    -fx-font-size: 11.5px;
     -fx-font-weight: 700;
     -fx-alignment: center;
     -fx-text-alignment: center;
