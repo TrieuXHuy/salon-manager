@@ -994,11 +994,20 @@ public class SalonFxApplication extends Application {
 				}, ex -> error("Lỗi tạo tài khoản", cleanError(ex)));
 			});
 			GridPane grid = formGrid();
-			grid.addRow(0, labeled("Tên đăng nhập", newUsername), labeled("Mật khẩu", newPassword),
-					labeled("Vai trò", newRole));
-			grid.addRow(1, labeled("Họ tên khách hàng", customerName), labeled("Số điện thoại", customerPhone),
+			grid.addRow(0,
+					labeled("Tên đăng nhập", newUsername),
+					labeled("Mật khẩu", newPassword));
+			grid.addRow(1,
+					labeled("Vai trò", newRole),
+					labeled("Họ tên khách hàng", customerName));
+			grid.addRow(2,
+					labeled("Số điện thoại", customerPhone),
 					labeled("Email", customerEmail));
-			grid.addRow(2, labeled("Giới tính", customerGender), create);
+			HBox actionBox = new HBox(create);
+			actionBox.setAlignment(Pos.BOTTOM_LEFT);
+			grid.addRow(3,
+					labeled("Giới tính", customerGender),
+					actionBox);
 			VBox form = new VBox(12, sectionTitle("Tạo tài khoản"), grid);
 			return card(form);
 		}
@@ -1333,14 +1342,17 @@ public class SalonFxApplication extends Application {
 		GridPane grid = new GridPane();
 		grid.setHgap(14);
 		grid.setVgap(12);
+		grid.setMaxWidth(Double.MAX_VALUE);
 		ColumnConstraints left = new ColumnConstraints();
+		left.setPercentWidth(50);
 		left.setHgrow(Priority.ALWAYS);
 		left.setFillWidth(true);
-		left.setPercentWidth(50);
+		left.setMinWidth(0);
 		ColumnConstraints right = new ColumnConstraints();
+		right.setPercentWidth(50);
 		right.setHgrow(Priority.ALWAYS);
 		right.setFillWidth(true);
-		right.setPercentWidth(50);
+		right.setMinWidth(0);
 		grid.getColumnConstraints().addAll(left, right);
 		return grid;
 	}
