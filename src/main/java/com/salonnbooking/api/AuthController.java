@@ -51,6 +51,12 @@ public class AuthController {
 		return authService.findAllUsers(requesterUsername).stream().map(AuthRequests.UserResponse::from).toList();
 	}
 
+	@PostMapping("/users")
+	@ResponseStatus(HttpStatus.CREATED)
+	public AuthRequests.UserResponse createUser(@Valid @RequestBody AuthRequests.CreateUser req) {
+		return AuthRequests.UserResponse.from(authService.createUser(req));
+	}
+
 	@PutMapping("/users/{id}/role")
 	public AuthRequests.UserResponse changeRole(@PathVariable Integer id,
 			@Valid @RequestBody AuthRequests.ChangeRole req) {

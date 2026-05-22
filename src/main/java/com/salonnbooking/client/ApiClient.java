@@ -137,6 +137,17 @@ public class ApiClient {
 		return list;
 	}
 
+	public static AuthRequests.UserResponse createUser(String requesterUsername, String username, String password,
+			UserRole role) throws Exception {
+		AuthRequests.Response registered = register(username, password);
+		UserRole selectedRole = role == null ? UserRole.CUSTOMER : role;
+		if (selectedRole == UserRole.CUSTOMER) {
+			return new AuthRequests.UserResponse(registered.id(), registered.username(), registered.role(),
+					registered.roleName());
+		}
+		return changeUserRole(registered.id(), requesterUsername, selectedRole);
+	}
+
 	public static AuthRequests.UserResponse changeUserRole(Integer userId, String requesterUsername, UserRole role)
 			throws Exception {
 		HttpResponse<String> response = sendPut("/auth/users/" + userId + "/role",

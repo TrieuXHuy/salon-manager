@@ -34,6 +34,23 @@ public class AuthService {
 		return userRepository.save(user);
 	}
 
+	public User createUser(AuthRequests.CreateUser req) {
+		requireOwner(req.requesterUsername());
+		String username = req.username().trim();
+		if (userRepository.existsByUsername(username)) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+		}
+		if (req.role() == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role is required");
+		}
+
+		User user = new User();
+		user.setUsername(username);
+		user.setPassword(req.password());
+		user.setRole(req.role());
+		return userRepository.save(user);
+	}
+
 	@Transactional(readOnly = true)
 	public User login(AuthRequests.Login req) {
 		String username = req.username().trim();

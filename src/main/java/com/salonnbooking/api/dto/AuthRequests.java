@@ -20,6 +20,13 @@ public final class AuthRequests {
 			@NotBlank @Size(max = 255) String password) {
 	}
 
+	public record CreateUser(
+			@NotBlank @Size(max = 50) String requesterUsername,
+			@NotBlank @Size(max = 50) String username,
+			@NotBlank @Size(max = 255) String password,
+			UserRole role) {
+	}
+
 	public record Response(
 			Integer id,
 			String username,

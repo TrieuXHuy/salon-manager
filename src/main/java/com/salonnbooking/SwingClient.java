@@ -6,6 +6,7 @@ import javax.swing.UIManager;
 
 import com.formdev.flatlaf.FlatLightLaf;
 import com.salonnbooking.client.ApiClient;
+import com.salonnbooking.domain.UserRole;
 import com.salonnbooking.ui.LoginFrame;
 import com.salonnbooking.ui.MainDashboard;
 import com.salonnbooking.ui.panel.AppointmentPanel;
@@ -13,6 +14,7 @@ import com.salonnbooking.ui.panel.CustomerPanel;
 import com.salonnbooking.ui.panel.DashboardPanel;
 import com.salonnbooking.ui.panel.ReportPanel;
 import com.salonnbooking.ui.panel.ServicePanel;
+import com.salonnbooking.ui.panel.UserPanel;
 
 public class SwingClient {
 
@@ -40,7 +42,7 @@ public class SwingClient {
 		new LoginFrame(response -> showDashboard(response.username(), response.role())).setVisible(true);
 	}
 
-	private static void showDashboard(String username, com.salonnbooking.domain.UserRole role) {
+	private static void showDashboard(String username, UserRole role) {
 		final MainDashboard[] dashboardRef = new MainDashboard[1];
 		MainDashboard dashboard = new MainDashboard(username, role, () -> {
 			try {
@@ -58,6 +60,9 @@ public class SwingClient {
 		dashboard.addPanel(MainDashboard.PANEL_APPOINTMENT, new AppointmentPanel());
 		dashboard.addPanel(MainDashboard.PANEL_SERVICE, new ServicePanel());
 		dashboard.addPanel(MainDashboard.PANEL_REPORT, new ReportPanel());
+		if (role == UserRole.OWNER) {
+			dashboard.addPanel(MainDashboard.PANEL_USER, new UserPanel(username));
+		}
 
 		dashboard.setVisible(true);
 		dashboard.showPanel(MainDashboard.PANEL_DASHBOARD);

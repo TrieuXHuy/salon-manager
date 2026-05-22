@@ -50,6 +50,7 @@ public class MainDashboard extends JFrame {
 	public static final String PANEL_APPOINTMENT = "appointment";
 	public static final String PANEL_SERVICE = "service";
 	public static final String PANEL_REPORT = "report";
+	public static final String PANEL_USER = "user";
 
 	private final String currentUsername;
 	private final UserRole currentRole;
@@ -88,6 +89,7 @@ public class MainDashboard extends JFrame {
 		contentPanel.add(createPlaceholderPanel("Dat lich hen", PANEL_APPOINTMENT), PANEL_APPOINTMENT);
 		contentPanel.add(createPlaceholderPanel("Quan ly dich vu", PANEL_SERVICE), PANEL_SERVICE);
 		contentPanel.add(createPlaceholderPanel("Bao cao", PANEL_REPORT), PANEL_REPORT);
+		contentPanel.add(createPlaceholderPanel("Quan ly tai khoan", PANEL_USER), PANEL_USER);
 
 		mainContainer.add(contentPanel, BorderLayout.CENTER);
 		setContentPane(mainContainer);
@@ -123,7 +125,7 @@ public class MainDashboard extends JFrame {
 
 	private String[] getVisibleLabels() {
 		if (currentRole == UserRole.OWNER) {
-			return new String[] { "Tong quan", "Khach hang", "Lich hen", "Dich vu", "Bao cao" };
+			return new String[] { "Tong quan", "Khach hang", "Lich hen", "Dich vu", "Bao cao", "Tai khoan" };
 		}
 		if (currentRole == UserRole.STAFF) {
 			return new String[] { "Tong quan", "Khach hang", "Lich hen", "Dich vu" };
@@ -133,7 +135,7 @@ public class MainDashboard extends JFrame {
 
 	private String[] getVisibleTags() {
 		if (currentRole == UserRole.OWNER) {
-			return new String[] { "TG", "KH", "LH", "DV", "BC" };
+			return new String[] { "TG", "KH", "LH", "DV", "BC", "TK" };
 		}
 		if (currentRole == UserRole.STAFF) {
 			return new String[] { "TG", "KH", "LH", "DV" };
@@ -143,7 +145,8 @@ public class MainDashboard extends JFrame {
 
 	private String[] getVisiblePanelNames() {
 		if (currentRole == UserRole.OWNER) {
-			return new String[] { PANEL_DASHBOARD, PANEL_CUSTOMER, PANEL_APPOINTMENT, PANEL_SERVICE, PANEL_REPORT };
+			return new String[] { PANEL_DASHBOARD, PANEL_CUSTOMER, PANEL_APPOINTMENT, PANEL_SERVICE, PANEL_REPORT,
+					PANEL_USER };
 		}
 		if (currentRole == UserRole.STAFF) {
 			return new String[] { PANEL_DASHBOARD, PANEL_CUSTOMER, PANEL_APPOINTMENT, PANEL_SERVICE };
