@@ -24,6 +24,8 @@ import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.api.dto.DashboardRequests;
 import com.salonnbooking.api.dto.PaymentRequests;
 import com.salonnbooking.api.dto.ReportRequests;
+import com.salonnbooking.api.dto.ScheduleRequests;
+import com.salonnbooking.api.dto.ServiceRoomRequests;
 import com.salonnbooking.domain.UserRole;
 
 /**
@@ -511,6 +513,67 @@ public class ApiClient {
 		if (response.statusCode() != 204) {
 			throw new RuntimeException("Failed to delete service: " + response.body());
 		}
+	}
+
+	// ==================== SERVICE ROOM API ====================
+
+	public static List<ServiceRoomRequests.Response> getActiveServiceRooms() throws Exception {
+		HttpResponse<String> response = sendGet("/service-rooms/active");
+		requireStatus(response, 200, "fetch service rooms");
+
+		var list = new java.util.ArrayList<ServiceRoomRequests.Response>();
+		var jsonArray = com.google.gson.JsonParser.parseString(response.body()).getAsJsonArray();
+		for (var element : jsonArray) {
+			list.add(gson.fromJson(element, ServiceRoomRequests.Response.class));
+		}
+		return list;
+	}
+
+	public static List<ServiceRoomRequests.Response> getAllServiceRooms() throws Exception {
+		HttpResponse<String> response = sendGet("/service-rooms");
+		requireStatus(response, 200, "fetch service rooms");
+
+		var list = new java.util.ArrayList<ServiceRoomRequests.Response>();
+		var jsonArray = com.google.gson.JsonParser.parseString(response.body()).getAsJsonArray();
+		for (var element : jsonArray) {
+			list.add(gson.fromJson(element, ServiceRoomRequests.Response.class));
+		}
+		return list;
+	}
+
+	public static ServiceRoomRequests.Response createServiceRoom(ServiceRoomRequests.Create createReq) throws Exception {
+		HttpResponse<String> response = sendPost("/service-rooms", createReq);
+		requireStatus(response, 201, "create service room");
+		return gson.fromJson(response.body(), ServiceRoomRequests.Response.class);
+	}
+
+	public static ServiceRoomRequests.Response updateServiceRoom(Integer id, ServiceRoomRequests.Update updateReq)
+			throws Exception {
+		HttpResponse<String> response = sendPut("/service-rooms/" + id, updateReq);
+		requireStatus(response, 200, "update service room");
+		return gson.fromJson(response.body(), ServiceRoomRequests.Response.class);
+	}
+
+	public static void deleteServiceRoom(Integer id) throws Exception {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(BASE_URL + "/service-rooms/" + id))
+				.DELETE()
+				.build();
+		HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+		requireStatus(response, 204, "delete service room");
+	}
+
+	public static List<ScheduleRequests.AvailableSlotResponse> getAvailableSlots(LocalDate date, Integer serviceId)
+			throws Exception {
+		HttpResponse<String> response = sendGet("/schedules/available-slots?date=" + date + "&serviceId=" + serviceId);
+		requireStatus(response, 200, "fetch available slots");
+
+		var list = new java.util.ArrayList<ScheduleRequests.AvailableSlotResponse>();
+		var jsonArray = com.google.gson.JsonParser.parseString(response.body()).getAsJsonArray();
+		for (var element : jsonArray) {
+			list.add(gson.fromJson(element, ScheduleRequests.AvailableSlotResponse.class));
+		}
+		return list;
 	}
 
 	// ==================== DASHBOARD API ====================

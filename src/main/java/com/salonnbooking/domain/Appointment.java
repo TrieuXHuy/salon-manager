@@ -31,6 +31,10 @@ public class Appointment {
 	@JoinColumn(name = "service_id", nullable = false)
 	private ServiceEntity service;
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "room_id")
+	private ServiceRoom room;
+
 	@Column(name = "appointment_time", nullable = false)
 	private LocalDateTime appointmentTime;
 
@@ -63,6 +67,14 @@ public class Appointment {
 
 	public void setService(ServiceEntity service) {
 		this.service = service;
+	}
+
+	public ServiceRoom getRoom() {
+		return room;
+	}
+
+	public void setRoom(ServiceRoom room) {
+		this.room = room;
 	}
 
 	public LocalDateTime getAppointmentTime() {

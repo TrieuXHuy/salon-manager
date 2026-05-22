@@ -467,6 +467,7 @@ public class AppointmentDialog extends JDialog {
 		return new AppointmentRequests.Create(
 				customer.getId(),
 				serviceIds,
+				null,
 				dateTime,
 				(AppointmentStatus) cbStatus.getSelectedItem(),
 				taNote.getText().trim());
@@ -488,6 +489,7 @@ public class AppointmentDialog extends JDialog {
 		return new AppointmentRequests.Update(
 				customer.getId(),
 				serviceIds,
+				null,
 				dateTime,
 				(AppointmentStatus) cbStatus.getSelectedItem(),
 				taNote.getText().trim());

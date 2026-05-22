@@ -14,6 +14,7 @@ public final class AppointmentRequests {
 	public record Create(
 			@NotNull Integer customerId,
 			@NotNull List<Integer> serviceIds,
+			Integer roomId,
 			@NotNull LocalDateTime appointmentTime,
 			AppointmentStatus status,
 			String note) {
@@ -22,6 +23,7 @@ public final class AppointmentRequests {
 	public record Update(
 			@NotNull Integer customerId,
 			@NotNull List<Integer> serviceIds,
+			Integer roomId,
 			@NotNull LocalDateTime appointmentTime,
 			@NotNull AppointmentStatus status,
 			String note) {
@@ -31,6 +33,8 @@ public final class AppointmentRequests {
 			Integer id,
 			Integer customerId,
 			List<Integer> serviceIds,
+			Integer roomId,
+			String roomName,
 			LocalDateTime appointmentTime,
 			AppointmentStatus status,
 			String note) {
@@ -39,6 +43,8 @@ public final class AppointmentRequests {
 					a.getId(),
 					a.getCustomer().getId(),
 					List.of(a.getService().getId()),
+					a.getRoom() == null ? null : a.getRoom().getId(),
+					a.getRoom() == null ? "" : a.getRoom().getName(),
 					a.getAppointmentTime(),
 					a.getStatus(),
 					a.getNote());

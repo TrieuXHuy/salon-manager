@@ -14,6 +14,7 @@ public class DatabaseConstraintInitializer {
 	ApplicationRunner appointmentStatusConstraintRunner(JdbcTemplate jdbcTemplate) {
 		return args -> {
 			ensureCustomerColumns(jdbcTemplate);
+			ensureServiceRooms(jdbcTemplate);
 
 			List<ConstraintInfo> constraints = jdbcTemplate.query("""
 					SELECT SCHEMA_NAME(t.schema_id) AS schema_name, cc.name AS constraint_name, cc.definition
@@ -62,6 +63,28 @@ public class DatabaseConstraintInitializer {
 		if (count == null || count == 0) {
 			jdbcTemplate.execute(sql);
 		}
+	}
+
+	private static void ensureServiceRooms(JdbcTemplate jdbcTemplate) {
+		Integer tableCount = jdbcTemplate.queryForObject("""
+				SELECT COUNT(*)
+				FROM sys.tables
+				WHERE name = 'service_rooms'
+				""", Integer.class);
+		if (tableCount == null || tableCount == 0) {
+			return;
+		}
+		Integer roomCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM [dbo].[service_rooms]", Integer.class);
+		if (roomCount != null && roomCount > 0) {
+			return;
+		}
+		jdbcTemplate.update("""
+				INSERT INTO [dbo].[service_rooms] ([name], [description], [is_active])
+				VALUES
+				(N'Phòng 1', N'Khu phục vụ tiêu chuẩn', 1),
+				(N'Phòng 2', N'Khu phục vụ tiêu chuẩn', 1),
+				(N'Phòng 3', N'Khu phục vụ VIP / linh hoạt', 1)
+				""");
 	}
 
 	private static String quote(String identifier) {

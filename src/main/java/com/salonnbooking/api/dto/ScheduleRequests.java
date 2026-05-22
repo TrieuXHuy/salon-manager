@@ -11,7 +11,12 @@ public final class ScheduleRequests {
 	public record AvailableSlotResponse(
 			LocalDateTime slotTime,
 			Boolean isAvailable,
-			Integer serviceId) {
+			Integer serviceId,
+			Integer roomId,
+			String roomName,
+			Integer durationMinutes,
+			Integer bookedSlots,
+			Integer totalSlots) {
 	}
 
 	public record AppointmentScheduleResponse(
@@ -20,6 +25,8 @@ public final class ScheduleRequests {
 			String customerName,
 			Integer serviceId,
 			String serviceName,
+			Integer roomId,
+			String roomName,
 			LocalDateTime appointmentTime,
 			Integer durationMinutes,
 			AppointmentStatus status,

@@ -555,6 +555,7 @@ public class DashboardPanel extends JPanel {
 		return new AppointmentRequests.Update(
 				appointment.customerId(),
 				serviceIds,
+				appointment.roomId(),
 				appointment.appointmentTime(),
 				status,
 				appointment.note());

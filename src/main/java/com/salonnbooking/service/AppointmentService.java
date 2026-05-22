@@ -13,9 +13,11 @@ import com.salonnbooking.domain.Appointment;
 import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.Customer;
 import com.salonnbooking.domain.ServiceEntity;
+import com.salonnbooking.domain.ServiceRoom;
 import com.salonnbooking.exception.ResourceNotFoundException;
 import com.salonnbooking.repository.AppointmentRepository;
 import com.salonnbooking.repository.CustomerRepository;
+import com.salonnbooking.repository.ServiceRoomRepository;
 import com.salonnbooking.repository.ServiceRepository;
 
 @Service
@@ -27,14 +29,17 @@ public class AppointmentService {
 	private final AppointmentRepository appointmentRepository;
 	private final CustomerRepository customerRepository;
 	private final ServiceRepository serviceRepository;
+	private final ServiceRoomRepository serviceRoomRepository;
 
 	public AppointmentService(
 			AppointmentRepository appointmentRepository,
 			CustomerRepository customerRepository,
-			ServiceRepository serviceRepository) {
+			ServiceRepository serviceRepository,
+			ServiceRoomRepository serviceRoomRepository) {
 		this.appointmentRepository = appointmentRepository;
 		this.customerRepository = customerRepository;
 		this.serviceRepository = serviceRepository;
+		this.serviceRoomRepository = serviceRoomRepository;
 	}
 
 	@Transactional(readOnly = true)
@@ -60,11 +65,12 @@ public class AppointmentService {
 		
 		ServiceEntity service = serviceRepository.findById(serviceId)
 				.orElseThrow(() -> new ResourceNotFoundException("Service not found with id: " + serviceId));
-		validateAppointmentSlot(null, customer, service, req.appointmentTime());
+		ServiceRoom room = resolveRoom(null, req.roomId(), customer, service, req.appointmentTime());
 
 		Appointment appointment = new Appointment();
 		appointment.setCustomer(customer);
 		appointment.setService(service);
+		appointment.setRoom(room);
 		appointment.setAppointmentTime(req.appointmentTime());
 		appointment.setStatus(req.status() != null ? req.status() : AppointmentStatus.pending);
 		appointment.setNote(req.note());
@@ -85,10 +91,11 @@ public class AppointmentService {
 		
 		ServiceEntity service = serviceRepository.findById(serviceId)
 				.orElseThrow(() -> new ResourceNotFoundException("Service not found with id: " + serviceId));
-		validateAppointmentSlot(id, customer, service, req.appointmentTime());
+		ServiceRoom room = resolveRoom(id, req.roomId(), customer, service, req.appointmentTime());
 
 		appointment.setCustomer(customer);
 		appointment.setService(service);
+		appointment.setRoom(room);
 		appointment.setAppointmentTime(req.appointmentTime());
 		appointment.setStatus(req.status());
 		appointment.setNote(req.note());
@@ -103,20 +110,49 @@ public class AppointmentService {
 		appointmentRepository.deleteById(id);
 	}
 
-	private void validateAppointmentSlot(Integer currentAppointmentId, Customer customer, ServiceEntity service,
+	private ServiceRoom resolveRoom(Integer currentAppointmentId, Integer requestedRoomId, Customer customer, ServiceEntity service,
 			LocalDateTime startTime) {
+		validateBasicTime(service, startTime);
+		if (requestedRoomId != null) {
+			ServiceRoom room = serviceRoomRepository.findById(requestedRoomId)
+					.orElseThrow(() -> new ResourceNotFoundException("Service room not found with id: " + requestedRoomId));
+			validateAppointmentSlot(currentAppointmentId, customer, service, room, startTime);
+			return room;
+		}
+		for (ServiceRoom room : serviceRoomRepository.findByIsActiveTrueOrderByIdAsc()) {
+			if (isRoomAvailable(currentAppointmentId, customer, service, room, startTime)) {
+				return room;
+			}
+		}
+		throw new IllegalArgumentException("No service room is available in this time slot");
+	}
+
+	private void validateBasicTime(ServiceEntity service, LocalDateTime startTime) {
 		if (startTime == null) {
 			throw new IllegalArgumentException("Appointment time is required");
 		}
 		if (startTime.isBefore(LocalDateTime.now())) {
 			throw new IllegalArgumentException("Cannot create an appointment in the past");
 		}
-		int duration = service.getDurationMinutes() == null ? 60 : service.getDurationMinutes();
+		int duration = roundedDuration(service.getDurationMinutes());
 		LocalDateTime endTime = startTime.plusMinutes(duration);
 		if (startTime.toLocalTime().isBefore(OPEN_TIME) || endTime.toLocalTime().isAfter(CLOSE_TIME)
 				|| !endTime.toLocalDate().equals(startTime.toLocalDate())) {
 			throw new IllegalArgumentException("Appointment must be inside opening hours 08:00 - 20:00");
 		}
+	}
+
+	private void validateAppointmentSlot(Integer currentAppointmentId, Customer customer, ServiceEntity service,
+			ServiceRoom room, LocalDateTime startTime) {
+		if (!isRoomAvailable(currentAppointmentId, customer, service, room, startTime)) {
+			throw new IllegalArgumentException(room.getName() + " is already booked in this time slot");
+		}
+	}
+
+	private boolean isRoomAvailable(Integer currentAppointmentId, Customer customer, ServiceEntity service,
+			ServiceRoom room, LocalDateTime startTime) {
+		int duration = roundedDuration(service.getDurationMinutes());
+		LocalDateTime endTime = startTime.plusMinutes(duration);
 		LocalDateTime dayStart = startTime.toLocalDate().atStartOfDay();
 		LocalDateTime dayEnd = startTime.toLocalDate().atTime(23, 59, 59);
 		for (Appointment existing : appointmentRepository.findAppointmentsBetween(dayStart, dayEnd)) {
@@ -126,20 +162,23 @@ public class AppointmentService {
 			if (existing.getStatus() == AppointmentStatus.cancelled || existing.getStatus() == AppointmentStatus.paid) {
 				continue;
 			}
+			if (existing.getRoom() == null || !existing.getRoom().getId().equals(room.getId())) {
+				continue;
+			}
 			LocalDateTime existingStart = existing.getAppointmentTime();
-			int existingDuration = existing.getService().getDurationMinutes() == null ? 60
-					: existing.getService().getDurationMinutes();
+			int existingDuration = roundedDuration(existing.getService().getDurationMinutes());
 			LocalDateTime existingEnd = existingStart.plusMinutes(existingDuration);
 			boolean overlap = startTime.isBefore(existingEnd) && endTime.isAfter(existingStart);
 			if (!overlap) {
 				continue;
 			}
-			if (existing.getCustomer().getId().equals(customer.getId())) {
-				throw new IllegalArgumentException("Customer already has another appointment in this time slot");
-			}
-			if (existing.getService().getId().equals(service.getId())) {
-				throw new IllegalArgumentException("This service already has another appointment in this time slot");
-			}
+			return false;
 		}
+		return true;
+	}
+
+	private int roundedDuration(Integer durationMinutes) {
+		int duration = durationMinutes == null || durationMinutes <= 0 ? 30 : durationMinutes;
+		return ((duration + 29) / 30) * 30;
 	}
 }

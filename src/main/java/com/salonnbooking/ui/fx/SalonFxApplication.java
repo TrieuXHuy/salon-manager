@@ -21,7 +21,9 @@ import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.api.dto.DashboardRequests;
 import com.salonnbooking.api.dto.PaymentRequests;
 import com.salonnbooking.api.dto.ReportRequests;
+import com.salonnbooking.api.dto.ScheduleRequests;
 import com.salonnbooking.api.dto.ServiceRequests;
+import com.salonnbooking.api.dto.ServiceRoomRequests;
 import com.salonnbooking.client.ApiClient;
 import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.Gender;
@@ -182,6 +184,7 @@ public class SalonFxApplication extends Application {
 		addNav(menu, "Lịch hẹn", "appointments");
 		if (role == UserRole.OWNER || role == UserRole.STAFF) {
 			addNav(menu, "Dịch vụ", "services");
+			addNav(menu, "Phòng", "rooms");
 		}
 		if (role == UserRole.OWNER) {
 			addNav(menu, "Báo cáo", "reports");
@@ -220,6 +223,7 @@ public class SalonFxApplication extends Application {
 			case "customers" -> b.getText().equals("Khách hàng");
 			case "appointments" -> b.getText().equals("Lịch hẹn");
 			case "services" -> b.getText().equals("Dịch vụ");
+			case "rooms" -> b.getText().equals("Phòng");
 			case "reports" -> b.getText().equals("Báo cáo");
 			case "users" -> b.getText().equals("Tài khoản");
 			default -> false;
@@ -229,6 +233,7 @@ public class SalonFxApplication extends Application {
 			case "customers" -> new CustomersView();
 			case "appointments" -> new AppointmentsView();
 			case "services" -> new ServicesView();
+			case "rooms" -> new RoomsView();
 			case "reports" -> new ReportsView();
 			case "users" -> new UsersView();
 			default -> new DashboardView();
@@ -539,6 +544,109 @@ public class SalonFxApplication extends Application {
 		}
 	}
 
+	private final class RoomsView extends VBox {
+		private final TextField name = new TextField();
+		private final TextArea description = new TextArea();
+		private final CheckBox active = new CheckBox("Đang hoạt động");
+		private final TableView<ServiceRoomRequests.Response> table = new TableView<>();
+		private Integer selectedId;
+
+		private RoomsView() {
+			getStyleClass().add("page");
+			getChildren().addAll(pageHeader("Phòng phục vụ", "Quản lý khu/phòng dùng để chia slot đặt lịch", "Làm mới", e -> load()),
+					roomForm(), card(table));
+			VBox.setVgrow(table, Priority.ALWAYS);
+			configureRoomTable();
+			table.getSelectionModel().selectedItemProperty().addListener((obs, old, value) -> {
+				if (value != null) {
+					selectedId = value.id();
+					name.setText(value.name());
+					description.setText(orEmpty(value.description()));
+					active.setSelected(Boolean.TRUE.equals(value.isActive()));
+				}
+			});
+			load();
+		}
+
+		private Node roomForm() {
+			name.setPromptText("Ví dụ: Phòng 1, Khu VIP, Ghế gội 2");
+			description.setPromptText("Mô tả ngắn về vị trí hoặc mục đích sử dụng");
+			description.setPrefRowCount(3);
+			active.setSelected(true);
+
+			GridPane grid = formGrid();
+			grid.addRow(0, labeled("Tên phòng/khu", name), active);
+			grid.add(labeled("Mô tả", description), 0, 1, 2, 1);
+
+			HBox actions = actions(primaryButton("Thêm"), ghostButton("Cập nhật"), ghostButton("Xóa"), ghostButton("Xóa form"));
+			((Button) actions.getChildren().get(0)).setOnAction(e -> save(false));
+			((Button) actions.getChildren().get(1)).setOnAction(e -> save(true));
+			((Button) actions.getChildren().get(2)).setOnAction(e -> delete());
+			((Button) actions.getChildren().get(3)).setOnAction(e -> clear());
+			return card(new VBox(12, sectionTitle("Thông tin phòng phục vụ"), grid, actions));
+		}
+
+		private void configureRoomTable() {
+			column(table, "ID", ServiceRoomRequests.Response::id, 70);
+			column(table, "Tên phòng/khu", ServiceRoomRequests.Response::name, 220);
+			column(table, "Trạng thái", room -> Boolean.TRUE.equals(room.isActive()) ? "Đang dùng" : "Tạm ẩn", 120);
+			column(table, "Mô tả", ServiceRoomRequests.Response::description, 420);
+		}
+
+		private void load() {
+			runAsync(ApiClient::getAllServiceRooms, list -> table.setItems(FXCollections.observableArrayList(list)),
+					ex -> error("Lỗi tải phòng phục vụ", cleanError(ex)));
+		}
+
+		private void save(boolean update) {
+			if (name.getText().trim().isBlank()) {
+				warn("Thiếu thông tin", "Tên phòng/khu là bắt buộc.");
+				return;
+			}
+			if (update && selectedId == null) {
+				warn("Chưa chọn phòng", "Vui lòng chọn một phòng để cập nhật.");
+				return;
+			}
+			ServiceRoomRequests.Create create = new ServiceRoomRequests.Create(
+					name.getText().trim(),
+					description.getText().trim(),
+					active.isSelected());
+			ServiceRoomRequests.Update edit = new ServiceRoomRequests.Update(
+					create.name(),
+					create.description(),
+					create.isActive());
+			runAsync(() -> update ? ApiClient.updateServiceRoom(selectedId, edit) : ApiClient.createServiceRoom(create), r -> {
+				clear();
+				load();
+			}, ex -> error("Lỗi lưu phòng phục vụ", cleanError(ex)));
+		}
+
+		private void delete() {
+			if (selectedId == null) {
+				warn("Chưa chọn phòng", "Vui lòng chọn một phòng để xóa.");
+				return;
+			}
+			if (!confirm("Xóa phòng phục vụ", "Bạn chắc chắn muốn xóa phòng này? Lịch hẹn cũ có thể đang tham chiếu phòng này.")) {
+				return;
+			}
+			runAsync(() -> {
+				ApiClient.deleteServiceRoom(selectedId);
+				return null;
+			}, r -> {
+				clear();
+				load();
+			}, ex -> error("Lỗi xóa phòng phục vụ", cleanError(ex)));
+		}
+
+		private void clear() {
+			selectedId = null;
+			name.clear();
+			description.clear();
+			active.setSelected(true);
+			table.getSelectionModel().clearSelection();
+		}
+	}
+
 	private final class AppointmentsView extends VBox {
 		private final TableView<AppointmentRow> table = new TableView<>();
 		private final FlowPane quickStats = new FlowPane(14, 14);
@@ -662,11 +770,11 @@ public class SalonFxApplication extends Application {
 			}
 			if (appointment == null) {
 				runAsync(() -> ApiClient.createAppointment(new AppointmentRequests.Create(result.customerId(),
-						List.of(result.serviceId()), result.time(), result.status(), result.note())), r -> load(),
+						List.of(result.serviceId()), result.roomId(), result.time(), result.status(), result.note())), r -> load(),
 						ex -> error("Lỗi tạo lịch hẹn", cleanError(ex)));
 			} else {
 				runAsync(() -> ApiClient.updateAppointment(appointment.id(), new AppointmentRequests.Update(result.customerId(),
-						List.of(result.serviceId()), result.time(), result.status(), result.note())), r -> load(),
+						List.of(result.serviceId()), result.roomId(), result.time(), result.status(), result.note())), r -> load(),
 						ex -> error("Lỗi cập nhật lịch hẹn", cleanError(ex)));
 			}
 		}
@@ -725,6 +833,7 @@ public class SalonFxApplication extends Application {
 			runAsync(() -> ApiClient.updateAppointment(appointment.id(), new AppointmentRequests.Update(
 					appointment.customerId(),
 					appointment.serviceIds() == null ? List.of() : appointment.serviceIds(),
+					appointment.roomId(),
 					appointment.appointmentTime(),
 					newStatus,
 					appointment.note())), r -> load(), ex -> error("Lỗi cập nhật trạng thái", cleanError(ex)));
@@ -911,6 +1020,15 @@ public class SalonFxApplication extends Application {
 			customer.setConverter(stringConverter(CustomerRequests.Response::fullName));
 			ComboBox<ServiceRequests.Response> service = new ComboBox<>(FXCollections.observableArrayList(services));
 			service.setConverter(stringConverter(ServiceRequests.Response::name));
+			List<ServiceRoomRequests.Response> rooms;
+			try {
+				rooms = ApiClient.getActiveServiceRooms();
+			} catch (Exception ex) {
+				rooms = List.of();
+			}
+			final List<ServiceRoomRequests.Response> finalRooms = rooms;
+			ComboBox<ServiceRoomRequests.Response> room = new ComboBox<>(FXCollections.observableArrayList(rooms));
+			room.setConverter(stringConverter(ServiceRoomRequests.Response::name));
 			DatePicker date = new DatePicker(LocalDate.now());
 			TextField time = new TextField("09:00");
 			ComboBox<String> quickTime = new ComboBox<>(FXCollections.observableArrayList(
@@ -920,6 +1038,8 @@ public class SalonFxApplication extends Application {
 			status.setValue(AppointmentStatus.pending);
 			TextArea note = new TextArea();
 			note.setPrefRowCount(3);
+			FlowPane slotPane = new FlowPane(8, 8);
+			slotPane.setPrefWrapLength(520);
 			Label serviceSummary = new Label("Chọn dịch vụ để xem giá, thời lượng và giờ kết thúc.");
 			serviceSummary.getStyleClass().add("muted");
 			Label businessHint = new Label("Giờ mở cửa: 08:00 - 20:00. Hệ thống sẽ cảnh báo trùng lịch.");
@@ -935,6 +1055,7 @@ public class SalonFxApplication extends Application {
 				Integer serviceId = appointment.serviceIds() == null || appointment.serviceIds().isEmpty() ? null
 						: appointment.serviceIds().get(0);
 				service.setValue(services.stream().filter(s -> Objects.equals(s.id(), serviceId)).findFirst().orElse(null));
+				room.setValue(rooms.stream().filter(r -> Objects.equals(r.id(), appointment.roomId())).findFirst().orElse(null));
 				date.setValue(appointment.appointmentTime().toLocalDate());
 				time.setText(appointment.appointmentTime().toLocalTime().format(TIME_INPUT));
 				status.setValue(appointment.status());
@@ -958,20 +1079,57 @@ public class SalonFxApplication extends Application {
 			};
 			service.valueProperty().addListener((obs, old, value) -> updateSummary.run());
 			time.textProperty().addListener((obs, old, value) -> updateSummary.run());
+			Runnable refreshSlots = () -> {
+				ServiceRequests.Response selectedService = service.getValue();
+				if (selectedService == null || date.getValue() == null) {
+					slotPane.getChildren().setAll(new Label("Chọn dịch vụ và ngày để xem slot trống."));
+					return;
+				}
+				slotPane.getChildren().setAll(new Label("Đang tải slot..."));
+				runAsync(() -> ApiClient.getAvailableSlots(date.getValue(), selectedService.id()), slots -> {
+					slotPane.getChildren().clear();
+					for (ScheduleRequests.AvailableSlotResponse slot : slots) {
+						Button slotButton = new Button(slot.roomName() + "\n" + slot.slotTime().toLocalTime().format(TIME_INPUT));
+						slotButton.setDisable(!Boolean.TRUE.equals(slot.isAvailable()));
+						slotButton.setTooltip(new Tooltip(Boolean.TRUE.equals(slot.isAvailable())
+								? "Còn trống, thời lượng " + slot.durationMinutes() + " phút"
+								: "Đã kín"));
+						slotButton.setStyle(Boolean.TRUE.equals(slot.isAvailable())
+								? "-fx-background-color: #dcfce7; -fx-text-fill: #166534; -fx-font-weight: 800;"
+								: "-fx-background-color: #e5e7eb; -fx-text-fill: #64748b;");
+						slotButton.setOnAction(event -> {
+							time.setText(slot.slotTime().toLocalTime().format(TIME_INPUT));
+							room.setValue(finalRooms.stream()
+									.filter(r -> Objects.equals(r.id(), slot.roomId()))
+									.findFirst()
+									.orElse(null));
+						});
+						slotPane.getChildren().add(slotButton);
+					}
+					if (slotPane.getChildren().isEmpty()) {
+						slotPane.getChildren().add(new Label("Không có slot phù hợp trong ngày này."));
+					}
+				}, ex -> slotPane.getChildren().setAll(new Label("Không tải được slot: " + cleanError(ex))));
+			};
+			service.valueProperty().addListener((obs, old, value) -> refreshSlots.run());
+			date.valueProperty().addListener((obs, old, value) -> refreshSlots.run());
 			updateSummary.run();
+			refreshSlots.run();
 
 			GridPane grid = formGrid();
 			grid.addRow(0, labeled("Khách hàng", customer), labeled("Dịch vụ", service));
-			grid.addRow(1, labeled("Ngày", date), labeled("Giờ", time));
-			grid.addRow(2, labeled("Gợi ý giờ", quickTime), labeled("Trạng thái", status));
-			grid.add(serviceSummary, 0, 3, 2, 1);
-			grid.add(businessHint, 0, 4, 2, 1);
-			grid.add(labeled("Ghi chú", note), 0, 5, 2, 1);
+			grid.addRow(1, labeled("Ngày", date), labeled("Phòng phục vụ", room));
+			grid.addRow(2, labeled("Giờ", time), labeled("Gợi ý giờ", quickTime));
+			grid.add(labeled("Slot trống theo phòng", slotPane), 0, 3, 2, 1);
+			grid.addRow(4, labeled("Trạng thái", status));
+			grid.add(serviceSummary, 0, 5, 2, 1);
+			grid.add(businessHint, 0, 6, 2, 1);
+			grid.add(labeled("Ghi chú", note), 0, 7, 2, 1);
 			getDialogPane().setContent(grid);
 			Node saveButton = getDialogPane().lookupButton(saveButtonType);
 			saveButton.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
-				if (customer.getValue() == null || service.getValue() == null || date.getValue() == null) {
-					warn("Thiếu thông tin", "Vui lòng chọn khách hàng, dịch vụ và ngày giờ.");
+				if (customer.getValue() == null || service.getValue() == null || room.getValue() == null || date.getValue() == null) {
+					warn("Thiếu thông tin", "Vui lòng chọn khách hàng, dịch vụ, phòng và ngày giờ.");
 					event.consume();
 					return;
 				}
@@ -992,7 +1150,7 @@ public class SalonFxApplication extends Application {
 						return;
 					}
 					String conflict = findAppointmentConflict(appointments, appointment, customer.getValue().id(),
-							service.getValue().id(), startTime, endTime, services);
+							room.getValue().id(), startTime, endTime, services);
 					if (conflict != null) {
 						warn("Trùng lịch", conflict);
 						event.consume();
@@ -1007,7 +1165,7 @@ public class SalonFxApplication extends Application {
 					return null;
 				}
 				LocalTime localTime = LocalTime.parse(time.getText().trim(), TIME_INPUT);
-				return new AppointmentEdit(customer.getValue().id(), service.getValue().id(),
+				return new AppointmentEdit(customer.getValue().id(), service.getValue().id(), room.getValue().id(),
 						LocalDateTime.of(date.getValue(), localTime), status.getValue(), note.getText().trim());
 			});
 		}
@@ -1017,6 +1175,7 @@ public class SalonFxApplication extends Application {
 		column(table, "ID", AppointmentRow::id, 70);
 		column(table, "Khách hàng", AppointmentRow::customer, 190);
 		column(table, "Dịch vụ", AppointmentRow::service, 190);
+		column(table, "Phòng", AppointmentRow::room, 120);
 		column(table, "Thời gian", r -> r.time().format(DATE_TIME), 150);
 		column(table, "Kết thúc", r -> r.endTime().format(TIME_INPUT), 90);
 		column(table, "Giá", r -> money(r.price()), 120);
@@ -1035,7 +1194,7 @@ public class SalonFxApplication extends Application {
 		AppointmentStatus st = a.status() == null ? AppointmentStatus.pending : a.status();
 		int duration = serviceDuration(serviceResponse);
 		BigDecimal price = serviceResponse == null ? BigDecimal.ZERO : serviceResponse.price();
-		return new AppointmentRow(a.id(), customer, service, a.appointmentTime(), a.appointmentTime().plusMinutes(duration),
+		return new AppointmentRow(a.id(), customer, service, orDash(a.roomName()), a.appointmentTime(), a.appointmentTime().plusMinutes(duration),
 				price, st.getDisplayName(), st, orEmpty(a.note()));
 	}
 
@@ -1044,7 +1203,7 @@ public class SalonFxApplication extends Application {
 	}
 
 	private String findAppointmentConflict(List<AppointmentRequests.Response> appointments,
-			AppointmentRequests.Response currentAppointment, Integer customerId, Integer serviceId,
+			AppointmentRequests.Response currentAppointment, Integer customerId, Integer roomId,
 			LocalDateTime startTime, LocalDateTime endTime, List<ServiceRequests.Response> services) {
 		for (AppointmentRequests.Response existing : appointments) {
 			if (currentAppointment != null && Objects.equals(existing.id(), currentAppointment.id())) {
@@ -1069,7 +1228,7 @@ public class SalonFxApplication extends Application {
 				return "Khách hàng này đã có lịch trong khung giờ "
 						+ existingStart.format(DATE_TIME) + " - " + existingEnd.toLocalTime().format(TIME_INPUT) + ".";
 			}
-			if (Objects.equals(existingServiceId, serviceId)) {
+			if (Objects.equals(existing.roomId(), roomId)) {
 				return "Dịch vụ này đang có lịch khác trong khung giờ "
 						+ existingStart.format(DATE_TIME) + " - " + existingEnd.toLocalTime().format(TIME_INPUT) + ".";
 			}
@@ -1275,11 +1434,11 @@ public class SalonFxApplication extends Application {
 		};
 	}
 
-	private record AppointmentRow(Integer id, String customer, String service, LocalDateTime time,
+	private record AppointmentRow(Integer id, String customer, String service, String room, LocalDateTime time,
 			LocalDateTime endTime, BigDecimal price, String status, AppointmentStatus statusEnum, String note) {
 	}
 
-	private record AppointmentEdit(Integer customerId, Integer serviceId, LocalDateTime time, AppointmentStatus status,
+	private record AppointmentEdit(Integer customerId, Integer serviceId, Integer roomId, LocalDateTime time, AppointmentStatus status,
 			String note) {
 	}
 
