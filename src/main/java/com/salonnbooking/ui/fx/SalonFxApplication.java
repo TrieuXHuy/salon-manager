@@ -1146,6 +1146,54 @@ public class SalonFxApplication extends Application {
 			serviceSummary.getStyleClass().add("muted");
 			Label businessHint = new Label("Giờ mở cửa: 08:00 - 20:00. Hệ thống sẽ cảnh báo trùng lịch.");
 			businessHint.getStyleClass().add("muted");
+			room.setCellFactory(lv -> new javafx.scene.control.ListCell<>() {
+				@Override
+				protected void updateItem(ServiceRoomRequests.Response item, boolean empty) {
+					super.updateItem(item, empty);
+					if (empty || item == null) {
+						setText(null);
+						setDisable(false);
+						setStyle("");
+					} else {
+						boolean occupied = false;
+						ServiceRequests.Response selectedService = service.getValue();
+						LocalDate selectedDate = date.getValue();
+						if (selectedService != null && selectedDate != null) {
+							try {
+								LocalTime selectedTime = LocalTime.parse(time.getText().trim(), TIME_INPUT);
+								LocalDateTime startTime = LocalDateTime.of(selectedDate, selectedTime);
+								int duration = serviceDuration(selectedService);
+								LocalDateTime endTime = startTime.plusMinutes(duration);
+								String conflict = findAppointmentConflict(appointments, appointment, null, item.id(), startTime, endTime, services);
+								if (conflict != null) {
+									occupied = true;
+								}
+							} catch (Exception ignored) {}
+						}
+						if (occupied) {
+							setText(item.name() + " (Đã có lịch)");
+							setDisable(true);
+							setStyle("-fx-text-fill: -text-muted; -fx-opacity: 0.55;");
+						} else {
+							setText(item.name());
+							setDisable(false);
+							setStyle("");
+						}
+					}
+				}
+			});
+			room.setButtonCell(new javafx.scene.control.ListCell<>() {
+				@Override
+				protected void updateItem(ServiceRoomRequests.Response item, boolean empty) {
+					super.updateItem(item, empty);
+					if (empty || item == null) {
+						setText(null);
+					} else {
+						setText(item.name());
+					}
+				}
+			});
+
 			quickTime.valueProperty().addListener((obs, old, value) -> {
 				if (value != null) {
 					time.setText(value);
@@ -1183,7 +1231,6 @@ public class SalonFxApplication extends Application {
 			time.textProperty().addListener((obs, old, value) -> updateSummary.run());
 			List<ScheduleRequests.AvailableSlotResponse> currentSlots = new ArrayList<>();
 			final boolean[] isSettingRoomProgrammatically = { false };
-			final boolean[] isUpdatingRoomOptions = { false };
 
 			Runnable renderSlots = () -> {
 				slotPane.getChildren().clear();
@@ -1270,49 +1317,31 @@ public class SalonFxApplication extends Application {
 			};
 
 			Runnable updateRoomOptions = () -> {
-				if (isUpdatingRoomOptions[0]) return;
-				isUpdatingRoomOptions[0] = true;
-				try {
-					ServiceRequests.Response selectedService = service.getValue();
-					LocalDate selectedDate = date.getValue();
-					if (selectedService == null || selectedDate == null) {
-						room.setItems(FXCollections.observableArrayList(finalRooms));
-						return;
-					}
-					
-					LocalTime selectedTime;
+				ServiceRoomRequests.Response selectedRoom = room.getValue();
+				ServiceRequests.Response selectedService = service.getValue();
+				LocalDate selectedDate = date.getValue();
+				if (selectedRoom != null && selectedService != null && selectedDate != null) {
 					try {
-						selectedTime = LocalTime.parse(time.getText().trim(), TIME_INPUT);
-					} catch (Exception ex) {
-						room.setItems(FXCollections.observableArrayList(finalRooms));
-						return;
-					}
-					
-					LocalDateTime startTime = LocalDateTime.of(selectedDate, selectedTime);
-					int duration = serviceDuration(selectedService);
-					LocalDateTime endTime = startTime.plusMinutes(duration);
-					
-					List<ServiceRoomRequests.Response> availableRooms = new ArrayList<>();
-					for (ServiceRoomRequests.Response r : finalRooms) {
-						String conflict = findAppointmentConflict(appointments, appointment, null, r.id(), startTime, endTime, services);
-						if (conflict == null) {
-							availableRooms.add(r);
-						}
-					}
-					
-					ServiceRoomRequests.Response currentSelection = room.getValue();
-					room.setItems(FXCollections.observableArrayList(availableRooms));
-					if (currentSelection != null) {
-						boolean remainsAvailable = availableRooms.stream()
-								.anyMatch(r -> Objects.equals(r.id(), currentSelection.id()));
-						if (remainsAvailable) {
-							room.setValue(currentSelection);
+						LocalTime selectedTime = LocalTime.parse(time.getText().trim(), TIME_INPUT);
+						LocalDateTime startTime = LocalDateTime.of(selectedDate, selectedTime);
+						int duration = serviceDuration(selectedService);
+						LocalDateTime endTime = startTime.plusMinutes(duration);
+						
+						String conflict = findAppointmentConflict(appointments, appointment, null, selectedRoom.id(), startTime, endTime, services);
+						if (conflict != null) {
+							room.setStyle("-fx-border-color: #ef4444; -fx-border-width: 1.5px;");
+							room.setTooltip(new Tooltip("Khu vực này đã có lịch hẹn khác tại khung giờ được chọn."));
 						} else {
-							room.setValue(null);
+							room.setStyle("");
+							room.setTooltip(null);
 						}
+					} catch (Exception ex) {
+						room.setStyle("");
+						room.setTooltip(null);
 					}
-				} finally {
-					isUpdatingRoomOptions[0] = false;
+				} else {
+					room.setStyle("");
+					room.setTooltip(null);
 				}
 			};
 
