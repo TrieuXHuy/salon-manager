@@ -187,7 +187,7 @@ public class SalonFxApplication extends Application {
 		addNav(menu, "Lịch hẹn", "appointments");
 		if (role == UserRole.OWNER || role == UserRole.STAFF) {
 			addNav(menu, "Dịch vụ", "services");
-			addNav(menu, "Phòng", "rooms");
+			addNav(menu, "Khu vực", "rooms");
 		}
 		if (role == UserRole.OWNER) {
 			addNav(menu, "Báo cáo", "reports");
@@ -556,7 +556,7 @@ public class SalonFxApplication extends Application {
 
 		private RoomsView() {
 			getStyleClass().add("page");
-			getChildren().addAll(pageHeader("Phòng phục vụ", "Quản lý khu/phòng dùng để chia slot đặt lịch", "Làm mới", e -> load()),
+			getChildren().addAll(pageHeader("Khu vực", "Quản lý khu/phòng dùng để chia slot đặt lịch", "Làm mới", e -> load()),
 					roomForm(), card(table));
 			VBox.setVgrow(table, Priority.ALWAYS);
 			configureRoomTable();
@@ -586,7 +586,7 @@ public class SalonFxApplication extends Application {
 			((Button) actions.getChildren().get(1)).setOnAction(e -> save(true));
 			((Button) actions.getChildren().get(2)).setOnAction(e -> delete());
 			((Button) actions.getChildren().get(3)).setOnAction(e -> clear());
-			return card(new VBox(12, sectionTitle("Thông tin phòng phục vụ"), grid, actions));
+			return card(new VBox(12, sectionTitle("Thông tin khu phục vụ"), grid, actions));
 		}
 
 		private void configureRoomTable() {
