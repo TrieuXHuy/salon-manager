@@ -53,6 +53,7 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ProgressIndicator;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
@@ -65,6 +66,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -1029,6 +1031,7 @@ public class SalonFxApplication extends Application {
 			final List<ServiceRoomRequests.Response> finalRooms = rooms;
 			ComboBox<ServiceRoomRequests.Response> room = new ComboBox<>(FXCollections.observableArrayList(rooms));
 			room.setConverter(stringConverter(ServiceRoomRequests.Response::name));
+			room.setPromptText("Tất cả phòng");
 			DatePicker date = new DatePicker(LocalDate.now());
 			TextField time = new TextField("09:00");
 			ComboBox<String> quickTime = new ComboBox<>(FXCollections.observableArrayList(
@@ -1038,8 +1041,14 @@ public class SalonFxApplication extends Application {
 			status.setValue(AppointmentStatus.pending);
 			TextArea note = new TextArea();
 			note.setPrefRowCount(3);
-			FlowPane slotPane = new FlowPane(8, 8);
-			slotPane.setPrefWrapLength(520);
+			TilePane slotPane = new TilePane(8, 8);
+			slotPane.setPrefColumns(3);
+			slotPane.setPrefTileWidth(160);
+			slotPane.setPrefTileHeight(54);
+			ScrollPane slotScroll = new ScrollPane(slotPane);
+			slotScroll.setFitToWidth(true);
+			slotScroll.setPrefViewportHeight(240);
+			slotScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
 			Label serviceSummary = new Label("Chọn dịch vụ để xem giá, thời lượng và giờ kết thúc.");
 			serviceSummary.getStyleClass().add("muted");
 			Label businessHint = new Label("Giờ mở cửa: 08:00 - 20:00. Hệ thống sẽ cảnh báo trùng lịch.");
@@ -1088,8 +1097,15 @@ public class SalonFxApplication extends Application {
 				slotPane.getChildren().setAll(new Label("Đang tải slot..."));
 				runAsync(() -> ApiClient.getAvailableSlots(date.getValue(), selectedService.id()), slots -> {
 					slotPane.getChildren().clear();
+					ServiceRoomRequests.Response selectedRoom = room.getValue();
+					Integer selectedRoomId = selectedRoom != null ? selectedRoom.id() : null;
 					for (ScheduleRequests.AvailableSlotResponse slot : slots) {
+						if (selectedRoomId != null && !Objects.equals(selectedRoomId, slot.roomId())) {
+							continue;
+						}
 						Button slotButton = new Button(slot.roomName() + "\n" + slot.slotTime().toLocalTime().format(TIME_INPUT));
+						slotButton.setPrefWidth(160);
+						slotButton.setPrefHeight(54);
 						slotButton.setDisable(!Boolean.TRUE.equals(slot.isAvailable()));
 						slotButton.setTooltip(new Tooltip(Boolean.TRUE.equals(slot.isAvailable())
 								? "Còn trống, thời lượng " + slot.durationMinutes() + " phút"
@@ -1113,6 +1129,7 @@ public class SalonFxApplication extends Application {
 			};
 			service.valueProperty().addListener((obs, old, value) -> refreshSlots.run());
 			date.valueProperty().addListener((obs, old, value) -> refreshSlots.run());
+			room.valueProperty().addListener((obs, old, value) -> refreshSlots.run());
 			updateSummary.run();
 			refreshSlots.run();
 
@@ -1120,7 +1137,7 @@ public class SalonFxApplication extends Application {
 			grid.addRow(0, labeled("Khách hàng", customer), labeled("Dịch vụ", service));
 			grid.addRow(1, labeled("Ngày", date), labeled("Phòng phục vụ", room));
 			grid.addRow(2, labeled("Giờ", time), labeled("Gợi ý giờ", quickTime));
-			grid.add(labeled("Slot trống theo phòng", slotPane), 0, 3, 2, 1);
+			grid.add(labeled("Slot trống theo phòng", slotScroll), 0, 3, 2, 1);
 			grid.addRow(4, labeled("Trạng thái", status));
 			grid.add(serviceSummary, 0, 5, 2, 1);
 			grid.add(businessHint, 0, 6, 2, 1);
