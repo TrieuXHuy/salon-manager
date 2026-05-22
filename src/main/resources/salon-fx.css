@@ -1,184 +1,349 @@
 .root {
+    /* Color Palette Variables */
+    -primary-color: #7C3AED;
+    -primary-hover: #6D28D9;
+    -primary-light: #EDE9FE;
+    -bg-color: #F8FAFC;
+    -card-bg: #FFFFFF;
+    -border-color: #E2E8F0;
+    -text-main: #0F172A;
+    -text-muted: #64748B;
+
+    /* Status Badge Variables */
+    -success-bg: #D1FAE5;
+    -success-text: #065F46;
+    -warning-bg: #FEF3C7;
+    -warning-text: #92400E;
+    -danger-bg: #FEE2E2;
+    -danger-text: #991B1B;
+    -info-bg: #DBEAFE;
+    -info-text: #1E40AF;
+    -muted-bg: #F1F5F9;
+    -muted-text: #475569;
+    -gold-bg: #FEF3C7;
+    -gold-text: #B45309;
+
+    /* JavaFX Overrides */
     -fx-font-family: "Segoe UI", "Arial", sans-serif;
     -fx-font-size: 13px;
-    -fx-background-color: #f6f8fb;
-    -fx-text-fill: #0f172a;
+    -fx-background-color: -bg-color;
+    -fx-text-fill: -text-main;
 }
 
+/* Login Page Styling */
 .login-root {
-    -fx-background-color: linear-gradient(to bottom right, #f8fafc, #eef2ff);
-    -fx-padding: 32px;
+    -fx-background-color: linear-gradient(to bottom right, #1E1B4B, #311042);
+    -fx-padding: 48px;
 }
 
-.login-card, .card {
-    -fx-background-color: white;
-    -fx-background-radius: 18px;
-    -fx-border-color: #e2e8f0;
-    -fx-border-radius: 18px;
-    -fx-padding: 20px;
-    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.08), 18, 0.18, 0, 8);
+.login-card {
+    -fx-background-color: -card-bg;
+    -fx-background-radius: 16px;
+    -fx-border-color: -border-color;
+    -fx-border-radius: 16px;
+    -fx-padding: 36px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 24, 0, 0, 8);
 }
 
 .login-title {
-    -fx-font-size: 28px;
+    -fx-font-size: 26px;
     -fx-font-weight: 800;
-    -fx-text-fill: #6d49e0;
+    -fx-text-fill: -primary-color;
 }
 
+/* App Main Layout & Sidebar */
 .app-root {
-    -fx-background-color: #f6f8fb;
+    -fx-background-color: -bg-color;
 }
 
 .sidebar {
-    -fx-background-color: white;
-    -fx-padding: 20px 16px;
-    -fx-border-color: transparent #e2e8f0 transparent transparent;
+    -fx-background-color: -card-bg;
+    -fx-padding: 24px 16px;
+    -fx-border-color: transparent -border-color transparent transparent;
+    -fx-border-width: 1px;
 }
 
 .brand {
-    -fx-padding: 0 0 12px 0;
+    -fx-padding: 0 0 16px 0;
 }
 
 .logo {
     -fx-alignment: center;
-    -fx-min-width: 42px;
-    -fx-min-height: 42px;
-    -fx-background-color: #ede9fe;
-    -fx-background-radius: 999px;
-    -fx-text-fill: #6d49e0;
+    -fx-min-width: 40px;
+    -fx-min-height: 40px;
+    -fx-background-color: -primary-light;
+    -fx-background-radius: 8px;
+    -fx-text-fill: -primary-color;
     -fx-font-weight: 800;
+    -fx-font-size: 16px;
 }
 
 .brand-title {
-    -fx-font-size: 18px;
+    -fx-font-size: 16px;
     -fx-font-weight: 800;
-    -fx-text-fill: #6d49e0;
+    -fx-text-fill: -text-main;
 }
 
 .workspace {
-    -fx-padding: 22px;
+    -fx-padding: 24px;
 }
 
 .page {
-    -fx-spacing: 16px;
+    -fx-spacing: 20px;
 }
 
 .page-title {
-    -fx-font-size: 26px;
+    -fx-font-size: 24px;
     -fx-font-weight: 800;
-    -fx-text-fill: #0f172a;
+    -fx-text-fill: -text-main;
 }
 
 .section-title {
     -fx-font-size: 15px;
     -fx-font-weight: 800;
-    -fx-text-fill: #0f172a;
+    -fx-text-fill: -text-main;
 }
 
 .muted {
-    -fx-text-fill: #64748b;
+    -fx-text-fill: -text-muted;
 }
 
 .field-label {
     -fx-font-size: 12px;
     -fx-font-weight: 700;
-    -fx-text-fill: #64748b;
+    -fx-text-fill: -text-muted;
+    -fx-padding: 0 0 2px 0;
 }
 
+/* Card Container */
+.card {
+    -fx-background-color: -card-bg;
+    -fx-background-radius: 12px;
+    -fx-border-color: -border-color;
+    -fx-border-radius: 12px;
+    -fx-padding: 20px;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.03), 8, 0, 0, 2);
+}
+
+/* Buttons */
 .primary-button {
-    -fx-background-color: #6d49e0;
-    -fx-background-radius: 10px;
+    -fx-background-color: -primary-color;
+    -fx-background-radius: 8px;
     -fx-text-fill: white;
-    -fx-font-weight: 800;
-    -fx-padding: 9px 16px;
+    -fx-font-weight: 700;
+    -fx-padding: 8px 16px;
     -fx-cursor: hand;
 }
 
 .primary-button:hover {
-    -fx-background-color: #5b3aca;
+    -fx-background-color: -primary-hover;
 }
 
-.ghost-button, .nav-button {
-    -fx-background-color: #ede9fe;
-    -fx-background-radius: 10px;
-    -fx-text-fill: #6d49e0;
-    -fx-font-weight: 800;
-    -fx-padding: 9px 16px;
+.ghost-button {
+    -fx-background-color: -primary-light;
+    -fx-background-radius: 8px;
+    -fx-text-fill: -primary-color;
+    -fx-font-weight: 700;
+    -fx-padding: 8px 16px;
     -fx-cursor: hand;
 }
 
-.ghost-button:hover, .nav-button:hover, .nav-button.selected {
-    -fx-background-color: #6d49e0;
+.ghost-button:hover {
+    -fx-background-color: -primary-color;
     -fx-text-fill: white;
 }
 
 .nav-button {
     -fx-background-color: transparent;
-    -fx-text-fill: #475569;
+    -fx-background-radius: 8px;
+    -fx-text-fill: -text-muted;
+    -fx-font-weight: 600;
+    -fx-padding: 10px 14px;
+    -fx-cursor: hand;
+}
+
+.nav-button:hover {
+    -fx-background-color: #F1F5F9;
+    -fx-text-fill: -text-main;
+}
+
+.nav-button.selected {
+    -fx-background-color: -primary-color;
+    -fx-text-fill: white;
+}
+
+/* Forms & Inputs */
+.text-field, .password-field, .text-area, .combo-box-base, .date-picker {
+    -fx-background-color: -card-bg;
+    -fx-background-radius: 8px;
+    -fx-border-color: #CBD5E1;
+    -fx-border-radius: 8px;
+    -fx-padding: 8px 12px;
+    -fx-text-fill: -text-main;
+}
+
+.text-field:focused, .password-field:focused, .text-area:focused, .combo-box-base:focused, .date-picker:focused {
+    -fx-border-color: -primary-color;
+    -fx-background-color: -card-bg;
+    -fx-effect: dropshadow(three-pass-box, rgba(124, 58, 237, 0.15), 4, 0, 0, 0);
 }
 
 .user-card {
-    -fx-background-color: #f8fafc;
-    -fx-background-radius: 14px;
-    -fx-border-color: #e2e8f0;
-    -fx-border-radius: 14px;
+    -fx-background-color: #F8FAFC;
+    -fx-background-radius: 12px;
+    -fx-border-color: -border-color;
+    -fx-border-radius: 12px;
     -fx-padding: 12px;
 }
 
+/* Dashboard Stat Cards */
 .stat-card {
-    -fx-background-color: white;
-    -fx-background-radius: 16px;
-    -fx-border-color: #e2e8f0;
-    -fx-border-radius: 16px;
-    -fx-padding: 16px;
-    -fx-min-width: 180px;
-    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.06), 12, 0.12, 0, 5);
+    -fx-background-color: -card-bg;
+    -fx-background-radius: 12px;
+    -fx-border-color: -border-color;
+    -fx-border-radius: 12px;
+    -fx-padding: 18px;
+    -fx-min-width: 190px;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.02), 6, 0, 0, 1);
+    -fx-border-width: 1px;
 }
 
 .stat-value {
-    -fx-font-size: 20px;
+    -fx-font-size: 22px;
     -fx-font-weight: 800;
-    -fx-text-fill: #0f172a;
+    -fx-text-fill: -text-main;
+}
+
+.stat-revenue {
+    -fx-border-color: transparent transparent transparent #10B981;
+    -fx-border-width: 1px 1px 1px 4px;
+}
+
+.stat-customers {
+    -fx-border-color: transparent transparent transparent -primary-color;
+    -fx-border-width: 1px 1px 1px 4px;
+}
+
+.stat-appointments {
+    -fx-border-color: transparent transparent transparent #3B82F6;
+    -fx-border-width: 1px 1px 1px 4px;
+}
+
+.stat-pending {
+    -fx-border-color: transparent transparent transparent #F59E0B;
+    -fx-border-width: 1px 1px 1px 4px;
 }
 
 .filter-bar {
     -fx-alignment: center-left;
 }
 
-.text-field, .password-field, .text-area, .combo-box-base, .date-picker {
-    -fx-background-color: white;
-    -fx-background-radius: 10px;
-    -fx-border-color: #cbd5e1;
-    -fx-border-radius: 10px;
-    -fx-padding: 6px 9px;
-}
-
+/* TableView Customization */
 .table-view {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
 }
 
 .table-view .column-header-background {
-    -fx-background-color: #f8fafc;
-    -fx-background-radius: 12px 12px 0 0;
+    -fx-background-color: #F1F5F9;
+    -fx-background-radius: 8px 8px 0 0;
 }
 
 .table-view .column-header, .table-view .filler {
     -fx-background-color: transparent;
-    -fx-size: 42px;
+    -fx-size: 44px;
+    -fx-border-color: transparent transparent -border-color transparent;
+}
+
+.table-view .column-header .label {
+    -fx-text-fill: -text-muted;
+    -fx-font-weight: 700;
 }
 
 .table-row-cell {
-    -fx-background-color: white;
-    -fx-border-color: transparent transparent #eef2f7 transparent;
-    -fx-cell-size: 42px;
+    -fx-background-color: -card-bg;
+    -fx-border-color: transparent transparent -border-color transparent;
+    -fx-cell-size: 46px;
+    -fx-text-fill: -text-main;
 }
 
 .table-row-cell:odd {
-    -fx-background-color: #fbfcfe;
+    -fx-background-color: #FAFAFB;
+}
+
+.table-row-cell:hover {
+    -fx-background-color: #F1F5F9;
 }
 
 .table-row-cell:selected {
-    -fx-background-color: #ede9fe;
-    -fx-text-background-color: #0f172a;
+    -fx-background-color: -primary-light;
+    -fx-text-background-color: -text-main;
+}
+
+/* Avoid focus border on table cells */
+.table-view:focused .table-row-cell:selected {
+    -fx-background-color: -primary-light;
+}
+
+/* Status Badges & Chips */
+.status-badge {
+    -fx-padding: 4px 10px;
+    -fx-background-radius: 99px;
+    -fx-font-size: 11px;
+    -fx-font-weight: 700;
+    -fx-alignment: center;
+    -fx-text-alignment: center;
+}
+
+.status-pending {
+    -fx-background-color: -warning-bg;
+    -fx-text-fill: -warning-text;
+}
+
+.status-confirmed {
+    -fx-background-color: -info-bg;
+    -fx-text-fill: -info-text;
+}
+
+.status-completed {
+    -fx-background-color: -success-bg;
+    -fx-text-fill: -success-text;
+}
+
+.status-paid {
+    -fx-background-color: -success-bg;
+    -fx-text-fill: -success-text;
+}
+
+.status-cancelled {
+    -fx-background-color: -danger-bg;
+    -fx-text-fill: -danger-text;
+}
+
+.status-active {
+    -fx-background-color: -success-bg;
+    -fx-text-fill: -success-text;
+}
+
+.status-inactive {
+    -fx-background-color: -muted-bg;
+    -fx-text-fill: -muted-text;
+}
+
+.tier-vip {
+    -fx-background-color: -gold-bg;
+    -fx-text-fill: -gold-text;
+    -fx-border-color: #F59E0B;
+    -fx-border-radius: 99px;
+    -fx-border-width: 1px;
+}
+
+.tier-regular {
+    -fx-background-color: -primary-light;
+    -fx-text-fill: -primary-color;
+}
+
+.tier-new {
+    -fx-background-color: -muted-bg;
+    -fx-text-fill: -muted-text;
 }

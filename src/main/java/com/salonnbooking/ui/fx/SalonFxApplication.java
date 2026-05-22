@@ -210,7 +210,18 @@ public class SalonFxApplication extends Application {
 	}
 
 	private void addNav(VBox menu, String label, String route) {
-		Button button = new Button(label);
+		String emoji = switch (route) {
+			case "dashboard" -> "📊  ";
+			case "users" -> "⚙️  ";
+			case "customers" -> "👥  ";
+			case "appointments" -> "📅  ";
+			case "services" -> "💇  ";
+			case "rooms" -> "🚪  ";
+			case "reports" -> "📈  ";
+			default -> "";
+		};
+		Button button = new Button(emoji + label);
+		button.setUserData(route);
 		button.getStyleClass().add("nav-button");
 		button.setMaxWidth(Double.MAX_VALUE);
 		button.setAlignment(Pos.CENTER_LEFT);
@@ -221,16 +232,9 @@ public class SalonFxApplication extends Application {
 
 	private void navigate(String route) {
 		navButtons.forEach(b -> b.getStyleClass().remove("selected"));
-		navButtons.stream().filter(b -> switch (route) {
-			case "dashboard" -> b.getText().equals("Tổng quan");
-			case "customers" -> b.getText().equals("Khách hàng");
-			case "appointments" -> b.getText().equals("Lịch hẹn");
-			case "services" -> b.getText().equals("Dịch vụ");
-			case "rooms" -> b.getText().equals("Phòng");
-			case "reports" -> b.getText().equals("Báo cáo");
-			case "users" -> b.getText().equals("Tài khoản");
-			default -> false;
-		}).findFirst().ifPresent(b -> b.getStyleClass().add("selected"));
+		navButtons.stream().filter(b -> route.equals(b.getUserData()))
+				.findFirst()
+				.ifPresent(b -> b.getStyleClass().add("selected"));
 
 		Node view = switch (route) {
 			case "customers" -> new CustomersView();
@@ -265,15 +269,15 @@ public class SalonFxApplication extends Application {
 			runAsync(() -> new DashboardData(ApiClient.getDashboard(), ApiClient.getQuickStats(),
 					ApiClient.getAllCustomers(), ApiClient.getAllServices(), ApiClient.getAllAppointments()), data -> {
 				stats.getChildren().setAll(
-						stat("Khách hàng", data.dashboard.totalCustomers()),
-						stat("Lịch hẹn hôm nay", data.dashboard.totalAppointmentsToday()),
-						stat("Chờ xử lý", data.dashboard.pendingAppointments()),
-						stat("Doanh thu hôm nay", money(data.dashboard.todayRevenue())),
-						stat("Doanh thu tháng", money(data.dashboard.monthlyRevenue())),
-						stat("Dịch vụ nổi bật", orDash(data.dashboard.topServiceName())),
-						stat("Lịch tháng này", data.quickStats.appointmentsThisMonth()),
+						stat("Khách hàng", data.dashboard.totalCustomers(), "stat-customers"),
+						stat("Lịch hẹn hôm nay", data.dashboard.totalAppointmentsToday(), "stat-appointments"),
+						stat("Chờ xử lý", data.dashboard.pendingAppointments(), "stat-pending"),
+						stat("Doanh thu hôm nay", money(data.dashboard.todayRevenue()), "stat-revenue"),
+						stat("Doanh thu tháng", money(data.dashboard.monthlyRevenue()), "stat-revenue"),
+						stat("Dịch vụ nổi bật", orDash(data.dashboard.topServiceName()), "stat-default"),
+						stat("Lịch tháng này", data.quickStats.appointmentsThisMonth(), "stat-appointments"),
 						stat("Hoàn thành", String.format(Locale.US, "%.1f%%",
-								data.dashboard.appointmentCompletionRate() == null ? 0 : data.dashboard.appointmentCompletionRate())));
+								data.dashboard.appointmentCompletionRate() == null ? 0 : data.dashboard.appointmentCompletionRate()), "stat-default"));
 				List<AppointmentRow> rows = data.appointments.stream()
 						.filter(a -> a.appointmentTime().toLocalDate().equals(LocalDate.now()))
 						.sorted(Comparator.comparing(AppointmentRequests.Response::appointmentTime))
@@ -360,7 +364,31 @@ public class SalonFxApplication extends Application {
 			column(table, "Email", CustomerRequests.Response::email, 240);
 			column(table, "Giới tính", c -> c.gender() == null ? "" : c.gender().getDisplayName(), 120);
 			column(table, "Điểm", c -> c.loyaltyPoints() == null ? 0 : c.loyaltyPoints(), 90);
-			column(table, "Hạng", c -> customerTier(c.loyaltyPoints()), 110);
+			
+			TableColumn<CustomerRequests.Response, Integer> tierCol = new TableColumn<>("Hạng");
+			tierCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().loyaltyPoints()));
+			tierCol.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+				@Override
+				protected void updateItem(Integer points, boolean empty) {
+					super.updateItem(points, empty);
+					if (empty || points == null) {
+						setText(null);
+						setGraphic(null);
+					} else {
+						String tier = customerTier(points);
+						String cssClass = switch (tier) {
+							case "VIP" -> "tier-vip";
+							case "Thân thiết" -> "tier-regular";
+							default -> "tier-new";
+						};
+						setGraphic(createBadge(tier, cssClass));
+						setAlignment(Pos.CENTER);
+					}
+				}
+			});
+			tierCol.setPrefWidth(110);
+			table.getColumns().add(tierCol);
+
 			column(table, "Ghi chú", CustomerRequests.Response::note, 220);
 		}
 
@@ -485,7 +513,27 @@ public class SalonFxApplication extends Application {
 			column(table, "Tên", ServiceRequests.Response::name, 220);
 			column(table, "Giá", s -> money(s.price()), 140);
 			column(table, "Phút", ServiceRequests.Response::durationMinutes, 90);
-			column(table, "Trạng thái", s -> Boolean.TRUE.equals(s.isActive()) ? "Đang bán" : "Tạm ẩn", 120);
+			
+			TableColumn<ServiceRequests.Response, Boolean> statusCol = new TableColumn<>("Trạng thái");
+			statusCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().isActive()));
+			statusCol.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+				@Override
+				protected void updateItem(Boolean item, boolean empty) {
+					super.updateItem(item, empty);
+					if (empty || item == null) {
+						setText(null);
+						setGraphic(null);
+					} else {
+						String labelText = item ? "Đang bán" : "Tạm ẩn";
+						String cssClass = item ? "status-active" : "status-inactive";
+						setGraphic(createBadge(labelText, cssClass));
+						setAlignment(Pos.CENTER);
+					}
+				}
+			});
+			statusCol.setPrefWidth(120);
+			table.getColumns().add(statusCol);
+
 			column(table, "Mô tả", ServiceRequests.Response::description, 300);
 		}
 
@@ -592,7 +640,27 @@ public class SalonFxApplication extends Application {
 		private void configureRoomTable() {
 			column(table, "ID", ServiceRoomRequests.Response::id, 70);
 			column(table, "Tên phòng/khu", ServiceRoomRequests.Response::name, 220);
-			column(table, "Trạng thái", room -> Boolean.TRUE.equals(room.isActive()) ? "Đang dùng" : "Tạm ẩn", 120);
+			
+			TableColumn<ServiceRoomRequests.Response, Boolean> statusCol = new TableColumn<>("Trạng thái");
+			statusCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().isActive()));
+			statusCol.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+				@Override
+				protected void updateItem(Boolean item, boolean empty) {
+					super.updateItem(item, empty);
+					if (empty || item == null) {
+						setText(null);
+						setGraphic(null);
+					} else {
+						String labelText = item ? "Đang dùng" : "Tạm ẩn";
+						String cssClass = item ? "status-active" : "status-inactive";
+						setGraphic(createBadge(labelText, cssClass));
+						setAlignment(Pos.CENTER);
+					}
+				}
+			});
+			statusCol.setPrefWidth(120);
+			table.getColumns().add(statusCol);
+
 			column(table, "Mô tả", ServiceRoomRequests.Response::description, 420);
 		}
 
@@ -793,10 +861,10 @@ public class SalonFxApplication extends Application {
 					.filter(Objects::nonNull)
 					.reduce(BigDecimal.ZERO, BigDecimal::add);
 			quickStats.getChildren().setAll(
-					stat("Hôm nay", todayCount + " lịch"),
-					stat("Chờ xử lý", pendingCount + " lịch"),
-					stat("Đã thanh toán", paidCount + " lịch"),
-					stat("Doanh thu đã lọc", money(visibleRevenue)));
+					stat("Hôm nay", todayCount + " lịch", "stat-appointments"),
+					stat("Chờ xử lý", pendingCount + " lịch", "stat-pending"),
+					stat("Đã thanh toán", paidCount + " lịch", "stat-revenue"),
+					stat("Doanh thu đã lọc", money(visibleRevenue), "stat-revenue"));
 		}
 
 		private AppointmentRequests.Response findAppointment(Integer id) {
@@ -916,11 +984,11 @@ public class SalonFxApplication extends Application {
 			column(services, "Trung bình", r -> money(r.avgRevenue()), 160);
 
 			FlowPane stats = new FlowPane(14, 14,
-					stat("Tổng lịch", data.stats.totalAppointments()),
-					stat("Chờ xử lý", data.stats.pendingAppointments()),
-					stat("Đã xác nhận", data.stats.confirmedAppointments()),
-					stat("Hoàn thành", data.stats.completedAppointments()),
-					stat("Đã hủy", data.stats.cancelledAppointments()));
+					stat("Tổng lịch", data.stats.totalAppointments(), "stat-appointments"),
+					stat("Chờ xử lý", data.stats.pendingAppointments(), "stat-pending"),
+					stat("Đã xác nhận", data.stats.confirmedAppointments(), "stat-appointments"),
+					stat("Hoàn thành", data.stats.completedAppointments(), "stat-revenue"),
+					stat("Đã hủy", data.stats.cancelledAppointments(), "stat-pending"));
 			content.getChildren().setAll(stats, cardWithTitle("Doanh thu theo ngày", daily),
 					cardWithTitle("Doanh thu theo dịch vụ", services));
 			VBox.setVgrow(daily, Priority.ALWAYS);
@@ -1215,7 +1283,32 @@ public class SalonFxApplication extends Application {
 		column(table, "Thời gian", r -> r.time().format(DATE_TIME), 150);
 		column(table, "Kết thúc", r -> r.endTime().format(TIME_INPUT), 90);
 		column(table, "Giá", r -> money(r.price()), 120);
-		column(table, "Trạng thái", AppointmentRow::status, 140);
+		
+		TableColumn<AppointmentRow, AppointmentStatus> statusCol = new TableColumn<>("Trạng thái");
+		statusCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().statusEnum()));
+		statusCol.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+			@Override
+			protected void updateItem(AppointmentStatus item, boolean empty) {
+				super.updateItem(item, empty);
+				if (empty || item == null) {
+					setText(null);
+					setGraphic(null);
+				} else {
+					String cssClass = switch (item) {
+						case pending -> "status-pending";
+						case confirmed -> "status-confirmed";
+						case completed -> "status-completed";
+						case paid -> "status-paid";
+						case cancelled -> "status-cancelled";
+					};
+					setGraphic(createBadge(item.getDisplayName(), cssClass));
+					setAlignment(Pos.CENTER);
+				}
+			}
+		});
+		statusCol.setPrefWidth(140);
+		table.getColumns().add(statusCol);
+
 		column(table, "Ghi chú", AppointmentRow::note, 260);
 	}
 
@@ -1310,9 +1403,19 @@ public class SalonFxApplication extends Application {
 		return label;
 	}
 
+	private Label createBadge(String text, String cssClass) {
+		Label label = new Label(text);
+		label.getStyleClass().addAll("status-badge", cssClass);
+		return label;
+	}
+
 	private Node stat(String label, Object value) {
+		return stat(label, value, "stat-default");
+	}
+
+	private Node stat(String label, Object value, String cssClass) {
 		VBox box = new VBox(6, new Label(label), new Label(String.valueOf(value == null ? "-" : value)));
-		box.getStyleClass().add("stat-card");
+		box.getStyleClass().addAll("stat-card", cssClass);
 		box.getChildren().get(0).getStyleClass().add("muted");
 		box.getChildren().get(1).getStyleClass().add("stat-value");
 		return box;
