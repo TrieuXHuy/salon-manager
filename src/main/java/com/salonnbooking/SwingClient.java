@@ -37,12 +37,12 @@ public class SwingClient {
 	}
 
 	private static void showLogin() {
-		new LoginFrame(response -> showDashboard(response.username())).setVisible(true);
+		new LoginFrame(response -> showDashboard(response.username(), response.role())).setVisible(true);
 	}
 
-	private static void showDashboard(String username) {
+	private static void showDashboard(String username, com.salonnbooking.domain.UserRole role) {
 		final MainDashboard[] dashboardRef = new MainDashboard[1];
-		MainDashboard dashboard = new MainDashboard(username, () -> {
+		MainDashboard dashboard = new MainDashboard(username, role, () -> {
 			try {
 				ApiClient.logout();
 			} catch (Exception ex) {

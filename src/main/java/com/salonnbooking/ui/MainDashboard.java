@@ -12,6 +12,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
+
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -26,25 +27,15 @@ import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
 import com.formdev.flatlaf.FlatLightLaf;
+import com.salonnbooking.domain.UserRole;
 import com.salonnbooking.ui.components.RoundedPanel;
 import com.salonnbooking.ui.components.SidebarButton;
 import com.salonnbooking.ui.theme.Theme;
+
 import net.miginfocom.swing.MigLayout;
 
-/**
- * MainDashboard - Khung sườn chính của ứng dụng Salon Booking
- * 
- * Bố cục:
- * - BorderLayout.WEST: Sidebar điều hướng
- * - BorderLayout.CENTER: Content Panel với CardLayout
- */
 public class MainDashboard extends JFrame {
 	private static final long serialVersionUID = 1L;
-	private CardLayout cardLayout;
-	private JPanel contentPanel;
-	private SidebarButton[] navButtons;
-	private final String currentUsername;
-	private final Runnable onLogout;
 
 	private static final Color BG_MAIN = new Color(248, 250, 252);
 	private static final Color BG_SIDEBAR = Color.WHITE;
@@ -54,76 +45,72 @@ public class MainDashboard extends JFrame {
 	private static final Color TEXT_MUTED = new Color(100, 116, 139);
 	private static final Color BORDER = new Color(226, 232, 240);
 
-	// Constants cho panel names
 	public static final String PANEL_DASHBOARD = "dashboard";
 	public static final String PANEL_CUSTOMER = "customer";
 	public static final String PANEL_APPOINTMENT = "appointment";
 	public static final String PANEL_SERVICE = "service";
 	public static final String PANEL_REPORT = "report";
 
+	private final String currentUsername;
+	private final UserRole currentRole;
+	private final Runnable onLogout;
+
+	private CardLayout cardLayout;
+	private JPanel contentPanel;
+	private SidebarButton[] navButtons;
+	private String[] visiblePanelNames;
+
 	public MainDashboard() {
-		this("Admin", () -> System.exit(0));
+		this("Admin", UserRole.OWNER, () -> System.exit(0));
 	}
 
-	public MainDashboard(String currentUsername, Runnable onLogout) {
+	public MainDashboard(String currentUsername, UserRole currentRole, Runnable onLogout) {
 		this.currentUsername = currentUsername;
+		this.currentRole = currentRole == null ? UserRole.CUSTOMER : currentRole;
 		this.onLogout = onLogout;
 
-		// Setup FlatLaf Theme
 		configureLightPalette();
-
-		setTitle("Hệ thống đặt lịch salon");
+		setTitle("He thong dat lich salon");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setSize(1200, 700);
 		setLocationRelativeTo(null);
 		setResizable(true);
 
-		// Main Container với BorderLayout
 		JPanel mainContainer = new GradientPanel();
 		mainContainer.setLayout(new BorderLayout(16, 16));
+		mainContainer.add(createSidebar(), BorderLayout.WEST);
 
-		// ==================== SIDEBAR ====================
-		JPanel sidebar = createSidebar();
-		mainContainer.add(sidebar, BorderLayout.WEST);
-
-		// ==================== CONTENT AREA (CardLayout) ====================
 		cardLayout = new CardLayout();
 		contentPanel = new JPanel(cardLayout);
 		contentPanel.setBackground(BG_MAIN);
-
-		// Placeholder panels (sẽ được thay thế bằng các Panel thực tế)
-		contentPanel.add(createPlaceholderPanel("Tổng quan", PANEL_DASHBOARD), PANEL_DASHBOARD);
-		contentPanel.add(createPlaceholderPanel("Quản lý khách hàng", PANEL_CUSTOMER), PANEL_CUSTOMER);
-		contentPanel.add(createPlaceholderPanel("Đặt lịch hẹn", PANEL_APPOINTMENT), PANEL_APPOINTMENT);
-		contentPanel.add(createPlaceholderPanel("Quản lý dịch vụ", PANEL_SERVICE), PANEL_SERVICE);
-		contentPanel.add(createPlaceholderPanel("Báo cáo", PANEL_REPORT), PANEL_REPORT);
+		contentPanel.add(createPlaceholderPanel("Tong quan", PANEL_DASHBOARD), PANEL_DASHBOARD);
+		contentPanel.add(createPlaceholderPanel("Quan ly khach hang", PANEL_CUSTOMER), PANEL_CUSTOMER);
+		contentPanel.add(createPlaceholderPanel("Dat lich hen", PANEL_APPOINTMENT), PANEL_APPOINTMENT);
+		contentPanel.add(createPlaceholderPanel("Quan ly dich vu", PANEL_SERVICE), PANEL_SERVICE);
+		contentPanel.add(createPlaceholderPanel("Bao cao", PANEL_REPORT), PANEL_REPORT);
 
 		mainContainer.add(contentPanel, BorderLayout.CENTER);
-
 		setContentPane(mainContainer);
 	}
 
-	/**
-	 * Tạo Sidebar với các nút điều hướng
-	 */
 	private JPanel createSidebar() {
 		RoundedPanel sidebar = new RoundedPanel(18, BG_SIDEBAR, true);
 		sidebar.setLayout(new MigLayout("insets 18 14 14 14, fillx, wrap 1",
 				"[grow]", "[]12[]12[grow]12[]12[]"));
 		sidebar.setPreferredSize(new Dimension(230, 0));
-
 		sidebar.add(createBrandBlock(), "growx");
 
 		JPanel menuPanel = new JPanel();
 		menuPanel.setOpaque(false);
 		menuPanel.setLayout(new MigLayout("insets 0, wrap 1, gap 6", "[grow]", "[]"));
-		String[] buttonLabels = { "Tổng quan", "Khách hàng", "Lịch hẹn", "Dịch vụ", "Báo cáo" };
-		String[] buttonTags = { "TG", "KH", "LH", "DV", "BC" };
-		String[] panelNames = { PANEL_DASHBOARD, PANEL_CUSTOMER, PANEL_APPOINTMENT, PANEL_SERVICE, PANEL_REPORT };
+
+		String[] buttonLabels = getVisibleLabels();
+		String[] buttonTags = getVisibleTags();
+		visiblePanelNames = getVisiblePanelNames();
 
 		navButtons = new SidebarButton[buttonLabels.length];
 		for (int i = 0; i < buttonLabels.length; i++) {
-			SidebarButton btn = createNavButton(buttonTags[i] + "  " + buttonLabels[i], panelNames[i]);
+			SidebarButton btn = createNavButton(buttonTags[i] + "  " + buttonLabels[i], visiblePanelNames[i]);
 			navButtons[i] = btn;
 			menuPanel.add(btn, "growx");
 		}
@@ -131,17 +118,44 @@ public class MainDashboard extends JFrame {
 		sidebar.add(menuPanel, "growx");
 		sidebar.add(createLogoutButton(), "growx");
 		sidebar.add(createUserCard(), "growx");
-
 		return sidebar;
+	}
+
+	private String[] getVisibleLabels() {
+		if (currentRole == UserRole.OWNER) {
+			return new String[] { "Tong quan", "Khach hang", "Lich hen", "Dich vu", "Bao cao" };
+		}
+		if (currentRole == UserRole.STAFF) {
+			return new String[] { "Tong quan", "Khach hang", "Lich hen", "Dich vu" };
+		}
+		return new String[] { "Tong quan", "Lich hen" };
+	}
+
+	private String[] getVisibleTags() {
+		if (currentRole == UserRole.OWNER) {
+			return new String[] { "TG", "KH", "LH", "DV", "BC" };
+		}
+		if (currentRole == UserRole.STAFF) {
+			return new String[] { "TG", "KH", "LH", "DV" };
+		}
+		return new String[] { "TG", "LH" };
+	}
+
+	private String[] getVisiblePanelNames() {
+		if (currentRole == UserRole.OWNER) {
+			return new String[] { PANEL_DASHBOARD, PANEL_CUSTOMER, PANEL_APPOINTMENT, PANEL_SERVICE, PANEL_REPORT };
+		}
+		if (currentRole == UserRole.STAFF) {
+			return new String[] { PANEL_DASHBOARD, PANEL_CUSTOMER, PANEL_APPOINTMENT, PANEL_SERVICE };
+		}
+		return new String[] { PANEL_DASHBOARD, PANEL_APPOINTMENT };
 	}
 
 	private JComponent createBrandBlock() {
 		JPanel brand = new JPanel();
 		brand.setOpaque(false);
 		brand.setLayout(new MigLayout("insets 0, fillx", "[]10[grow]", "[]"));
-
-		CircleBadge badge = new CircleBadge("SP", PRIMARY);
-		brand.add(badge, "aligny top");
+		brand.add(new CircleBadge("SP", PRIMARY), "aligny top");
 
 		JPanel titleBlock = new JPanel();
 		titleBlock.setOpaque(false);
@@ -150,8 +164,7 @@ public class MainDashboard extends JFrame {
 		JLabel title = new JLabel("Salon Pro");
 		title.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 18)));
 		title.setForeground(PRIMARY);
-
-		JLabel subtitle = new JLabel("Đặt lịch dễ dàng");
+		JLabel subtitle = new JLabel("Dat lich de dang");
 		subtitle.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 12)));
 		subtitle.setForeground(TEXT_MUTED);
 
@@ -159,13 +172,9 @@ public class MainDashboard extends JFrame {
 		titleBlock.add(Box.createVerticalStrut(4));
 		titleBlock.add(subtitle);
 		brand.add(titleBlock, "growx");
-
 		return brand;
 	}
 
-	/**
-	 * Tạo một nút điều hướng
-	 */
 	private SidebarButton createNavButton(String label, String panelName) {
 		SidebarButton btn = new SidebarButton(label);
 		btn.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 13)));
@@ -175,7 +184,7 @@ public class MainDashboard extends JFrame {
 	}
 
 	private JButton createLogoutButton() {
-		JButton logoutBtn = new JButton("Đăng xuất");
+		JButton logoutBtn = new JButton("Dang xuat");
 		logoutBtn.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
 		logoutBtn.setForeground(PRIMARY);
 		logoutBtn.setBackground(PRIMARY_SOFT);
@@ -190,9 +199,7 @@ public class MainDashboard extends JFrame {
 		RoundedPanel card = new RoundedPanel(14, new Color(249, 250, 251), true);
 		card.setLayout(new MigLayout("insets 10, fillx", "[]10[grow]", "[]"));
 		card.setBorder(BorderFactory.createLineBorder(BORDER));
-
-		CircleBadge avatar = new CircleBadge("A", new Color(148, 163, 184));
-		card.add(avatar);
+		card.add(new CircleBadge("A", new Color(148, 163, 184)));
 
 		JPanel info = new JPanel();
 		info.setOpaque(false);
@@ -201,11 +208,9 @@ public class MainDashboard extends JFrame {
 		JLabel name = new JLabel(currentUsername);
 		name.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
 		name.setForeground(TEXT_MAIN);
-
-		JLabel role = new JLabel("Quản trị viên");
+		JLabel role = new JLabel(currentRole.getDisplayName());
 		role.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 11)));
 		role.setForeground(TEXT_MUTED);
-
 		JLabel status = new JLabel("Online");
 		status.setFont(Theme.scaleFont(new Font("Segoe UI", Font.PLAIN, 11)));
 		status.setForeground(new Color(34, 197, 94));
@@ -215,29 +220,20 @@ public class MainDashboard extends JFrame {
 		info.add(role);
 		info.add(Box.createVerticalStrut(4));
 		info.add(status);
-
 		card.add(info, "growx");
 		return card;
 	}
 
-	/**
-	 * Tạo panel placeholder tạm thời
-	 */
 	private JPanel createPlaceholderPanel(String title, String panelName) {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setName(panelName);
 		panel.setBackground(BG_MAIN);
-
 		JLabel label = new JLabel(title, SwingConstants.CENTER);
 		label.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 24)));
 		panel.add(label, BorderLayout.CENTER);
-
 		return panel;
 	}
 
-	/**
-	 * Thay thế panel tạm thời bằng panel thực tế
-	 */
 	public void addPanel(String panelName, JPanel panel) {
 		panel.setName(panelName);
 		Component[] components = contentPanel.getComponents();
@@ -252,21 +248,17 @@ public class MainDashboard extends JFrame {
 		contentPanel.repaint();
 	}
 
-	/**
-	 * Hiển thị panel theo tên
-	 */
 	public void showPanel(String panelName) {
 		cardLayout.show(contentPanel, panelName);
 		updateNavSelection(panelName);
 	}
 
 	private void updateNavSelection(String panelName) {
-		String[] panelNames = { PANEL_DASHBOARD, PANEL_CUSTOMER, PANEL_APPOINTMENT, PANEL_SERVICE, PANEL_REPORT };
-		if (navButtons == null) {
+		if (navButtons == null || visiblePanelNames == null) {
 			return;
 		}
 		for (int i = 0; i < navButtons.length; i++) {
-			navButtons[i].setActive(panelNames[i].equals(panelName));
+			navButtons[i].setActive(visiblePanelNames[i].equals(panelName));
 		}
 	}
 
@@ -283,16 +275,10 @@ public class MainDashboard extends JFrame {
 		UIManager.put("Component.arc", 12);
 	}
 
-	/**
-	 * Main method
-	 */
 	public static void main(String[] args) {
 		FlatLightLaf.setup();
 		configureLightPalette();
-		SwingUtilities.invokeLater(() -> {
-			MainDashboard frame = new MainDashboard();
-			frame.setVisible(true);
-		});
+		SwingUtilities.invokeLater(() -> new MainDashboard().setVisible(true));
 	}
 
 	private static final class GradientPanel extends JPanel {

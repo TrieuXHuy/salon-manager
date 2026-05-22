@@ -1,9 +1,15 @@
 package com.salonnbooking.api;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -38,5 +44,16 @@ public class AuthController {
 	@PostMapping("/logout")
 	public AuthRequests.Message logout() {
 		return new AuthRequests.Message("Logout successful");
+	}
+
+	@GetMapping("/users")
+	public List<AuthRequests.UserResponse> listUsers(@RequestParam String requesterUsername) {
+		return authService.findAllUsers(requesterUsername).stream().map(AuthRequests.UserResponse::from).toList();
+	}
+
+	@PutMapping("/users/{id}/role")
+	public AuthRequests.UserResponse changeRole(@PathVariable Integer id,
+			@Valid @RequestBody AuthRequests.ChangeRole req) {
+		return AuthRequests.UserResponse.from(authService.changeRole(id, req));
 	}
 }

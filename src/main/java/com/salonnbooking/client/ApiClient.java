@@ -24,6 +24,7 @@ import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.api.dto.DashboardRequests;
 import com.salonnbooking.api.dto.PaymentRequests;
 import com.salonnbooking.api.dto.ReportRequests;
+import com.salonnbooking.domain.UserRole;
 
 /**
  * HTTP Client để gọi API Spring Boot Backend
@@ -96,6 +97,15 @@ public class ApiClient {
 		return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 	}
 
+	private static HttpResponse<String> sendPut(String path, Object body) throws IOException, InterruptedException {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(BASE_URL + path))
+				.header("Content-Type", "application/json")
+				.PUT(HttpRequest.BodyPublishers.ofString(gson.toJson(body)))
+				.build();
+		return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+	}
+
 	// ==================== AUTH API ====================
 
 	public static AuthRequests.Response login(String username, String password) throws Exception {
@@ -113,6 +123,26 @@ public class ApiClient {
 	public static void logout() throws Exception {
 		HttpResponse<String> response = sendPost("/auth/logout", new AuthRequests.Message("logout"));
 		requireStatus(response, 200, "logout");
+	}
+
+	public static List<AuthRequests.UserResponse> getUsers(String requesterUsername) throws Exception {
+		HttpResponse<String> response = sendGet("/auth/users?requesterUsername=" + requesterUsername);
+		requireStatus(response, 200, "fetch users");
+
+		var list = new java.util.ArrayList<AuthRequests.UserResponse>();
+		var jsonArray = com.google.gson.JsonParser.parseString(response.body()).getAsJsonArray();
+		for (var element : jsonArray) {
+			list.add(gson.fromJson(element, AuthRequests.UserResponse.class));
+		}
+		return list;
+	}
+
+	public static AuthRequests.UserResponse changeUserRole(Integer userId, String requesterUsername, UserRole role)
+			throws Exception {
+		HttpResponse<String> response = sendPut("/auth/users/" + userId + "/role",
+				new AuthRequests.ChangeRole(requesterUsername, role));
+		requireStatus(response, 200, "change user role");
+		return gson.fromJson(response.body(), AuthRequests.UserResponse.class);
 	}
 
 	// ==================== CUSTOMER API ====================
