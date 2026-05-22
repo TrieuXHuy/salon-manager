@@ -764,7 +764,14 @@ public class AppointmentPanel extends JPanel {
 	private void onAddButtonClicked() {
 		AppointmentDialog dialog = new AppointmentDialog(
 				SwingUtilities.getWindowAncestor(this),
-				customers, services);
+				() -> {
+					try {
+						return ApiClient.getAllCustomers();
+					} catch (Exception e) {
+						throw new RuntimeException("Lỗi tải khách hàng: " + e.getMessage(), e);
+					}
+				},
+				services);
 		dialog.setVisible(true);
 
 		if (dialog.isApproved()) {
@@ -796,7 +803,14 @@ public class AppointmentPanel extends JPanel {
 
 		AppointmentDialog dialog = new AppointmentDialog(
 				SwingUtilities.getWindowAncestor(this),
-				customers, services, selectedApt);
+				() -> {
+					try {
+						return ApiClient.getAllCustomers();
+					} catch (Exception e) {
+						throw new RuntimeException("Lỗi tải khách hàng: " + e.getMessage(), e);
+					}
+				},
+				services, selectedApt);
 		dialog.setVisible(true);
 
 		if (dialog.isApproved()) {
