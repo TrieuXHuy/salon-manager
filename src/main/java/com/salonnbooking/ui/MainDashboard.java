@@ -43,6 +43,8 @@ public class MainDashboard extends JFrame {
 	private CardLayout cardLayout;
 	private JPanel contentPanel;
 	private SidebarButton[] navButtons;
+	private final String currentUsername;
+	private final Runnable onLogout;
 
 	private static final Color BG_MAIN = new Color(248, 250, 252);
 	private static final Color BG_SIDEBAR = Color.WHITE;
@@ -60,6 +62,13 @@ public class MainDashboard extends JFrame {
 	public static final String PANEL_REPORT = "report";
 
 	public MainDashboard() {
+		this("Admin", () -> System.exit(0));
+	}
+
+	public MainDashboard(String currentUsername, Runnable onLogout) {
+		this.currentUsername = currentUsername;
+		this.onLogout = onLogout;
+
 		// Setup FlatLaf Theme
 		configureLightPalette();
 
@@ -173,7 +182,7 @@ public class MainDashboard extends JFrame {
 		logoutBtn.setFocusPainted(false);
 		logoutBtn.setBorder(new EmptyBorder(10, 14, 10, 14));
 		logoutBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-		logoutBtn.addActionListener(e -> System.exit(0));
+		logoutBtn.addActionListener(e -> onLogout.run());
 		return logoutBtn;
 	}
 
@@ -189,7 +198,7 @@ public class MainDashboard extends JFrame {
 		info.setOpaque(false);
 		info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
 
-		JLabel name = new JLabel("Admin");
+		JLabel name = new JLabel(currentUsername);
 		name.setFont(Theme.scaleFont(new Font("Segoe UI", Font.BOLD, 12)));
 		name.setForeground(TEXT_MAIN);
 

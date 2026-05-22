@@ -1,68 +1,66 @@
 package com.salonnbooking;
 
-import javax.swing.*;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
+import com.formdev.flatlaf.FlatLightLaf;
+import com.salonnbooking.client.ApiClient;
+import com.salonnbooking.ui.LoginFrame;
 import com.salonnbooking.ui.MainDashboard;
 import com.salonnbooking.ui.panel.AppointmentPanel;
 import com.salonnbooking.ui.panel.CustomerPanel;
 import com.salonnbooking.ui.panel.DashboardPanel;
 import com.salonnbooking.ui.panel.ReportPanel;
 import com.salonnbooking.ui.panel.ServicePanel;
-import com.formdev.flatlaf.FlatLightLaf;
 
-/**
- * SwingClient - Entry point của ứng dụng Java Swing
- * Kết nối với Spring Boot Backend thông qua ApiClient
- * 
- * Cấu trúc:
- * - MainDashboard: Khung sườn chính với BorderLayout & CardLayout
- * - CustomerPanel: Quản lý khách hàng
- * - AppointmentPanel: Quản lý lịch hẹn
- * - ServicePanel: Quản lý dịch vụ
- */
 public class SwingClient {
 
 	public static void main(String[] args) {
-		// Cấu hình UTF-8 encoding cho JVM
 		System.setProperty("file.encoding", "UTF-8");
 		System.setProperty("sun.jnu.encoding", "UTF-8");
-		
-		// Setup FlatLaf theme trước khi tạo UI
+
 		FlatLightLaf.setup();
 		configureLightPalette();
 
-		// Chạy UI trên Event Dispatch Thread
 		SwingUtilities.invokeLater(() -> {
 			try {
-				// Tạo main dashboard
-				MainDashboard dashboard = new MainDashboard();
-
-				// Tạo các panel
-				DashboardPanel dashboardPanel = new DashboardPanel();
-				CustomerPanel customerPanel = new CustomerPanel();
-				AppointmentPanel appointmentPanel = new AppointmentPanel();
-				ServicePanel servicePanel = new ServicePanel();
-				ReportPanel reportPanel = new ReportPanel();
-
-				// Thêm các panel vào dashboard
-				dashboard.addPanel(MainDashboard.PANEL_DASHBOARD, dashboardPanel);
-				dashboard.addPanel(MainDashboard.PANEL_CUSTOMER, customerPanel);
-				dashboard.addPanel(MainDashboard.PANEL_APPOINTMENT, appointmentPanel);
-				dashboard.addPanel(MainDashboard.PANEL_SERVICE, servicePanel);
-				dashboard.addPanel(MainDashboard.PANEL_REPORT, reportPanel);
-
-				// Hiển thị dashboard
-				dashboard.setVisible(true);
-				dashboard.showPanel(MainDashboard.PANEL_DASHBOARD);
-
+				showLogin();
 			} catch (Exception e) {
 				e.printStackTrace();
 				JOptionPane.showMessageDialog(null,
-						"Lỗi khởi động ứng dụng: " + e.getMessage(),
-						"Lỗi khởi động", JOptionPane.ERROR_MESSAGE);
+						"Cannot start application: " + e.getMessage(),
+						"Startup error", JOptionPane.ERROR_MESSAGE);
 				System.exit(1);
 			}
 		});
+	}
+
+	private static void showLogin() {
+		new LoginFrame(response -> showDashboard(response.username())).setVisible(true);
+	}
+
+	private static void showDashboard(String username) {
+		final MainDashboard[] dashboardRef = new MainDashboard[1];
+		MainDashboard dashboard = new MainDashboard(username, () -> {
+			try {
+				ApiClient.logout();
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+			dashboardRef[0].dispose();
+			showLogin();
+		});
+		dashboardRef[0] = dashboard;
+
+		dashboard.addPanel(MainDashboard.PANEL_DASHBOARD, new DashboardPanel());
+		dashboard.addPanel(MainDashboard.PANEL_CUSTOMER, new CustomerPanel());
+		dashboard.addPanel(MainDashboard.PANEL_APPOINTMENT, new AppointmentPanel());
+		dashboard.addPanel(MainDashboard.PANEL_SERVICE, new ServicePanel());
+		dashboard.addPanel(MainDashboard.PANEL_REPORT, new ReportPanel());
+
+		dashboard.setVisible(true);
+		dashboard.showPanel(MainDashboard.PANEL_DASHBOARD);
 	}
 
 	private static void configureLightPalette() {

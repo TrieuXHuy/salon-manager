@@ -18,6 +18,7 @@ import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonSerializer;
+import com.salonnbooking.api.dto.AuthRequests;
 import com.salonnbooking.api.dto.AppointmentRequests;
 import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.api.dto.DashboardRequests;
@@ -84,6 +85,34 @@ public class ApiClient {
 		if (response.statusCode() != expectedStatus) {
 			throw new RuntimeException("Failed to " + action + ": " + response.body());
 		}
+	}
+
+	private static HttpResponse<String> sendPost(String path, Object body) throws IOException, InterruptedException {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(BASE_URL + path))
+				.header("Content-Type", "application/json")
+				.POST(HttpRequest.BodyPublishers.ofString(gson.toJson(body)))
+				.build();
+		return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+	}
+
+	// ==================== AUTH API ====================
+
+	public static AuthRequests.Response login(String username, String password) throws Exception {
+		HttpResponse<String> response = sendPost("/auth/login", new AuthRequests.Login(username, password));
+		requireStatus(response, 200, "login");
+		return gson.fromJson(response.body(), AuthRequests.Response.class);
+	}
+
+	public static AuthRequests.Response register(String username, String password) throws Exception {
+		HttpResponse<String> response = sendPost("/auth/register", new AuthRequests.Register(username, password));
+		requireStatus(response, 201, "register");
+		return gson.fromJson(response.body(), AuthRequests.Response.class);
+	}
+
+	public static void logout() throws Exception {
+		HttpResponse<String> response = sendPost("/auth/logout", new AuthRequests.Message("logout"));
+		requireStatus(response, 200, "logout");
 	}
 
 	// ==================== CUSTOMER API ====================
