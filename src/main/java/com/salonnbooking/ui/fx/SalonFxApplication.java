@@ -171,6 +171,9 @@ public class SalonFxApplication extends Application {
 
 		VBox menu = new VBox(6);
 		addNav(menu, "Tổng quan", "dashboard");
+		if (role == UserRole.OWNER) {
+			addNav(menu, "Tài khoản", "users");
+		}
 		if (role == UserRole.OWNER || role == UserRole.STAFF) {
 			addNav(menu, "Khách hàng", "customers");
 		}
@@ -180,7 +183,6 @@ public class SalonFxApplication extends Application {
 		}
 		if (role == UserRole.OWNER) {
 			addNav(menu, "Báo cáo", "reports");
-			addNav(menu, "Tài khoản", "users");
 		}
 		VBox.setVgrow(menu, Priority.ALWAYS);
 
@@ -694,6 +696,10 @@ public class SalonFxApplication extends Application {
 		private final TextField newUsername = new TextField();
 		private final PasswordField newPassword = new PasswordField();
 		private final ComboBox<UserRole> newRole = new ComboBox<>(FXCollections.observableArrayList(UserRole.values()));
+		private final TextField customerName = new TextField();
+		private final TextField customerPhone = new TextField();
+		private final TextField customerEmail = new TextField();
+		private final ComboBox<Gender> customerGender = new ComboBox<>(FXCollections.observableArrayList(Gender.values()));
 
 		private UsersView() {
 			getStyleClass().add("page");
@@ -710,23 +716,52 @@ public class SalonFxApplication extends Application {
 			newUsername.setPromptText("Tên đăng nhập");
 			newPassword.setPromptText("Mật khẩu");
 			newRole.setValue(UserRole.STAFF);
+			customerName.setPromptText("Họ và tên khách hàng");
+			customerPhone.setPromptText("Số điện thoại");
+			customerEmail.setPromptText("Email");
+			customerGender.setValue(Gender.other);
 			Button create = primaryButton("Tạo tài khoản");
 			create.setOnAction(e -> {
 				if (newUsername.getText().trim().isBlank() || newPassword.getText().isBlank()) {
 					warn("Thiếu thông tin", "Vui lòng nhập tên đăng nhập và mật khẩu.");
 					return;
 				}
-				runAsync(() -> ApiClient.createUser(username, newUsername.getText().trim(), newPassword.getText(),
-						newRole.getValue()), r -> {
+				boolean createsCustomerProfile = newRole.getValue() == UserRole.CUSTOMER;
+				if (createsCustomerProfile && (customerName.getText().trim().isBlank()
+						|| customerPhone.getText().trim().isBlank()
+						|| customerEmail.getText().trim().isBlank())) {
+					warn("Thiếu hồ sơ khách hàng",
+							"Vui lòng nhập họ tên, số điện thoại và email khi tạo tài khoản khách hàng.");
+					return;
+				}
+				runAsync(() -> {
+					AuthRequests.UserResponse createdUser = ApiClient.createUser(username, newUsername.getText().trim(),
+							newPassword.getText(), newRole.getValue());
+					if (createsCustomerProfile) {
+						ApiClient.createCustomer(new CustomerRequests.Create(
+								customerName.getText().trim(),
+								customerPhone.getText().trim(),
+								customerEmail.getText().trim(),
+								customerGender.getValue()));
+					}
+					return createdUser;
+				}, r -> {
 					newUsername.clear();
 					newPassword.clear();
+					customerName.clear();
+					customerPhone.clear();
+					customerEmail.clear();
+					customerGender.setValue(Gender.other);
 					load();
 				}, ex -> error("Lỗi tạo tài khoản", cleanError(ex)));
 			});
-			HBox form = new HBox(10, labeled("Tên đăng nhập", newUsername), labeled("Mật khẩu", newPassword),
-					labeled("Vai trò", newRole), create);
-			form.setAlignment(Pos.BOTTOM_LEFT);
-			HBox.setHgrow(newUsername, Priority.ALWAYS);
+			GridPane grid = formGrid();
+			grid.addRow(0, labeled("Tên đăng nhập", newUsername), labeled("Mật khẩu", newPassword),
+					labeled("Vai trò", newRole));
+			grid.addRow(1, labeled("Họ tên khách hàng", customerName), labeled("Số điện thoại", customerPhone),
+					labeled("Email", customerEmail));
+			grid.addRow(2, labeled("Giới tính", customerGender), create);
+			VBox form = new VBox(12, sectionTitle("Tạo tài khoản"), grid);
 			return card(form);
 		}
 
