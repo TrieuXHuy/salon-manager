@@ -417,3 +417,43 @@
     -fx-background-color: -muted-bg;
     -fx-text-fill: -muted-text;
 }
+
+/* Slot Buttons */
+.slot-btn-available {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #0F172A;
+    -fx-font-weight: bold;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+    -fx-border-color: #cbd5e1;
+    -fx-border-width: 1px;
+    -fx-cursor: hand;
+}
+.slot-btn-available:hover {
+    -fx-background-color: #f8fafc;
+    -fx-border-color: -primary-color;
+}
+.slot-btn-unavailable:disabled {
+    -fx-background-color: #ef4444;
+    -fx-text-fill: #ffffff;
+    -fx-font-weight: bold;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+    -fx-border-color: #dc2626;
+    -fx-border-width: 1px;
+    -fx-opacity: 1.0;
+}
+.slot-btn-selected {
+    -fx-background-color: #dcfce7;
+    -fx-text-fill: #166534;
+    -fx-font-weight: bold;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+    -fx-border-color: #166534;
+    -fx-border-width: 2px;
+}
+.slot-btn-selected:hover {
+    -fx-background-color: #bbf7d0;
+}
+
+

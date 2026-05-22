@@ -1181,6 +1181,141 @@ public class SalonFxApplication extends Application {
 			};
 			service.valueProperty().addListener((obs, old, value) -> updateSummary.run());
 			time.textProperty().addListener((obs, old, value) -> updateSummary.run());
+			List<ScheduleRequests.AvailableSlotResponse> currentSlots = new ArrayList<>();
+			final boolean[] isSettingRoomProgrammatically = { false };
+			final boolean[] isUpdatingRoomOptions = { false };
+
+			Runnable renderSlots = () -> {
+				slotPane.getChildren().clear();
+				ServiceRoomRequests.Response selectedRoom = room.getValue();
+				Integer selectedRoomId = selectedRoom != null ? selectedRoom.id() : null;
+				for (ScheduleRequests.AvailableSlotResponse slot : currentSlots) {
+					if (selectedRoomId != null && !Objects.equals(selectedRoomId, slot.roomId())) {
+						continue;
+					}
+					Button slotButton = new Button(slot.roomName() + "\n" + slot.slotTime().toLocalTime().format(TIME_INPUT));
+					slotButton.setPrefWidth(160);
+					slotButton.setPrefHeight(54);
+					slotButton.getProperties().put("slotData", slot);
+					slotButton.setDisable(!Boolean.TRUE.equals(slot.isAvailable()));
+					slotButton.setTooltip(new Tooltip(Boolean.TRUE.equals(slot.isAvailable())
+							? "Còn trống, thời lượng " + slot.durationMinutes() + " phút"
+							: "Đã kín"));
+					
+					slotButton.setOnAction(event -> {
+						isSettingRoomProgrammatically[0] = true;
+						time.setText(slot.slotTime().toLocalTime().format(TIME_INPUT));
+						room.setValue(finalRooms.stream()
+								.filter(r -> Objects.equals(r.id(), slot.roomId()))
+								.findFirst()
+								.orElse(null));
+						isSettingRoomProgrammatically[0] = false;
+
+						for (Node node : slotPane.getChildren()) {
+							if (node instanceof Button btn) {
+								ScheduleRequests.AvailableSlotResponse btnSlot = (ScheduleRequests.AvailableSlotResponse) btn.getProperties().get("slotData");
+								if (btnSlot != null) {
+									boolean isSelected = Objects.equals(slot.roomId(), btnSlot.roomId()) &&
+											Objects.equals(slot.slotTime().toLocalTime(), btnSlot.slotTime().toLocalTime());
+									btn.getStyleClass().removeAll("slot-btn-available", "slot-btn-unavailable", "slot-btn-selected");
+									if (isSelected) {
+										btn.getStyleClass().add("slot-btn-selected");
+									} else if (!Boolean.TRUE.equals(btnSlot.isAvailable())) {
+										btn.getStyleClass().add("slot-btn-unavailable");
+									} else {
+										btn.getStyleClass().add("slot-btn-available");
+									}
+								}
+							}
+						}
+					});
+					slotPane.getChildren().add(slotButton);
+				}
+				if (slotPane.getChildren().isEmpty()) {
+					slotPane.getChildren().add(new Label("Không có slot phù hợp trong ngày này."));
+				}
+			};
+
+			Runnable updateSlotSelectionVisuals = () -> {
+				ServiceRoomRequests.Response selectedRoom = room.getValue();
+				Integer selectedRoomId = selectedRoom != null ? selectedRoom.id() : null;
+				String timeText = time.getText().trim();
+				LocalTime parsedTime = null;
+				try {
+					parsedTime = LocalTime.parse(timeText, TIME_INPUT);
+				} catch (Exception ignored) {}
+				
+				for (Node node : slotPane.getChildren()) {
+					if (node instanceof Button btn) {
+						ScheduleRequests.AvailableSlotResponse slot = (ScheduleRequests.AvailableSlotResponse) btn.getProperties().get("slotData");
+						if (slot == null) continue;
+						
+						boolean isSelected = false;
+						if (selectedRoomId != null && Objects.equals(selectedRoomId, slot.roomId()) && parsedTime != null) {
+							if (Objects.equals(parsedTime, slot.slotTime().toLocalTime())) {
+								isSelected = true;
+							}
+						}
+						
+						btn.getStyleClass().removeAll("slot-btn-available", "slot-btn-unavailable", "slot-btn-selected");
+						if (isSelected) {
+							btn.getStyleClass().add("slot-btn-selected");
+						} else if (!Boolean.TRUE.equals(slot.isAvailable())) {
+							btn.getStyleClass().add("slot-btn-unavailable");
+						} else {
+							btn.getStyleClass().add("slot-btn-available");
+						}
+					}
+				}
+			};
+
+			Runnable updateRoomOptions = () -> {
+				if (isUpdatingRoomOptions[0]) return;
+				isUpdatingRoomOptions[0] = true;
+				try {
+					ServiceRequests.Response selectedService = service.getValue();
+					LocalDate selectedDate = date.getValue();
+					if (selectedService == null || selectedDate == null) {
+						room.setItems(FXCollections.observableArrayList(finalRooms));
+						return;
+					}
+					
+					LocalTime selectedTime;
+					try {
+						selectedTime = LocalTime.parse(time.getText().trim(), TIME_INPUT);
+					} catch (Exception ex) {
+						room.setItems(FXCollections.observableArrayList(finalRooms));
+						return;
+					}
+					
+					LocalDateTime startTime = LocalDateTime.of(selectedDate, selectedTime);
+					int duration = serviceDuration(selectedService);
+					LocalDateTime endTime = startTime.plusMinutes(duration);
+					
+					List<ServiceRoomRequests.Response> availableRooms = new ArrayList<>();
+					for (ServiceRoomRequests.Response r : finalRooms) {
+						String conflict = findAppointmentConflict(appointments, appointment, null, r.id(), startTime, endTime, services);
+						if (conflict == null) {
+							availableRooms.add(r);
+						}
+					}
+					
+					ServiceRoomRequests.Response currentSelection = room.getValue();
+					room.setItems(FXCollections.observableArrayList(availableRooms));
+					if (currentSelection != null) {
+						boolean remainsAvailable = availableRooms.stream()
+								.anyMatch(r -> Objects.equals(r.id(), currentSelection.id()));
+						if (remainsAvailable) {
+							room.setValue(currentSelection);
+						} else {
+							room.setValue(null);
+						}
+					}
+				} finally {
+					isUpdatingRoomOptions[0] = false;
+				}
+			};
+
 			Runnable refreshSlots = () -> {
 				ServiceRequests.Response selectedService = service.getValue();
 				if (selectedService == null || date.getValue() == null) {
@@ -1189,42 +1324,36 @@ public class SalonFxApplication extends Application {
 				}
 				slotPane.getChildren().setAll(new Label("Đang tải slot..."));
 				runAsync(() -> ApiClient.getAvailableSlots(date.getValue(), selectedService.id()), slots -> {
-					slotPane.getChildren().clear();
-					ServiceRoomRequests.Response selectedRoom = room.getValue();
-					Integer selectedRoomId = selectedRoom != null ? selectedRoom.id() : null;
-					for (ScheduleRequests.AvailableSlotResponse slot : slots) {
-						if (selectedRoomId != null && !Objects.equals(selectedRoomId, slot.roomId())) {
-							continue;
-						}
-						Button slotButton = new Button(slot.roomName() + "\n" + slot.slotTime().toLocalTime().format(TIME_INPUT));
-						slotButton.setPrefWidth(160);
-						slotButton.setPrefHeight(54);
-						slotButton.setDisable(!Boolean.TRUE.equals(slot.isAvailable()));
-						slotButton.setTooltip(new Tooltip(Boolean.TRUE.equals(slot.isAvailable())
-								? "Còn trống, thời lượng " + slot.durationMinutes() + " phút"
-								: "Đã kín"));
-						slotButton.setStyle(Boolean.TRUE.equals(slot.isAvailable())
-								? "-fx-background-color: #dcfce7; -fx-text-fill: #166534; -fx-font-weight: 800;"
-								: "-fx-background-color: #e5e7eb; -fx-text-fill: #64748b;");
-						slotButton.setOnAction(event -> {
-							time.setText(slot.slotTime().toLocalTime().format(TIME_INPUT));
-							room.setValue(finalRooms.stream()
-									.filter(r -> Objects.equals(r.id(), slot.roomId()))
-									.findFirst()
-									.orElse(null));
-						});
-						slotPane.getChildren().add(slotButton);
-					}
-					if (slotPane.getChildren().isEmpty()) {
-						slotPane.getChildren().add(new Label("Không có slot phù hợp trong ngày này."));
-					}
+					currentSlots.clear();
+					currentSlots.addAll(slots);
+					renderSlots.run();
+					updateSlotSelectionVisuals.run();
 				}, ex -> slotPane.getChildren().setAll(new Label("Không tải được slot: " + cleanError(ex))));
 			};
-			service.valueProperty().addListener((obs, old, value) -> refreshSlots.run());
-			date.valueProperty().addListener((obs, old, value) -> refreshSlots.run());
-			room.valueProperty().addListener((obs, old, value) -> refreshSlots.run());
+
+			service.valueProperty().addListener((obs, old, value) -> {
+				refreshSlots.run();
+				updateRoomOptions.run();
+			});
+			date.valueProperty().addListener((obs, old, value) -> {
+				refreshSlots.run();
+				updateRoomOptions.run();
+			});
+			room.valueProperty().addListener((obs, old, value) -> {
+				if (!isSettingRoomProgrammatically[0]) {
+					renderSlots.run();
+				}
+				updateSlotSelectionVisuals.run();
+			});
+			time.textProperty().addListener((obs, old, value) -> {
+				updateRoomOptions.run();
+				updateSlotSelectionVisuals.run();
+			});
 			updateSummary.run();
 			refreshSlots.run();
+			updateRoomOptions.run();
+			updateSlotSelectionVisuals.run();
+
 
 			GridPane grid = formGrid();
 			grid.setMaxWidth(Double.MAX_VALUE);
