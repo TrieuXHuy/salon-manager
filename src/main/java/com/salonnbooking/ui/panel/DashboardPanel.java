@@ -11,6 +11,7 @@ import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -370,14 +371,17 @@ public class DashboardPanel extends JPanel {
 		data.appointments().stream()
 				.filter(a -> a.appointmentTime().toLocalDate().equals(today))
 				.sorted((a, b) -> a.appointmentTime().compareTo(b.appointmentTime()))
-				.forEach(a -> todayTableModel.addRow(new Object[] {
-						a.id(),
-						a.appointmentTime().format(DATE_TIME_FORMAT),
-						findCustomerName(data.customers(), a.customerId()),
-						findServiceName(data.services(), a.serviceId()),
-						a.status().getDisplayName(),
-						a.note() == null ? "" : a.note()
-				}));
+				.forEach(a -> {
+					Integer firstServiceId = a.serviceIds() != null && !a.serviceIds().isEmpty() ? a.serviceIds().get(0) : null;
+					todayTableModel.addRow(new Object[] {
+							a.id(),
+							a.appointmentTime().format(DATE_TIME_FORMAT),
+							findCustomerName(data.customers(), a.customerId()),
+							firstServiceId != null ? findServiceName(data.services(), firstServiceId) : "Không rõ",
+							a.status().getDisplayName(),
+							a.note() == null ? "" : a.note()
+					});
+				});
 
 		if (todayTableModel.getRowCount() == 0) {
 			todayTableModel.addRow(new Object[] { null, "", "H\u00f4m nay ch\u01b0a c\u00f3 l\u1ecbch h\u1eb9n", "", "", "" });
@@ -451,7 +455,10 @@ public class DashboardPanel extends JPanel {
 					"Ch\u01b0a ch\u1ecdn l\u1ecbch", JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
-		ServiceRequests.Response service = findService(currentData.services(), appointment.serviceId());
+		
+		// Get first service ID (backend supports one service per appointment)
+		Integer firstServiceId = appointment.serviceIds() != null && !appointment.serviceIds().isEmpty() ? appointment.serviceIds().get(0) : null;
+		ServiceRequests.Response service = firstServiceId != null ? findService(currentData.services(), firstServiceId) : null;
 		String customerName = findCustomerName(currentData.customers(), appointment.customerId());
 		String serviceName = service == null ? "Kh\u00f4ng r\u00f5" : service.name();
 		BigDecimal amount = service == null || service.price() == null ? BigDecimal.ZERO : service.price();
@@ -543,9 +550,11 @@ public class DashboardPanel extends JPanel {
 
 	private AppointmentRequests.Update createAppointmentUpdate(AppointmentRequests.Response appointment,
 			AppointmentStatus status) {
+		// Convert serviceIds list back to list for Update request
+		List<Integer> serviceIds = appointment.serviceIds() != null ? appointment.serviceIds() : new ArrayList<>();
 		return new AppointmentRequests.Update(
 				appointment.customerId(),
-				appointment.serviceId(),
+				serviceIds,
 				appointment.appointmentTime(),
 				status,
 				appointment.note());

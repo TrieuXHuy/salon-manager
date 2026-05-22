@@ -46,8 +46,15 @@ public class AppointmentService {
 	public Appointment save(AppointmentRequests.Create req) {
 		Customer customer = customerRepository.findById(req.customerId())
 				.orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + req.customerId()));
-		ServiceEntity service = serviceRepository.findById(req.serviceId())
-				.orElseThrow(() -> new ResourceNotFoundException("Service not found with id: " + req.serviceId()));
+		
+		// For now, use the first service ID (backend only supports one service per appointment)
+		Integer serviceId = req.serviceIds() != null && !req.serviceIds().isEmpty() ? req.serviceIds().get(0) : null;
+		if (serviceId == null) {
+			throw new ResourceNotFoundException("No service selected");
+		}
+		
+		ServiceEntity service = serviceRepository.findById(serviceId)
+				.orElseThrow(() -> new ResourceNotFoundException("Service not found with id: " + serviceId));
 
 		Appointment appointment = new Appointment();
 		appointment.setCustomer(customer);
@@ -63,8 +70,15 @@ public class AppointmentService {
 		Appointment appointment = findById(id);
 		Customer customer = customerRepository.findById(req.customerId())
 				.orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + req.customerId()));
-		ServiceEntity service = serviceRepository.findById(req.serviceId())
-				.orElseThrow(() -> new ResourceNotFoundException("Service not found with id: " + req.serviceId()));
+		
+		// For now, use the first service ID (backend only supports one service per appointment)
+		Integer serviceId = req.serviceIds() != null && !req.serviceIds().isEmpty() ? req.serviceIds().get(0) : null;
+		if (serviceId == null) {
+			throw new ResourceNotFoundException("No service selected");
+		}
+		
+		ServiceEntity service = serviceRepository.findById(serviceId)
+				.orElseThrow(() -> new ResourceNotFoundException("Service not found with id: " + serviceId));
 
 		appointment.setCustomer(customer);
 		appointment.setService(service);

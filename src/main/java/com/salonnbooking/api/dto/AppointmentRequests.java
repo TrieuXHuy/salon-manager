@@ -1,6 +1,7 @@
 package com.salonnbooking.api.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.salonnbooking.domain.AppointmentStatus;
 
@@ -12,7 +13,7 @@ public final class AppointmentRequests {
 
 	public record Create(
 			@NotNull Integer customerId,
-			@NotNull Integer serviceId,
+			@NotNull List<Integer> serviceIds,
 			@NotNull LocalDateTime appointmentTime,
 			AppointmentStatus status,
 			String note) {
@@ -20,7 +21,7 @@ public final class AppointmentRequests {
 
 	public record Update(
 			@NotNull Integer customerId,
-			@NotNull Integer serviceId,
+			@NotNull List<Integer> serviceIds,
 			@NotNull LocalDateTime appointmentTime,
 			@NotNull AppointmentStatus status,
 			String note) {
@@ -29,7 +30,7 @@ public final class AppointmentRequests {
 	public record Response(
 			Integer id,
 			Integer customerId,
-			Integer serviceId,
+			List<Integer> serviceIds,
 			LocalDateTime appointmentTime,
 			AppointmentStatus status,
 			String note) {
@@ -37,7 +38,7 @@ public final class AppointmentRequests {
 			return new Response(
 					a.getId(),
 					a.getCustomer().getId(),
-					a.getService().getId(),
+					List.of(a.getService().getId()),
 					a.getAppointmentTime(),
 					a.getStatus(),
 					a.getNote());

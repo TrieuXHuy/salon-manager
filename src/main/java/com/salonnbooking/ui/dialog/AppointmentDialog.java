@@ -25,7 +25,7 @@ public class AppointmentDialog extends JDialog {
 	private static final long serialVersionUID = 1L;
 
 	private JComboBox<ComboBoxItem> cbCustomer;
-	private JComboBox<ComboBoxItem> cbService;
+	private JList<ComboBoxItem> lbService;
 	private JSpinner spDateTime;
 	private JComboBox<AppointmentStatus> cbStatus;
 	private JTextArea taNote;
@@ -59,7 +59,7 @@ public class AppointmentDialog extends JDialog {
 		this.serviceLoader = serviceLoader;
 
 		setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-		setSize(500, 450);
+		setSize(500, 550);
 		setLocationRelativeTo(owner);
 		setResizable(false);
 
@@ -130,40 +130,54 @@ public class AppointmentDialog extends JDialog {
 		gbc.weightx = 1;
 		panel.add(cbCustomer, gbc);
 
-		// Service ComboBox
+		// Service List (Multi-select)
 		gbc.gridx = 0;
 		gbc.gridy = 1;
 		gbc.weightx = 0;
+		gbc.anchor = GridBagConstraints.NORTH;
 		panel.add(new JLabel("Dịch vụ:"), gbc);
 
-		cbService = new JComboBox<>();
-		cbService.setRenderer(new ComboBoxRenderer());
-		
-		// Thêm PopupMenuListener để load services từ API khi mở dropdown
-		cbService.addPopupMenuListener(new PopupMenuListener() {
-			@Override
-			public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
-				// Load services từ API khi mở dropdown
-				loadServicesFromApi();
-			}
+		DefaultListModel<ComboBoxItem> serviceModel = new DefaultListModel<>();
+		lbService = new JList<>(serviceModel);
+		lbService.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+		lbService.setCellRenderer(new ListCellRenderer<ComboBoxItem>() {
+			private final JLabel label = new JLabel();
 
 			@Override
-			public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
-			}
-
-			@Override
-			public void popupMenuCanceled(PopupMenuEvent e) {
+			public Component getListCellRendererComponent(JList<? extends ComboBoxItem> list, ComboBoxItem value,
+					int index, boolean isSelected, boolean cellHasFocus) {
+				if (value != null) {
+					label.setText(value.toString());
+				}
+				if (isSelected) {
+					label.setBackground(list.getSelectionBackground());
+					label.setForeground(list.getSelectionForeground());
+				} else {
+					label.setBackground(list.getBackground());
+					label.setForeground(list.getForeground());
+				}
+				label.setOpaque(true);
+				return label;
 			}
 		});
-		
+
+		JScrollPane serviceScrollPane = new JScrollPane(lbService);
+		serviceScrollPane.setPreferredSize(new Dimension(200, 80));
 		gbc.gridx = 1;
 		gbc.weightx = 1;
-		panel.add(cbService, gbc);
+		gbc.weighty = 0.3;
+		gbc.anchor = GridBagConstraints.NORTH;
+		panel.add(serviceScrollPane, gbc);
+
+		// Tạo thread để load services lần đầu
+		SwingUtilities.invokeLater(this::loadServicesFromApi);
 
 		// DateTime TextField
 		gbc.gridx = 0;
 		gbc.gridy = 2;
 		gbc.weightx = 0;
+		gbc.weighty = 0;
+		gbc.anchor = GridBagConstraints.BASELINE;
 		panel.add(new JLabel("Ngày/Giờ:"), gbc);
 
 		// Chọn ngày giờ bằng spinner thay vì bắt người dùng gõ đúng format.
@@ -190,7 +204,7 @@ public class AppointmentDialog extends JDialog {
 		gbc.anchor = GridBagConstraints.NORTH;
 		panel.add(new JLabel("Ghi chú:"), gbc);
 
-		taNote = new JTextArea(5, 30);
+		taNote = new JTextArea(4, 30);
 		taNote.setLineWrap(true);
 		taNote.setWrapStyleWord(true);
 		JScrollPane scrollPane = new JScrollPane(taNote);
@@ -267,30 +281,42 @@ public class AppointmentDialog extends JDialog {
 	}
 
 	/**
-	 * Load services từ API và update combo box
+	 * Load services từ API và update list
 	 */
 	private void loadServicesFromApi() {
 		try {
 			List<ServiceRequests.Response> services = serviceLoader.get();
 			
-			// Lưu service hiện tại được chọn (nếu có)
-			ComboBoxItem selectedItem = (ComboBoxItem) cbService.getSelectedItem();
-			Integer selectedId = selectedItem != null ? selectedItem.getId() : null;
+			// Lưu các service hiện tại được chọn (nếu có)
+			int[] selectedIndices = lbService.getSelectedIndices();
+			List<Integer> selectedIds = new java.util.ArrayList<>();
+			if (selectedIndices != null) {
+				for (int i : selectedIndices) {
+					if (i < lbService.getModel().getSize()) {
+						selectedIds.add(((ComboBoxItem) lbService.getModel().getElementAt(i)).getId());
+					}
+				}
+			}
 			
-			// Clear và reload combo box
-			cbService.removeAllItems();
+			// Clear và reload list
+			DefaultListModel<ComboBoxItem> model = (DefaultListModel<ComboBoxItem>) lbService.getModel();
+			model.clear();
 			for (ServiceRequests.Response s : services) {
-				cbService.addItem(new ComboBoxItem(s.id(), s.name()));
+				model.addElement(new ComboBoxItem(s.id(), s.name()));
 			}
 			
 			// Restore previous selection nếu still exists
-			if (selectedId != null) {
-				for (int i = 0; i < cbService.getItemCount(); i++) {
-					ComboBoxItem item = cbService.getItemAt(i);
-					if (item.getId().equals(selectedId)) {
-						cbService.setSelectedIndex(i);
-						break;
+			if (!selectedIds.isEmpty()) {
+				java.util.List<Integer> indiciesToSelect = new java.util.ArrayList<>();
+				for (int i = 0; i < model.getSize(); i++) {
+					ComboBoxItem item = model.getElementAt(i);
+					if (selectedIds.contains(item.getId())) {
+						indiciesToSelect.add(i);
 					}
+				}
+				if (!indiciesToSelect.isEmpty()) {
+					int[] indices = indiciesToSelect.stream().mapToInt(Integer::intValue).toArray();
+					lbService.setSelectedIndices(indices);
 				}
 			}
 		} catch (Exception e) {
@@ -347,20 +373,27 @@ public class AppointmentDialog extends JDialog {
 				"Lỗi", JOptionPane.ERROR_MESSAGE);
 		}
 
-		// Load services từ API để đảm bảo có service mà đang edit
+		// Load services từ API để đảm bảo có services mà đang edit
 		try {
 			List<ServiceRequests.Response> services = serviceLoader.get();
-			cbService.removeAllItems();
+			DefaultListModel<ComboBoxItem> model = (DefaultListModel<ComboBoxItem>) lbService.getModel();
+			model.clear();
 			for (ServiceRequests.Response s : services) {
-				cbService.addItem(new ComboBoxItem(s.id(), s.name()));
+				model.addElement(new ComboBoxItem(s.id(), s.name()));
 			}
 			
-			// Set service
-			for (int i = 0; i < cbService.getItemCount(); i++) {
-				ComboBoxItem item = cbService.getItemAt(i);
-				if (item.getId().equals(apt.serviceId())) {
-					cbService.setSelectedIndex(i);
-					break;
+			// Set services
+			if (apt.serviceIds() != null && !apt.serviceIds().isEmpty()) {
+				java.util.List<Integer> indiciesToSelect = new java.util.ArrayList<>();
+				for (int i = 0; i < model.getSize(); i++) {
+					ComboBoxItem item = model.getElementAt(i);
+					if (apt.serviceIds().contains(item.getId())) {
+						indiciesToSelect.add(i);
+					}
+				}
+				if (!indiciesToSelect.isEmpty()) {
+					int[] indices = indiciesToSelect.stream().mapToInt(Integer::intValue).toArray();
+					lbService.setSelectedIndices(indices);
 				}
 			}
 		} catch (Exception e) {
@@ -402,8 +435,8 @@ public class AppointmentDialog extends JDialog {
 			return false;
 		}
 
-		if (cbService.getSelectedIndex() < 0) {
-			showError("Vui lòng chọn dịch vụ");
+		if (lbService.getSelectedIndices() == null || lbService.getSelectedIndices().length == 0) {
+			showError("Vui lòng chọn ít nhất một dịch vụ");
 			return false;
 		}
 
@@ -423,12 +456,17 @@ public class AppointmentDialog extends JDialog {
 	 */
 	public AppointmentRequests.Create getAppointmentCreateRequest() {
 		ComboBoxItem customer = (ComboBoxItem) cbCustomer.getSelectedItem();
-		ComboBoxItem service = (ComboBoxItem) cbService.getSelectedItem();
 		LocalDateTime dateTime = getSelectedAppointmentTime();
+		
+		// Get selected service IDs
+		List<Integer> serviceIds = new java.util.ArrayList<>();
+		for (int index : lbService.getSelectedIndices()) {
+			serviceIds.add(((ComboBoxItem) lbService.getModel().getElementAt(index)).getId());
+		}
 
 		return new AppointmentRequests.Create(
 				customer.getId(),
-				service.getId(),
+				serviceIds,
 				dateTime,
 				(AppointmentStatus) cbStatus.getSelectedItem(),
 				taNote.getText().trim());
@@ -439,12 +477,17 @@ public class AppointmentDialog extends JDialog {
 	 */
 	public AppointmentRequests.Update getAppointmentUpdateRequest() {
 		ComboBoxItem customer = (ComboBoxItem) cbCustomer.getSelectedItem();
-		ComboBoxItem service = (ComboBoxItem) cbService.getSelectedItem();
 		LocalDateTime dateTime = getSelectedAppointmentTime();
+		
+		// Get selected service IDs
+		List<Integer> serviceIds = new java.util.ArrayList<>();
+		for (int index : lbService.getSelectedIndices()) {
+			serviceIds.add(((ComboBoxItem) lbService.getModel().getElementAt(index)).getId());
+		}
 
 		return new AppointmentRequests.Update(
 				customer.getId(),
-				service.getId(),
+				serviceIds,
 				dateTime,
 				(AppointmentStatus) cbStatus.getSelectedItem(),
 				taNote.getText().trim());

@@ -608,11 +608,13 @@ public class AppointmentPanel extends JPanel {
 					.findFirst()
 					.orElse("Không rõ");
 
-			String serviceName = services.stream()
-					.filter(s -> s.id().equals(apt.serviceId()))
+			// Get first service ID (backend supports one service per appointment)
+			Integer firstServiceId = apt.serviceIds() != null && !apt.serviceIds().isEmpty() ? apt.serviceIds().get(0) : null;
+			String serviceName = firstServiceId != null ? services.stream()
+					.filter(s -> s.id().equals(firstServiceId))
 					.map(ServiceRequests.Response::name)
 					.findFirst()
-					.orElse("Không rõ");
+					.orElse("Không rõ") : "Không rõ";
 
 			tableModel.addRow(new Object[] {
 					apt.id(),
@@ -860,7 +862,9 @@ public class AppointmentPanel extends JPanel {
 			return;
 		}
 
-		ServiceRequests.Response service = findService(selectedApt.serviceId());
+		// Get first service ID (backend supports one service per appointment)
+		Integer firstServiceId = selectedApt.serviceIds() != null && !selectedApt.serviceIds().isEmpty() ? selectedApt.serviceIds().get(0) : null;
+		ServiceRequests.Response service = firstServiceId != null ? findService(firstServiceId) : null;
 		String customerName = findCustomerName(selectedApt.customerId());
 		String serviceName = service != null ? service.name() : "Không rõ";
 		BigDecimal amount = service != null ? service.price() : BigDecimal.ZERO;
