@@ -27,7 +27,7 @@
 		<url/>
 	</scm>
 	<properties>
-		<java.version>21</java.version>
+		<java.version>17</java.version>
 		<javafx.version>21.0.6</javafx.version>
 	</properties>
 	<dependencies>
@@ -94,6 +94,12 @@
 			<groupId>com.google.code.gson</groupId>
 			<artifactId>gson</artifactId>
 			<version>2.10.1</version>
+		</dependency>
+		<!-- Resend Email SDK -->
+		<dependency>
+			<groupId>com.resend</groupId>
+			<artifactId>resend-java</artifactId>
+			<version>3.1.0</version>
 		</dependency>
 	</dependencies>
 

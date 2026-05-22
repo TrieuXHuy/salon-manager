@@ -30,16 +30,19 @@ public class AppointmentService {
 	private final CustomerRepository customerRepository;
 	private final ServiceRepository serviceRepository;
 	private final ServiceRoomRepository serviceRoomRepository;
+	private final EmailService emailService;
 
 	public AppointmentService(
 			AppointmentRepository appointmentRepository,
 			CustomerRepository customerRepository,
 			ServiceRepository serviceRepository,
-			ServiceRoomRepository serviceRoomRepository) {
+			ServiceRoomRepository serviceRoomRepository,
+			EmailService emailService) {
 		this.appointmentRepository = appointmentRepository;
 		this.customerRepository = customerRepository;
 		this.serviceRepository = serviceRepository;
 		this.serviceRoomRepository = serviceRoomRepository;
+		this.emailService = emailService;
 	}
 
 	@Transactional(readOnly = true)
@@ -75,7 +78,9 @@ public class AppointmentService {
 		appointment.setStatus(req.status() != null ? req.status() : AppointmentStatus.pending);
 		appointment.setNote(req.note());
 
-		return appointmentRepository.save(appointment);
+		Appointment saved = appointmentRepository.save(appointment);
+		emailService.sendBookingConfirmation(saved);
+		return saved;
 	}
 
 	public Appointment update(Integer id, AppointmentRequests.Update req) {
