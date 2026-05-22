@@ -376,6 +376,11 @@ public class ApiClient {
 		}
 	}
 
+	public static void remindAppointment(Integer id) throws Exception {
+		HttpResponse<String> response = sendPost("/appointments/" + id + "/remind", "");
+		requireStatus(response, 200, "remind appointment");
+	}
+
 	// ==================== SERVICE API ====================
 
 	/**

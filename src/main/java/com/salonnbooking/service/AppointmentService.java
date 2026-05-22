@@ -115,6 +115,11 @@ public class AppointmentService {
 		appointmentRepository.deleteById(id);
 	}
 
+	public void sendReminder(Integer id) {
+		Appointment appointment = findById(id);
+		emailService.sendAppointmentReminder(appointment);
+	}
+
 	private ServiceRoom resolveRoom(Integer currentAppointmentId, Integer requestedRoomId, Customer customer, ServiceEntity service,
 			LocalDateTime startTime) {
 		validateBasicTime(service, startTime);

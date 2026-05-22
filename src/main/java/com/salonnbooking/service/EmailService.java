@@ -59,6 +59,116 @@ public class EmailService {
 		});
 	}
 
+	public void sendAppointmentReminder(Appointment appointment) {
+		if (appointment == null || appointment.getCustomer() == null) {
+			return;
+		}
+
+		String toEmail = appointment.getCustomer().getEmail();
+		if (toEmail == null || toEmail.trim().isEmpty()) {
+			log.info("Customer has no email address. Skipping email reminder for appointment ID: {}", appointment.getId());
+			return;
+		}
+
+		CompletableFuture.runAsync(() -> {
+			try {
+				log.info("Sending appointment reminder email to {} for appointment ID: {}", toEmail, appointment.getId());
+				
+				String htmlContent = buildReminderHtml(appointment);
+				
+				CreateEmailOptions sendEmailRequest = CreateEmailOptions.builder()
+						.from(fromEmail)
+						.to(toEmail)
+						.subject("Nhắc lịch hẹn dịch vụ tại Salon Booking")
+						.html(htmlContent)
+						.build();
+
+				CreateEmailResponse data = resend.emails().send(sendEmailRequest);
+				log.info("Reminder email sent successfully. Email ID: {}", data.getId());
+			} catch (Exception e) {
+				log.error("Failed to send appointment reminder email for appointment ID: {}", appointment.getId(), e);
+			}
+		});
+	}
+
+	private String buildReminderHtml(Appointment appointment) {
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+		String formattedTime = appointment.getAppointmentTime() != null 
+				? appointment.getAppointmentTime().format(formatter) 
+				: "N/A";
+		
+		String customerName = appointment.getCustomer().getFullName();
+		String serviceName = appointment.getService() != null ? appointment.getService().getName() : "N/A";
+		String price = appointment.getService() != null && appointment.getService().getPrice() != null
+				? String.format("%,.0f VNĐ", appointment.getService().getPrice())
+				: "N/A";
+		String roomName = appointment.getRoom() != null ? appointment.getRoom().getName() : "N/A";
+		String note = appointment.getNote() != null && !appointment.getNote().trim().isEmpty() 
+				? appointment.getNote() 
+				: "Không có";
+
+		return "<!DOCTYPE html>"
+				+ "<html>"
+				+ "<head>"
+				+ "    <meta charset='UTF-8'>"
+				+ "    <title>Nhắc nhở lịch hẹn dịch vụ</title>"
+				+ "</head>"
+				+ "<body style='font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; color: #333;'>"
+				+ "    <div style='max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;'>"
+				+ "        <!-- Header -->"
+				+ "        <div style='background: linear-gradient(135deg, #7C3AED, #3B82F6); padding: 30px; text-align: center; color: white;'>"
+				+ "            <h1 style='margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 0.5px;'>Salon Booking System</h1>"
+				+ "            <p style='margin: 5px 0 0; font-size: 14px; opacity: 0.9;'>Thư nhắc lịch hẹn sắp tới</p>"
+				+ "        </div>"
+				+ "        "
+				+ "        <!-- Content -->"
+				+ "        <div style='padding: 30px; line-height: 1.6;'>"
+				+ "            <h2 style='color: #7C3AED; margin-top: 0;'>Xin chào " + customerName + ",</h2>"
+				+ "            <p>Đây là thông báo nhắc lịch hẹn của bạn tại Salon chúng tôi. Vui lòng lưu ý thời gian và đến đúng giờ để trải nghiệm dịch vụ tốt nhất:</p>"
+				+ "            "
+				+ "            <!-- Summary Card -->"
+				+ "            <div style='background-color: #f8f9fa; border-left: 4px solid #7C3AED; padding: 20px; border-radius: 6px; margin: 25px 0;'>"
+				+ "                <table style='width: 100%; border-collapse: collapse;'>"
+				+ "                    <tr>"
+				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555; width: 150px;'>Mã lịch hẹn:</td>"
+				+ "                        <td style='padding: 6px 0; color: #333;'>#" + appointment.getId() + "</td>"
+				+ "                    </tr>"
+				+ "                    <tr>"
+				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Thời gian:</td>"
+				+ "                        <td style='padding: 6px 0; color: #333; font-weight: bold;'>" + formattedTime + "</td>"
+				+ "                    </tr>"
+				+ "                    <tr>"
+				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Dịch vụ:</td>"
+				+ "                        <td style='padding: 6px 0; color: #333;'>" + serviceName + "</td>"
+				+ "                    </tr>"
+				+ "                    <tr>"
+				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Giá tiền:</td>"
+				+ "                        <td style='padding: 6px 0; color: #e63946; font-weight: bold;'>" + price + "</td>"
+				+ "                    </tr>"
+				+ "                    <tr>"
+				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Phòng dịch vụ:</td>"
+				+ "                        <td style='padding: 6px 0; color: #333;'>" + roomName + "</td>"
+				+ "                    </tr>"
+				+ "                    <tr>"
+				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Ghi chú:</td>"
+				+ "                        <td style='padding: 6px 0; color: #666; font-style: italic;'>" + note + "</td>"
+				+ "                    </tr>"
+				+ "                </table>"
+				+ "            </div>"
+				+ "            "
+				+ "            <p style='margin-bottom: 0;'>Nếu bạn muốn thay đổi hoặc hủy lịch hẹn, vui lòng liên hệ với chúng tôi qua số điện thoại của cửa hàng ít nhất 2 tiếng trước giờ hẹn.</p>"
+				+ "        </div>"
+				+ "        "
+				+ "        <!-- Footer -->"
+				+ "        <div style='background-color: #f4f4f9; padding: 20px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #e0e0e0;'>"
+				+ "            <p style='margin: 0;'>Đây là email tự động từ hệ thống Salon Booking. Vui lòng không trả lời trực tiếp email này.</p>"
+				+ "            <p style='margin: 5px 0 0;'>&copy; 2026 Salon Booking System. All rights reserved.</p>"
+				+ "        </div>"
+				+ "    </div>"
+				+ "</body>"
+				+ "</html>";
+	}
+
 	private String buildConfirmationHtml(Appointment appointment) {
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 		String formattedTime = appointment.getAppointmentTime() != null 

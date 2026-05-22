@@ -61,4 +61,10 @@ public class AppointmentController {
 	public void delete(@PathVariable Integer id) {
 		appointmentService.delete(id);
 	}
+
+	@PostMapping("/{id}/remind")
+	@ResponseStatus(HttpStatus.OK)
+	public void remind(@PathVariable Integer id) {
+		appointmentService.sendReminder(id);
+	}
 }

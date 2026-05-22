@@ -924,18 +924,18 @@ public class SalonFxApplication extends Application {
 				warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để nhắc lịch.");
 				return;
 			}
-			AppointmentRequests.Response appointment = findAppointment(row.id());
-			CustomerRequests.Response customer = appointment == null ? null : customers.stream()
-					.filter(item -> Objects.equals(item.id(), appointment.customerId()))
-					.findFirst()
-					.orElse(null);
-			String phone = customer == null || customer.phone() == null || customer.phone().isBlank()
-					? "chưa có số điện thoại"
-					: customer.phone();
-			alert(Alert.AlertType.INFORMATION, "Mô phỏng nhắc lịch",
-					"Đã tạo nội dung nhắc lịch cho " + row.customer() + " (" + phone + "):\n"
-							+ "Lịch " + row.service() + " lúc " + row.time().format(DATE_TIME)
-							+ ", dự kiến kết thúc " + row.endTime().toLocalTime().format(TIME_INPUT) + ".");
+			status.setText("Đang gửi email nhắc lịch...");
+			runAsync(() -> {
+				ApiClient.remindAppointment(row.id());
+				return null;
+			}, ignored -> {
+				status.setText("Sẵn sàng");
+				alert(Alert.AlertType.INFORMATION, "Gửi nhắc lịch thành công", 
+						"Đã gửi email nhắc lịch hẹn qua Resend cho khách hàng " + row.customer() + " thành công!");
+			}, ex -> {
+				status.setText("Sẵn sàng");
+				error("Lỗi gửi nhắc lịch", cleanError(ex));
+			});
 		}
 
 		private void paySelected() {
