@@ -1,5 +1,7 @@
 package com.salonnbooking.service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -40,6 +42,11 @@ public class PaymentService {
 	public Payment save(PaymentRequests.Create req) {
 		Appointment appointment = appointmentRepository.findById(req.appointmentId())
 				.orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + req.appointmentId()));
+		boolean alreadyPaid = paymentRepository.findByAppointmentId(req.appointmentId()).stream()
+				.anyMatch(payment -> payment.getPaymentStatus() == PaymentStatus.paid);
+		if (alreadyPaid) {
+			throw new IllegalArgumentException("Appointment has already been paid");
+		}
 
 		Payment payment = new Payment();
 		payment.setAppointment(appointment);
@@ -83,7 +90,18 @@ public class PaymentService {
 	private void updateAppointmentStatusWhenPaid(Appointment appointment, PaymentStatus paymentStatus) {
 		if (paymentStatus == PaymentStatus.paid) {
 			appointment.setStatus(AppointmentStatus.paid);
+			int earnedPoints = calculateLoyaltyPoints(appointment);
+			appointment.getCustomer().setLoyaltyPoints(
+					appointment.getCustomer().getLoyaltyPoints() + earnedPoints);
 			appointmentRepository.save(appointment);
 		}
+	}
+
+	private int calculateLoyaltyPoints(Appointment appointment) {
+		BigDecimal price = appointment.getService().getPrice();
+		if (price == null) {
+			return 0;
+		}
+		return price.divide(BigDecimal.valueOf(10000), 0, RoundingMode.DOWN).intValue();
 	}
 }

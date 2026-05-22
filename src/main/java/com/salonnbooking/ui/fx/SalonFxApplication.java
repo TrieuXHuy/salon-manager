@@ -285,6 +285,8 @@ public class SalonFxApplication extends Application {
 		private final TextField name = new TextField();
 		private final TextField phone = new TextField();
 		private final TextField email = new TextField();
+		private final TextField loyaltyPoints = new TextField();
+		private final TextArea customerNote = new TextArea();
 		private final ComboBox<Gender> gender = new ComboBox<>(FXCollections.observableArrayList(Gender.values()));
 		private final TableView<CustomerRequests.Response> table = new TableView<>();
 		private final TextField customerSearch = new TextField();
@@ -304,6 +306,8 @@ public class SalonFxApplication extends Application {
 					phone.setText(value.phone());
 					email.setText(value.email());
 					gender.setValue(value.gender());
+					loyaltyPoints.setText(String.valueOf(value.loyaltyPoints() == null ? 0 : value.loyaltyPoints()));
+					customerNote.setText(orEmpty(value.note()));
 				}
 			});
 			load();
@@ -324,9 +328,14 @@ public class SalonFxApplication extends Application {
 			name.setPromptText("Họ và tên");
 			phone.setPromptText("Số điện thoại");
 			email.setPromptText("Email");
+			loyaltyPoints.setPromptText("Điểm tích lũy");
+			customerNote.setPromptText("Sở thích, lưu ý dị ứng, kiểu tóc quen thuộc...");
+			customerNote.setPrefRowCount(2);
 			gender.setValue(Gender.other);
 			grid.addRow(0, labeled("Họ và tên", name), labeled("Số điện thoại", phone));
 			grid.addRow(1, labeled("Email", email), labeled("Giới tính", gender));
+			grid.addRow(2, labeled("Điểm tích lũy", loyaltyPoints));
+			grid.add(labeled("Ghi chú chăm sóc", customerNote), 0, 3, 2, 1);
 			HBox actions = actions(primaryButton("Thêm"), ghostButton("Cập nhật"), ghostButton("Xóa"), ghostButton("Xóa form"));
 			((Button) actions.getChildren().get(0)).setOnAction(e -> save(false));
 			((Button) actions.getChildren().get(1)).setOnAction(e -> save(true));
@@ -342,6 +351,9 @@ public class SalonFxApplication extends Application {
 			column(table, "Điện thoại", CustomerRequests.Response::phone, 150);
 			column(table, "Email", CustomerRequests.Response::email, 240);
 			column(table, "Giới tính", c -> c.gender() == null ? "" : c.gender().getDisplayName(), 120);
+			column(table, "Điểm", c -> c.loyaltyPoints() == null ? 0 : c.loyaltyPoints(), 90);
+			column(table, "Hạng", c -> customerTier(c.loyaltyPoints()), 110);
+			column(table, "Ghi chú", CustomerRequests.Response::note, 220);
 		}
 
 		private void load() {
@@ -372,10 +384,17 @@ public class SalonFxApplication extends Application {
 				warn("Chưa chọn khách hàng", "Vui lòng chọn một khách hàng để cập nhật.");
 				return;
 			}
+			Integer points;
+			try {
+				points = loyaltyPoints.getText().trim().isBlank() ? 0 : Integer.parseInt(loyaltyPoints.getText().trim());
+			} catch (NumberFormatException ex) {
+				warn("Điểm chưa hợp lệ", "Điểm tích lũy phải là số nguyên.");
+				return;
+			}
 			CustomerRequests.Create create = new CustomerRequests.Create(name.getText().trim(), phone.getText().trim(),
-					email.getText().trim(), gender.getValue());
+					email.getText().trim(), gender.getValue(), customerNote.getText().trim());
 			CustomerRequests.Update edit = new CustomerRequests.Update(create.fullName(), create.phone(), create.email(),
-					create.gender());
+					create.gender(), points, create.note());
 			runAsync(() -> update ? ApiClient.updateCustomer(selectedId, edit) : ApiClient.createCustomer(create), r -> {
 				clear();
 				load();
@@ -404,6 +423,8 @@ public class SalonFxApplication extends Application {
 			name.clear();
 			phone.clear();
 			email.clear();
+			loyaltyPoints.clear();
+			customerNote.clear();
 			gender.setValue(Gender.other);
 			table.getSelectionModel().clearSelection();
 		}
@@ -846,7 +867,8 @@ public class SalonFxApplication extends Application {
 								customerName.getText().trim(),
 								customerPhone.getText().trim(),
 								customerEmail.getText().trim(),
-								customerGender.getValue()));
+								customerGender.getValue(),
+								"Tạo từ tài khoản đăng nhập"));
 					}
 					return createdUser;
 				}, r -> {
@@ -1220,6 +1242,17 @@ public class SalonFxApplication extends Application {
 
 	private String orEmpty(String value) {
 		return value == null ? "" : value;
+	}
+
+	private String customerTier(Integer points) {
+		int value = points == null ? 0 : points;
+		if (value >= 100) {
+			return "VIP";
+		}
+		if (value >= 50) {
+			return "Thân thiết";
+		}
+		return "Mới";
 	}
 
 	private String cleanError(Throwable ex) {

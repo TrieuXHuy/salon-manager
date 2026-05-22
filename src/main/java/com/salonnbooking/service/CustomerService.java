@@ -37,6 +37,7 @@ public class CustomerService {
 		customer.setPhone(req.phone());
 		customer.setEmail(req.email());
 		customer.setGender(req.gender());
+		customer.setNote(req.note());
 		return customerRepository.save(customer);
 	}
 
@@ -46,6 +47,8 @@ public class CustomerService {
 		customer.setPhone(req.phone());
 		customer.setEmail(req.email());
 		customer.setGender(req.gender());
+		customer.setLoyaltyPoints(req.loyaltyPoints());
+		customer.setNote(req.note());
 		return customerRepository.save(customer);
 	}
 

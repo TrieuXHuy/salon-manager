@@ -354,7 +354,8 @@ public class CustomerPanel extends JPanel {
 				tfFullName.getText().trim(),
 				tfPhone.getText().trim(),
 				tfEmail.getText().trim(),
-				(Gender) cbGender.getSelectedItem());
+				(Gender) cbGender.getSelectedItem(),
+				"");
 
 		SwingWorker<CustomerRequests.Response, Void> worker = new SwingWorker<>() {
 			@Override
@@ -400,7 +401,9 @@ public class CustomerPanel extends JPanel {
 				tfFullName.getText().trim(),
 				tfPhone.getText().trim(),
 				tfEmail.getText().trim(),
-				(Gender) cbGender.getSelectedItem());
+				(Gender) cbGender.getSelectedItem(),
+				0,
+				"");
 
 		int customerId = selectedCustomerId;
 

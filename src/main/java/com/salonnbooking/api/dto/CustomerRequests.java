@@ -15,14 +15,17 @@ public final class CustomerRequests {
 			@NotBlank @Size(max = 100) String fullName,
 			@NotBlank @Size(max = 20) String phone,
 			@Email @Size(max = 100) String email,
-			Gender gender) {
+			Gender gender,
+			String note) {
 	}
 
 	public record Update(
 			@NotBlank @Size(max = 100) String fullName,
 			@NotBlank @Size(max = 20) String phone,
 			@Email @Size(max = 100) String email,
-			Gender gender) {
+			Gender gender,
+			Integer loyaltyPoints,
+			String note) {
 	}
 
 	public record Response(
@@ -30,9 +33,12 @@ public final class CustomerRequests {
 			String fullName,
 			String phone,
 			String email,
-			Gender gender) {
+			Gender gender,
+			Integer loyaltyPoints,
+			String note) {
 		public static Response from(com.salonnbooking.domain.Customer c) {
-			return new Response(c.getId(), c.getFullName(), c.getPhone(), c.getEmail(), c.getGender());
+			return new Response(c.getId(), c.getFullName(), c.getPhone(), c.getEmail(), c.getGender(),
+					c.getLoyaltyPoints(), c.getNote());
 		}
 	}
 }

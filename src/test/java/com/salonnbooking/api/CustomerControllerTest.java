@@ -77,7 +77,7 @@ public class CustomerControllerTest {
 	@DisplayName("POST /api/customers should create new customer")
 	void testCreateCustomer() throws Exception {
 		CustomerRequests.Create request = new CustomerRequests.Create(
-				"New Customer", "0987654321", "new@example.com", Gender.female);
+				"New Customer", "0987654321", "new@example.com", Gender.female, "");
 
 		when(customerService.save(any())).thenReturn(testCustomer);
 
@@ -94,7 +94,7 @@ public class CustomerControllerTest {
 	@DisplayName("PUT /api/customers/{id} should update customer")
 	void testUpdateCustomer() throws Exception {
 		CustomerRequests.Update request = new CustomerRequests.Update(
-				"Updated", "0901234567", "updated@example.com", Gender.male);
+				"Updated", "0901234567", "updated@example.com", Gender.male, 0, "");
 
 		when(customerService.update(eq(1), any())).thenReturn(testCustomer);
 

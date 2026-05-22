@@ -80,7 +80,7 @@ public class CustomerServiceTest {
 	@DisplayName("Should save new customer")
 	void testSave() {
 		CustomerRequests.Create request = new CustomerRequests.Create(
-				"New Customer", "0987654321", "new@example.com", Gender.female);
+				"New Customer", "0987654321", "new@example.com", Gender.female, "");
 
 		when(customerRepository.save(any(Customer.class))).thenReturn(testCustomer);
 
@@ -94,7 +94,7 @@ public class CustomerServiceTest {
 	@DisplayName("Should update customer")
 	void testUpdate() {
 		CustomerRequests.Update request = new CustomerRequests.Update(
-				"Updated Customer", "0901234567", "updated@example.com", Gender.female);
+				"Updated Customer", "0901234567", "updated@example.com", Gender.female, 0, "");
 
 		when(customerRepository.findById(1)).thenReturn(Optional.of(testCustomer));
 		when(customerRepository.save(any(Customer.class))).thenReturn(testCustomer);
