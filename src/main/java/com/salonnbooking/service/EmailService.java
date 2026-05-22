@@ -37,24 +37,34 @@ public class EmailService {
 			return;
 		}
 
+		// Build the HTML content on the calling thread (which has an active Hibernate Session)
+		String htmlContent;
+		try {
+			htmlContent = buildConfirmationHtml(appointment);
+		} catch (Exception e) {
+			log.error("Failed to build booking confirmation HTML for appointment ID: {}", appointment.getId(), e);
+			return;
+		}
+
+		final String finalHtml = htmlContent;
+		final Integer appointmentId = appointment.getId();
+
 		// Run asynchronously to avoid blocking the caller thread
 		CompletableFuture.runAsync(() -> {
 			try {
-				log.info("Sending booking confirmation email to {} for appointment ID: {}", toEmail, appointment.getId());
-				
-				String htmlContent = buildConfirmationHtml(appointment);
+				log.info("Sending booking confirmation email to {} for appointment ID: {}", toEmail, appointmentId);
 				
 				CreateEmailOptions sendEmailRequest = CreateEmailOptions.builder()
 						.from(fromEmail)
 						.to(toEmail)
 						.subject("Xác nhận đặt lịch hẹn thành công - Salon Booking")
-						.html(htmlContent)
+						.html(finalHtml)
 						.build();
 
 				CreateEmailResponse data = resend.emails().send(sendEmailRequest);
 				log.info("Email sent successfully. Email ID: {}", data.getId());
 			} catch (Exception e) {
-				log.error("Failed to send booking confirmation email for appointment ID: {}", appointment.getId(), e);
+				log.error("Failed to send booking confirmation email for appointment ID: {}", appointmentId, e);
 			}
 		});
 	}
@@ -70,23 +80,33 @@ public class EmailService {
 			return;
 		}
 
+		// Build the HTML content on the calling thread (which has an active Hibernate Session)
+		String htmlContent;
+		try {
+			htmlContent = buildReminderHtml(appointment);
+		} catch (Exception e) {
+			log.error("Failed to build appointment reminder HTML for appointment ID: {}", appointment.getId(), e);
+			return;
+		}
+
+		final String finalHtml = htmlContent;
+		final Integer appointmentId = appointment.getId();
+
 		CompletableFuture.runAsync(() -> {
 			try {
-				log.info("Sending appointment reminder email to {} for appointment ID: {}", toEmail, appointment.getId());
-				
-				String htmlContent = buildReminderHtml(appointment);
+				log.info("Sending appointment reminder email to {} for appointment ID: {}", toEmail, appointmentId);
 				
 				CreateEmailOptions sendEmailRequest = CreateEmailOptions.builder()
 						.from(fromEmail)
 						.to(toEmail)
 						.subject("Nhắc lịch hẹn dịch vụ tại Salon Booking")
-						.html(htmlContent)
+						.html(finalHtml)
 						.build();
 
 				CreateEmailResponse data = resend.emails().send(sendEmailRequest);
 				log.info("Reminder email sent successfully. Email ID: {}", data.getId());
 			} catch (Exception e) {
-				log.error("Failed to send appointment reminder email for appointment ID: {}", appointment.getId(), e);
+				log.error("Failed to send appointment reminder email for appointment ID: {}", appointmentId, e);
 			}
 		});
 	}
