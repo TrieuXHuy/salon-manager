@@ -287,12 +287,14 @@ public class SalonFxApplication extends Application {
 		private final TextField email = new TextField();
 		private final ComboBox<Gender> gender = new ComboBox<>(FXCollections.observableArrayList(Gender.values()));
 		private final TableView<CustomerRequests.Response> table = new TableView<>();
+		private final TextField customerSearch = new TextField();
+		private List<CustomerRequests.Response> customerCache = List.of();
 		private Integer selectedId;
 
 		private CustomersView() {
 			getStyleClass().add("page");
 			getChildren().addAll(pageHeader("Khách hàng", "Quản lý hồ sơ và thông tin liên hệ", "Làm mới", e -> load()),
-					customerForm(), card(table));
+					customerForm(), customerFilters(), card(table));
 			VBox.setVgrow(table, Priority.ALWAYS);
 			configureCustomerTable();
 			table.getSelectionModel().selectedItemProperty().addListener((obs, old, value) -> {
@@ -305,6 +307,16 @@ public class SalonFxApplication extends Application {
 				}
 			});
 			load();
+		}
+
+		private Node customerFilters() {
+			customerSearch.setPromptText("Tìm theo tên, điện thoại hoặc email");
+			customerSearch.textProperty().addListener((obs, old, value) -> applyCustomerFilter());
+			Button clearSearch = ghostButton("Xóa tìm kiếm");
+			clearSearch.setOnAction(e -> customerSearch.clear());
+			HBox box = new HBox(10, customerSearch, clearSearch);
+			HBox.setHgrow(customerSearch, Priority.ALWAYS);
+			return card(box);
 		}
 
 		private Node customerForm() {
@@ -333,8 +345,22 @@ public class SalonFxApplication extends Application {
 		}
 
 		private void load() {
-			runAsync(ApiClient::getAllCustomers, list -> table.setItems(FXCollections.observableArrayList(list)),
+			runAsync(ApiClient::getAllCustomers, list -> {
+				customerCache = list;
+				applyCustomerFilter();
+			},
 					ex -> error("Lỗi tải khách hàng", cleanError(ex)));
+		}
+
+		private void applyCustomerFilter() {
+			String keyword = customerSearch.getText() == null ? "" : customerSearch.getText().trim().toLowerCase(Locale.ROOT);
+			List<CustomerRequests.Response> filtered = customerCache.stream()
+					.filter(customer -> keyword.isBlank()
+							|| orEmpty(customer.fullName()).toLowerCase(Locale.ROOT).contains(keyword)
+							|| orEmpty(customer.phone()).toLowerCase(Locale.ROOT).contains(keyword)
+							|| orEmpty(customer.email()).toLowerCase(Locale.ROOT).contains(keyword))
+					.toList();
+			table.setItems(FXCollections.observableArrayList(filtered));
 		}
 
 		private void save(boolean update) {
@@ -518,6 +544,14 @@ public class SalonFxApplication extends Application {
 			statusFilter.getItems().setAll(AppointmentStatus.values());
 			statusFilter.setPromptText("Tất cả trạng thái");
 			Button clear = ghostButton("Xóa lọc");
+			Button today = ghostButton("Hôm nay");
+			today.setTooltip(new Tooltip("Lọc nhanh lịch hẹn trong ngày hôm nay"));
+			today.setOnAction(e -> {
+				LocalDate now = LocalDate.now();
+				start.setValue(now);
+				end.setValue(now);
+				applyFilters();
+			});
 			clear.setOnAction(e -> {
 				search.clear();
 				statusFilter.setValue(null);
@@ -529,7 +563,7 @@ public class SalonFxApplication extends Application {
 			statusFilter.valueProperty().addListener((obs, o, n) -> applyFilters());
 			start.valueProperty().addListener((obs, o, n) -> applyFilters());
 			end.valueProperty().addListener((obs, o, n) -> applyFilters());
-			HBox row = new HBox(10, search, statusFilter, start, end, clear);
+			HBox row = new HBox(10, search, statusFilter, start, end, today, clear);
 			row.getStyleClass().add("filter-bar");
 			HBox.setHgrow(search, Priority.ALWAYS);
 			return card(row);
@@ -539,7 +573,10 @@ public class SalonFxApplication extends Application {
 			Button add = primaryButton("Thêm");
 			Button edit = ghostButton("Sửa");
 			Button delete = ghostButton("Xóa");
+			Button confirm = ghostButton("Xác nhận");
+			Button complete = ghostButton("Hoàn thành");
 			Button pay = ghostButton("Thanh toán");
+			Button remind = ghostButton("Nhắc lịch");
 			add.setOnAction(e -> openAppointmentDialog(null));
 			edit.setOnAction(e -> {
 				AppointmentRow row = table.getSelectionModel().getSelectedItem();
@@ -550,11 +587,14 @@ public class SalonFxApplication extends Application {
 				openAppointmentDialog(findAppointment(row.id()));
 			});
 			delete.setOnAction(e -> deleteSelected());
+			confirm.setOnAction(e -> updateSelectedStatus(AppointmentStatus.confirmed));
+			complete.setOnAction(e -> updateSelectedStatus(AppointmentStatus.completed));
 			pay.setOnAction(e -> paySelected());
+			remind.setOnAction(e -> remindSelected());
 			status.getStyleClass().add("muted");
 			Region spacer = new Region();
 			HBox.setHgrow(spacer, Priority.ALWAYS);
-			return card(new HBox(10, add, edit, delete, pay, spacer, status));
+			return card(new HBox(10, add, edit, delete, confirm, complete, pay, remind, spacer, status));
 		}
 
 		private void load() {
@@ -644,6 +684,49 @@ public class SalonFxApplication extends Application {
 				ApiClient.deleteAppointment(row.id());
 				return null;
 			}, r -> load(), ex -> error("Lỗi xóa lịch hẹn", cleanError(ex)));
+		}
+
+		private void updateSelectedStatus(AppointmentStatus newStatus) {
+			AppointmentRow row = table.getSelectionModel().getSelectedItem();
+			if (row == null) {
+				warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để cập nhật trạng thái.");
+				return;
+			}
+			AppointmentRequests.Response appointment = findAppointment(row.id());
+			if (appointment == null) {
+				warn("Không tìm thấy lịch hẹn", "Dữ liệu lịch hẹn đã thay đổi, vui lòng làm mới.");
+				return;
+			}
+			if (appointment.status() == AppointmentStatus.paid && newStatus != AppointmentStatus.paid) {
+				warn("Không thể đổi trạng thái", "Lịch hẹn đã thanh toán không nên chuyển về trạng thái khác.");
+				return;
+			}
+			runAsync(() -> ApiClient.updateAppointment(appointment.id(), new AppointmentRequests.Update(
+					appointment.customerId(),
+					appointment.serviceIds() == null ? List.of() : appointment.serviceIds(),
+					appointment.appointmentTime(),
+					newStatus,
+					appointment.note())), r -> load(), ex -> error("Lỗi cập nhật trạng thái", cleanError(ex)));
+		}
+
+		private void remindSelected() {
+			AppointmentRow row = table.getSelectionModel().getSelectedItem();
+			if (row == null) {
+				warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để nhắc lịch.");
+				return;
+			}
+			AppointmentRequests.Response appointment = findAppointment(row.id());
+			CustomerRequests.Response customer = appointment == null ? null : customers.stream()
+					.filter(item -> Objects.equals(item.id(), appointment.customerId()))
+					.findFirst()
+					.orElse(null);
+			String phone = customer == null || customer.phone() == null || customer.phone().isBlank()
+					? "chưa có số điện thoại"
+					: customer.phone();
+			alert(Alert.AlertType.INFORMATION, "Mô phỏng nhắc lịch",
+					"Đã tạo nội dung nhắc lịch cho " + row.customer() + " (" + phone + "):\n"
+							+ "Lịch " + row.service() + " lúc " + row.time().format(DATE_TIME)
+							+ ", dự kiến kết thúc " + row.endTime().toLocalTime().format(TIME_INPUT) + ".");
 		}
 
 		private void paySelected() {
