@@ -60,6 +60,7 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -1020,8 +1021,10 @@ public class SalonFxApplication extends Application {
 
 			ComboBox<CustomerRequests.Response> customer = new ComboBox<>(FXCollections.observableArrayList(customers));
 			customer.setConverter(stringConverter(CustomerRequests.Response::fullName));
+			customer.setMaxWidth(Double.MAX_VALUE);
 			ComboBox<ServiceRequests.Response> service = new ComboBox<>(FXCollections.observableArrayList(services));
 			service.setConverter(stringConverter(ServiceRequests.Response::name));
+			service.setMaxWidth(Double.MAX_VALUE);
 			List<ServiceRoomRequests.Response> rooms;
 			try {
 				rooms = ApiClient.getActiveServiceRooms();
@@ -1032,13 +1035,18 @@ public class SalonFxApplication extends Application {
 			ComboBox<ServiceRoomRequests.Response> room = new ComboBox<>(FXCollections.observableArrayList(rooms));
 			room.setConverter(stringConverter(ServiceRoomRequests.Response::name));
 			room.setPromptText("Tất cả phòng");
+			room.setMaxWidth(Double.MAX_VALUE);
 			DatePicker date = new DatePicker(LocalDate.now());
+			date.setMaxWidth(Double.MAX_VALUE);
 			TextField time = new TextField("09:00");
+			time.setMaxWidth(Double.MAX_VALUE);
 			ComboBox<String> quickTime = new ComboBox<>(FXCollections.observableArrayList(
 					"08:00", "09:00", "10:00", "13:30", "15:00", "17:30", "19:00"));
 			quickTime.setPromptText("Khung giờ nhanh");
+			quickTime.setMaxWidth(Double.MAX_VALUE);
 			ComboBox<AppointmentStatus> status = new ComboBox<>(FXCollections.observableArrayList(AppointmentStatus.values()));
 			status.setValue(AppointmentStatus.pending);
+			status.setMaxWidth(Double.MAX_VALUE);
 			TextArea note = new TextArea();
 			note.setPrefRowCount(3);
 			TilePane slotPane = new TilePane(8, 8);
@@ -1134,8 +1142,9 @@ public class SalonFxApplication extends Application {
 			refreshSlots.run();
 
 			GridPane grid = formGrid();
+			grid.setMaxWidth(Double.MAX_VALUE);
 			grid.addRow(0, labeled("Khách hàng", customer), labeled("Dịch vụ", service));
-			grid.addRow(1, labeled("Ngày", date), labeled("Phòng phục vụ", room));
+			grid.addRow(1, labeled("Ngày", date), labeled("Khu vực", room));
 			grid.addRow(2, labeled("Giờ", time), labeled("Gợi ý giờ", quickTime));
 			grid.add(labeled("Slot trống theo phòng", slotScroll), 0, 3, 2, 1);
 			grid.addRow(4, labeled("Trạng thái", status));
@@ -1143,6 +1152,7 @@ public class SalonFxApplication extends Application {
 			grid.add(businessHint, 0, 6, 2, 1);
 			grid.add(labeled("Ghi chú", note), 0, 7, 2, 1);
 			getDialogPane().setContent(grid);
+			getDialogPane().setPrefWidth(900);
 			Node saveButton = getDialogPane().lookupButton(saveButtonType);
 			saveButton.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
 				if (customer.getValue() == null || service.getValue() == null || room.getValue() == null || date.getValue() == null) {
@@ -1302,8 +1312,14 @@ public class SalonFxApplication extends Application {
 	private Node labeled(String label, Node input) {
 		Label l = new Label(label);
 		l.getStyleClass().add("field-label");
+		if (input instanceof Region region) {
+			region.setMaxWidth(Double.MAX_VALUE);
+		}
+		GridPane.setHgrow(input, Priority.ALWAYS);
 		VBox box = new VBox(6, l, input);
 		box.setFillWidth(true);
+		box.setMaxWidth(Double.MAX_VALUE);
+		GridPane.setHgrow(box, Priority.ALWAYS);
 		return box;
 	}
 
@@ -1317,6 +1333,15 @@ public class SalonFxApplication extends Application {
 		GridPane grid = new GridPane();
 		grid.setHgap(14);
 		grid.setVgap(12);
+		ColumnConstraints left = new ColumnConstraints();
+		left.setHgrow(Priority.ALWAYS);
+		left.setFillWidth(true);
+		left.setPercentWidth(50);
+		ColumnConstraints right = new ColumnConstraints();
+		right.setHgrow(Priority.ALWAYS);
+		right.setFillWidth(true);
+		right.setPercentWidth(50);
+		grid.getColumnConstraints().addAll(left, right);
 		return grid;
 	}
 
