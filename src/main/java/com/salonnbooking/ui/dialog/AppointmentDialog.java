@@ -35,14 +35,15 @@ public class AppointmentDialog extends JDialog {
 	private boolean approved = false;
 	private AppointmentRequests.Response editingAppointment = null;
 	private Supplier<List<CustomerRequests.Response>> customerLoader; // Callback để load customers từ API
+	private Supplier<List<ServiceRequests.Response>> serviceLoader; // Callback để load services từ API
 
 	/**
 	 * Constructor - Tạo dialog (Add mode)
 	 */
 	public AppointmentDialog(Window owner, 
 			Supplier<List<CustomerRequests.Response>> customerLoader,
-			List<ServiceRequests.Response> services) {
-		this(owner, customerLoader, services, null);
+			Supplier<List<ServiceRequests.Response>> serviceLoader) {
+		this(owner, customerLoader, serviceLoader, null);
 	}
 
 	/**
@@ -50,37 +51,37 @@ public class AppointmentDialog extends JDialog {
 	 */
 	public AppointmentDialog(Window owner, 
 			Supplier<List<CustomerRequests.Response>> customerLoader,
-			List<ServiceRequests.Response> services, 
+			Supplier<List<ServiceRequests.Response>> serviceLoader,
 			AppointmentRequests.Response editingAppointment) {
 		super(owner, "Lịch hẹn", ModalityType.APPLICATION_MODAL);
 		this.editingAppointment = editingAppointment;
 		this.customerLoader = customerLoader;
+		this.serviceLoader = serviceLoader;
 
 		setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 		setSize(500, 450);
 		setLocationRelativeTo(owner);
 		setResizable(false);
 
-		JPanel contentPane = createContentPane(services, editingAppointment);
+		JPanel contentPane = createContentPane(editingAppointment);
 		setContentPane(contentPane);
 
 		// Populate data if editing
 		if (editingAppointment != null) {
-			populateFormData(services, editingAppointment);
+			populateFormData(editingAppointment);
 		}
 	}
 
 	/**
 	 * Tạo content panel
 	 */
-	private JPanel createContentPane(List<ServiceRequests.Response> services,
-			AppointmentRequests.Response editingAppointment) {
+	private JPanel createContentPane(AppointmentRequests.Response editingAppointment) {
 		JPanel contentPane = new JPanel(new BorderLayout(10, 10));
 		contentPane.setBorder(new EmptyBorder(15, 15, 15, 15));
 		contentPane.setBackground(UIManager.getColor("Panel.background"));
 
 		// Form Panel
-		contentPane.add(createFormPanel(services), BorderLayout.CENTER);
+		contentPane.add(createFormPanel(), BorderLayout.CENTER);
 
 		// Button Panel
 		contentPane.add(createButtonPanel(), BorderLayout.SOUTH);
@@ -91,7 +92,7 @@ public class AppointmentDialog extends JDialog {
 	/**
 	 * Tạo form input panel
 	 */
-	private JPanel createFormPanel(List<ServiceRequests.Response> services) {
+	private JPanel createFormPanel() {
 		JPanel panel = new JPanel(new GridBagLayout());
 		panel.setOpaque(false);
 
@@ -136,10 +137,25 @@ public class AppointmentDialog extends JDialog {
 		panel.add(new JLabel("Dịch vụ:"), gbc);
 
 		cbService = new JComboBox<>();
-		for (ServiceRequests.Response s : services) {
-			cbService.addItem(new ComboBoxItem(s.id(), s.name()));
-		}
 		cbService.setRenderer(new ComboBoxRenderer());
+		
+		// Thêm PopupMenuListener để load services từ API khi mở dropdown
+		cbService.addPopupMenuListener(new PopupMenuListener() {
+			@Override
+			public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+				// Load services từ API khi mở dropdown
+				loadServicesFromApi();
+			}
+
+			@Override
+			public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+			}
+
+			@Override
+			public void popupMenuCanceled(PopupMenuEvent e) {
+			}
+		});
+		
 		gbc.gridx = 1;
 		gbc.weightx = 1;
 		panel.add(cbService, gbc);
@@ -251,6 +267,40 @@ public class AppointmentDialog extends JDialog {
 	}
 
 	/**
+	 * Load services từ API và update combo box
+	 */
+	private void loadServicesFromApi() {
+		try {
+			List<ServiceRequests.Response> services = serviceLoader.get();
+			
+			// Lưu service hiện tại được chọn (nếu có)
+			ComboBoxItem selectedItem = (ComboBoxItem) cbService.getSelectedItem();
+			Integer selectedId = selectedItem != null ? selectedItem.getId() : null;
+			
+			// Clear và reload combo box
+			cbService.removeAllItems();
+			for (ServiceRequests.Response s : services) {
+				cbService.addItem(new ComboBoxItem(s.id(), s.name()));
+			}
+			
+			// Restore previous selection nếu still exists
+			if (selectedId != null) {
+				for (int i = 0; i < cbService.getItemCount(); i++) {
+					ComboBoxItem item = cbService.getItemAt(i);
+					if (item.getId().equals(selectedId)) {
+						cbService.setSelectedIndex(i);
+						break;
+					}
+				}
+			}
+		} catch (Exception e) {
+			JOptionPane.showMessageDialog(this, 
+				"Lỗi tải danh sách dịch vụ: " + e.getMessage(),
+				"Lỗi", JOptionPane.ERROR_MESSAGE);
+		}
+	}
+
+	/**
 	 * Tạo button panel
 	 */
 	private JPanel createButtonPanel() {
@@ -274,8 +324,7 @@ public class AppointmentDialog extends JDialog {
 	/**
 	 * Populate form khi sửa
 	 */
-	private void populateFormData(List<ServiceRequests.Response> services,
-			AppointmentRequests.Response apt) {
+	private void populateFormData(AppointmentRequests.Response apt) {
 		// Load customers từ API để đảm bảo có customer mà đang edit
 		try {
 			List<CustomerRequests.Response> customers = customerLoader.get();
@@ -298,13 +347,26 @@ public class AppointmentDialog extends JDialog {
 				"Lỗi", JOptionPane.ERROR_MESSAGE);
 		}
 
-		// Set service
-		for (int i = 0; i < cbService.getItemCount(); i++) {
-			ComboBoxItem item = cbService.getItemAt(i);
-			if (item.getId().equals(apt.serviceId())) {
-				cbService.setSelectedIndex(i);
-				break;
+		// Load services từ API để đảm bảo có service mà đang edit
+		try {
+			List<ServiceRequests.Response> services = serviceLoader.get();
+			cbService.removeAllItems();
+			for (ServiceRequests.Response s : services) {
+				cbService.addItem(new ComboBoxItem(s.id(), s.name()));
 			}
+			
+			// Set service
+			for (int i = 0; i < cbService.getItemCount(); i++) {
+				ComboBoxItem item = cbService.getItemAt(i);
+				if (item.getId().equals(apt.serviceId())) {
+					cbService.setSelectedIndex(i);
+					break;
+				}
+			}
+		} catch (Exception e) {
+			JOptionPane.showMessageDialog(this, 
+				"Lỗi tải danh sách dịch vụ: " + e.getMessage(),
+				"Lỗi", JOptionPane.ERROR_MESSAGE);
 		}
 
 		// Set datetime

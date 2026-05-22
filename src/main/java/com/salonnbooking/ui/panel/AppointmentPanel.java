@@ -771,7 +771,13 @@ public class AppointmentPanel extends JPanel {
 						throw new RuntimeException("Lỗi tải khách hàng: " + e.getMessage(), e);
 					}
 				},
-				services);
+				() -> {
+					try {
+						return ApiClient.getAllServices();
+					} catch (Exception e) {
+						throw new RuntimeException("Lỗi tải dịch vụ: " + e.getMessage(), e);
+					}
+				});
 		dialog.setVisible(true);
 
 		if (dialog.isApproved()) {
@@ -810,7 +816,14 @@ public class AppointmentPanel extends JPanel {
 						throw new RuntimeException("Lỗi tải khách hàng: " + e.getMessage(), e);
 					}
 				},
-				services, selectedApt);
+				() -> {
+					try {
+						return ApiClient.getAllServices();
+					} catch (Exception e) {
+						throw new RuntimeException("Lỗi tải dịch vụ: " + e.getMessage(), e);
+					}
+				},
+				selectedApt);
 		dialog.setVisible(true);
 
 		if (dialog.isApproved()) {
