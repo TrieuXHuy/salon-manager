@@ -71,6 +71,8 @@ public class SalonFxApplication extends Application {
 	private static final NumberFormat CURRENCY = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
 	private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 	private static final DateTimeFormatter TIME_INPUT = DateTimeFormatter.ofPattern("HH:mm");
+	private static final LocalTime OPEN_TIME = LocalTime.of(8, 0);
+	private static final LocalTime CLOSE_TIME = LocalTime.of(20, 0);
 
 	private Stage stage;
 	private BorderPane shell;
@@ -492,6 +494,7 @@ public class SalonFxApplication extends Application {
 
 	private final class AppointmentsView extends VBox {
 		private final TableView<AppointmentRow> table = new TableView<>();
+		private final FlowPane quickStats = new FlowPane(14, 14);
 		private final TextField search = new TextField();
 		private final ComboBox<AppointmentStatus> statusFilter = new ComboBox<>();
 		private final DatePicker start = new DatePicker();
@@ -504,7 +507,7 @@ public class SalonFxApplication extends Application {
 		private AppointmentsView() {
 			getStyleClass().add("page");
 			getChildren().addAll(pageHeader("Lịch hẹn", "Tạo, lọc, cập nhật và thanh toán lịch hẹn", "Làm mới", e -> load()),
-					filters(), card(table), appointmentToolbar());
+					filters(), quickStats, card(table), appointmentToolbar());
 			VBox.setVgrow(table, Priority.ALWAYS);
 			configureAppointmentTable(table);
 			load();
@@ -587,11 +590,12 @@ public class SalonFxApplication extends Application {
 					.filter(r -> to == null || !r.time().toLocalDate().isAfter(to))
 					.toList();
 			table.setItems(FXCollections.observableArrayList(rows));
+			renderQuickStats(rows);
 			status.setText("Sẵn sàng - " + rows.size() + "/" + appointments.size() + " lịch hẹn");
 		}
 
 		private void openAppointmentDialog(AppointmentRequests.Response appointment) {
-			AppointmentEdit result = new AppointmentDialogFx(customers, services, appointment).showAndWait().orElse(null);
+			AppointmentEdit result = new AppointmentDialogFx(customers, services, appointments, appointment).showAndWait().orElse(null);
 			if (result == null) {
 				return;
 			}
@@ -604,6 +608,23 @@ public class SalonFxApplication extends Application {
 						List.of(result.serviceId()), result.time(), result.status(), result.note())), r -> load(),
 						ex -> error("Lỗi cập nhật lịch hẹn", cleanError(ex)));
 			}
+		}
+
+		private void renderQuickStats(List<AppointmentRow> rows) {
+			LocalDate today = LocalDate.now();
+			long todayCount = rows.stream().filter(row -> row.time().toLocalDate().equals(today)).count();
+			long pendingCount = rows.stream().filter(row -> row.statusEnum() == AppointmentStatus.pending).count();
+			long paidCount = rows.stream().filter(row -> row.statusEnum() == AppointmentStatus.paid).count();
+			BigDecimal visibleRevenue = rows.stream()
+					.filter(row -> row.statusEnum() == AppointmentStatus.paid)
+					.map(AppointmentRow::price)
+					.filter(Objects::nonNull)
+					.reduce(BigDecimal.ZERO, BigDecimal::add);
+			quickStats.getChildren().setAll(
+					stat("Hôm nay", todayCount + " lịch"),
+					stat("Chờ xử lý", pendingCount + " lịch"),
+					stat("Đã thanh toán", paidCount + " lịch"),
+					stat("Doanh thu đã lọc", money(visibleRevenue)));
 		}
 
 		private AppointmentRequests.Response findAppointment(Integer id) {
@@ -773,7 +794,7 @@ public class SalonFxApplication extends Application {
 
 	private final class AppointmentDialogFx extends Dialog<AppointmentEdit> {
 		private AppointmentDialogFx(List<CustomerRequests.Response> customers, List<ServiceRequests.Response> services,
-				AppointmentRequests.Response appointment) {
+				List<AppointmentRequests.Response> appointments, AppointmentRequests.Response appointment) {
 			setTitle(appointment == null ? "Thêm lịch hẹn" : "Cập nhật lịch hẹn");
 			initOwner(stage);
 			initModality(Modality.APPLICATION_MODAL);
@@ -787,10 +808,22 @@ public class SalonFxApplication extends Application {
 			service.setConverter(stringConverter(ServiceRequests.Response::name));
 			DatePicker date = new DatePicker(LocalDate.now());
 			TextField time = new TextField("09:00");
+			ComboBox<String> quickTime = new ComboBox<>(FXCollections.observableArrayList(
+					"08:00", "09:00", "10:00", "13:30", "15:00", "17:30", "19:00"));
+			quickTime.setPromptText("Khung giờ nhanh");
 			ComboBox<AppointmentStatus> status = new ComboBox<>(FXCollections.observableArrayList(AppointmentStatus.values()));
 			status.setValue(AppointmentStatus.pending);
 			TextArea note = new TextArea();
 			note.setPrefRowCount(3);
+			Label serviceSummary = new Label("Chọn dịch vụ để xem giá, thời lượng và giờ kết thúc.");
+			serviceSummary.getStyleClass().add("muted");
+			Label businessHint = new Label("Giờ mở cửa: 08:00 - 20:00. Hệ thống sẽ cảnh báo trùng lịch.");
+			businessHint.getStyleClass().add("muted");
+			quickTime.valueProperty().addListener((obs, old, value) -> {
+				if (value != null) {
+					time.setText(value);
+				}
+			});
 
 			if (appointment != null) {
 				customer.setValue(customers.stream().filter(c -> Objects.equals(c.id(), appointment.customerId())).findFirst().orElse(null));
@@ -802,12 +835,33 @@ public class SalonFxApplication extends Application {
 				status.setValue(appointment.status());
 				note.setText(orEmpty(appointment.note()));
 			}
+			Runnable updateSummary = () -> {
+				ServiceRequests.Response selectedService = service.getValue();
+				if (selectedService == null) {
+					serviceSummary.setText("Chọn dịch vụ để xem giá, thời lượng và giờ kết thúc.");
+					return;
+				}
+				String endText = "";
+				try {
+					LocalTime startTime = LocalTime.parse(time.getText().trim(), TIME_INPUT);
+					endText = " | Kết thúc: " + startTime.plusMinutes(serviceDuration(selectedService)).format(TIME_INPUT);
+				} catch (Exception ignored) {
+					endText = " | Kết thúc: chưa xác định";
+				}
+				serviceSummary.setText("Giá: " + money(selectedService.price())
+						+ " | Thời lượng: " + serviceDuration(selectedService) + " phút" + endText);
+			};
+			service.valueProperty().addListener((obs, old, value) -> updateSummary.run());
+			time.textProperty().addListener((obs, old, value) -> updateSummary.run());
+			updateSummary.run();
 
 			GridPane grid = formGrid();
 			grid.addRow(0, labeled("Khách hàng", customer), labeled("Dịch vụ", service));
 			grid.addRow(1, labeled("Ngày", date), labeled("Giờ", time));
-			grid.addRow(2, labeled("Trạng thái", status));
-			grid.add(labeled("Ghi chú", note), 0, 3, 2, 1);
+			grid.addRow(2, labeled("Gợi ý giờ", quickTime), labeled("Trạng thái", status));
+			grid.add(serviceSummary, 0, 3, 2, 1);
+			grid.add(businessHint, 0, 4, 2, 1);
+			grid.add(labeled("Ghi chú", note), 0, 5, 2, 1);
 			getDialogPane().setContent(grid);
 			Node saveButton = getDialogPane().lookupButton(saveButtonType);
 			saveButton.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
@@ -817,7 +871,27 @@ public class SalonFxApplication extends Application {
 					return;
 				}
 				try {
-					LocalTime.parse(time.getText().trim(), TIME_INPUT);
+					LocalTime parsedTime = LocalTime.parse(time.getText().trim(), TIME_INPUT);
+					LocalDateTime startTime = LocalDateTime.of(date.getValue(), parsedTime);
+					int duration = serviceDuration(service.getValue());
+					LocalDateTime endTime = startTime.plusMinutes(duration);
+					if (startTime.isBefore(LocalDateTime.now())) {
+						warn("Lịch hẹn chưa hợp lệ", "Không thể đặt lịch trong quá khứ.");
+						event.consume();
+						return;
+					}
+					if (parsedTime.isBefore(OPEN_TIME) || endTime.toLocalTime().isAfter(CLOSE_TIME)
+							|| !endTime.toLocalDate().equals(startTime.toLocalDate())) {
+						warn("Ngoài giờ làm việc", "Lịch hẹn phải nằm trong khung 08:00 - 20:00.");
+						event.consume();
+						return;
+					}
+					String conflict = findAppointmentConflict(appointments, appointment, customer.getValue().id(),
+							service.getValue().id(), startTime, endTime, services);
+					if (conflict != null) {
+						warn("Trùng lịch", conflict);
+						event.consume();
+					}
 				} catch (Exception ex) {
 					warn("Giờ chưa hợp lệ", "Vui lòng nhập giờ theo định dạng HH:mm, ví dụ 09:30.");
 					event.consume();
@@ -839,6 +913,8 @@ public class SalonFxApplication extends Application {
 		column(table, "Khách hàng", AppointmentRow::customer, 190);
 		column(table, "Dịch vụ", AppointmentRow::service, 190);
 		column(table, "Thời gian", r -> r.time().format(DATE_TIME), 150);
+		column(table, "Kết thúc", r -> r.endTime().format(TIME_INPUT), 90);
+		column(table, "Giá", r -> money(r.price()), 120);
 		column(table, "Trạng thái", AppointmentRow::status, 140);
 		column(table, "Ghi chú", AppointmentRow::note, 260);
 	}
@@ -848,10 +924,56 @@ public class SalonFxApplication extends Application {
 		String customer = customers.stream().filter(c -> Objects.equals(c.id(), a.customerId()))
 				.map(CustomerRequests.Response::fullName).findFirst().orElse("Không rõ");
 		Integer serviceId = a.serviceIds() == null || a.serviceIds().isEmpty() ? null : a.serviceIds().get(0);
-		String service = services.stream().filter(s -> Objects.equals(s.id(), serviceId))
-				.map(ServiceRequests.Response::name).findFirst().orElse("Không rõ");
+		ServiceRequests.Response serviceResponse = services.stream().filter(s -> Objects.equals(s.id(), serviceId))
+				.findFirst().orElse(null);
+		String service = serviceResponse == null ? "Không rõ" : serviceResponse.name();
 		AppointmentStatus st = a.status() == null ? AppointmentStatus.pending : a.status();
-		return new AppointmentRow(a.id(), customer, service, a.appointmentTime(), st.getDisplayName(), st, orEmpty(a.note()));
+		int duration = serviceDuration(serviceResponse);
+		BigDecimal price = serviceResponse == null ? BigDecimal.ZERO : serviceResponse.price();
+		return new AppointmentRow(a.id(), customer, service, a.appointmentTime(), a.appointmentTime().plusMinutes(duration),
+				price, st.getDisplayName(), st, orEmpty(a.note()));
+	}
+
+	private int serviceDuration(ServiceRequests.Response service) {
+		return service == null || service.durationMinutes() == null ? 60 : service.durationMinutes();
+	}
+
+	private String findAppointmentConflict(List<AppointmentRequests.Response> appointments,
+			AppointmentRequests.Response currentAppointment, Integer customerId, Integer serviceId,
+			LocalDateTime startTime, LocalDateTime endTime, List<ServiceRequests.Response> services) {
+		for (AppointmentRequests.Response existing : appointments) {
+			if (currentAppointment != null && Objects.equals(existing.id(), currentAppointment.id())) {
+				continue;
+			}
+			if (existing.status() == AppointmentStatus.cancelled || existing.status() == AppointmentStatus.paid) {
+				continue;
+			}
+			Integer existingServiceId = existing.serviceIds() == null || existing.serviceIds().isEmpty()
+					? null
+					: existing.serviceIds().get(0);
+			ServiceRequests.Response existingService = services.stream()
+					.filter(service -> Objects.equals(service.id(), existingServiceId))
+					.findFirst()
+					.orElse(null);
+			LocalDateTime existingStart = existing.appointmentTime();
+			LocalDateTime existingEnd = existingStart.plusMinutes(serviceDuration(existingService));
+			if (!overlaps(startTime, endTime, existingStart, existingEnd)) {
+				continue;
+			}
+			if (Objects.equals(existing.customerId(), customerId)) {
+				return "Khách hàng này đã có lịch trong khung giờ "
+						+ existingStart.format(DATE_TIME) + " - " + existingEnd.toLocalTime().format(TIME_INPUT) + ".";
+			}
+			if (Objects.equals(existingServiceId, serviceId)) {
+				return "Dịch vụ này đang có lịch khác trong khung giờ "
+						+ existingStart.format(DATE_TIME) + " - " + existingEnd.toLocalTime().format(TIME_INPUT) + ".";
+			}
+		}
+		return null;
+	}
+
+	private boolean overlaps(LocalDateTime startA, LocalDateTime endA, LocalDateTime startB, LocalDateTime endB) {
+		return startA.isBefore(endB) && endA.isAfter(startB);
 	}
 
 	private Node pageHeader(String title, String subtitle, String actionText, javafx.event.EventHandler<javafx.event.ActionEvent> action) {
@@ -1037,8 +1159,8 @@ public class SalonFxApplication extends Application {
 		};
 	}
 
-	private record AppointmentRow(Integer id, String customer, String service, LocalDateTime time, String status,
-			AppointmentStatus statusEnum, String note) {
+	private record AppointmentRow(Integer id, String customer, String service, LocalDateTime time,
+			LocalDateTime endTime, BigDecimal price, String status, AppointmentStatus statusEnum, String note) {
 	}
 
 	private record AppointmentEdit(Integer customerId, Integer serviceId, LocalDateTime time, AppointmentStatus status,
