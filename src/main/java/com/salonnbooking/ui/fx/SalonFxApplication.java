@@ -904,7 +904,7 @@ public class SalonFxApplication extends Application {
                     .findFirst()
                     .orElse(null);
             BigDecimal amount = service == null || service.price() == null ? BigDecimal.ZERO : service.price();
-            if (!confirm("Xác nhận thanh toán", "Ghi nhận thanh toán " + money(amount) + " cho lịch hẹn này?")) {
+            if (!showPaymentQrSimulation(row.id(), row.customer(), row.service(), amount, "QR / chuyển khoản")) {
                 return;
             }
             PaymentRequests.Create request = new PaymentRequests.Create(row.id(), amount, PaymentMethod.bank_transfer,
@@ -1655,6 +1655,115 @@ public class SalonFxApplication extends Application {
         alert.setHeaderText(title);
         alert.getDialogPane().getStylesheets().add(stylesheet());
         return alert.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK;
+    }
+
+    private boolean showPaymentQrSimulation(Integer appointmentId, String customerName, String serviceName,
+                                            BigDecimal amount, String methodLabel) {
+        ButtonType paidButtonType = new ButtonType("Đã thanh toán", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelButtonType = new ButtonType("Hủy", ButtonBar.ButtonData.CANCEL_CLOSE);
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.initOwner(stage);
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setTitle("Thanh toán mô phỏng");
+
+        Label title = new Label("Quét QR để thanh toán");
+        title.getStyleClass().add("section-title");
+
+        String payload = "SALON|APT=" + appointmentId + "|AMOUNT=" + amount + "|METHOD=" + methodLabel;
+        javafx.scene.canvas.Canvas qrCanvas = new javafx.scene.canvas.Canvas(220, 220);
+        drawFakeQr(qrCanvas, payload);
+        StackPane qrHolder = new StackPane(qrCanvas);
+        qrHolder.setMinSize(244, 244);
+        qrHolder.setPrefSize(244, 244);
+        qrHolder.setMaxSize(244, 244);
+        qrHolder.setStyle("-fx-background-color: white; -fx-border-color: #CBD5E1; -fx-border-radius: 8px; -fx-padding: 12px;");
+
+        Label summary = new Label("""
+                Khách hàng: %s
+                Dịch vụ: %s
+                Số tiền: %s
+                Phương thức: %s
+
+                Đây là thanh toán mô phỏng. Hệ thống sẽ tự xác nhận sau 2 giây.
+                """.formatted(orDash(customerName), orDash(serviceName), money(amount), methodLabel));
+        summary.setWrapText(true);
+        summary.getStyleClass().add("muted");
+
+        ProgressBar progress = new ProgressBar();
+        progress.setPrefWidth(300);
+        progress.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
+        Label status = new Label("Đang chờ thanh toán...");
+        status.getStyleClass().add("muted");
+
+        VBox content = new VBox(12, title, qrHolder, summary, progress, status);
+        content.setAlignment(Pos.CENTER);
+        content.setMinWidth(340);
+
+        DialogPane pane = dialog.getDialogPane();
+        pane.getStylesheets().add(stylesheet());
+        pane.setContent(content);
+        pane.getButtonTypes().addAll(cancelButtonType, paidButtonType);
+        Button paidButton = (Button) pane.lookupButton(paidButtonType);
+        paidButton.setDisable(true);
+
+        javafx.animation.PauseTransition autoSuccess =
+                new javafx.animation.PauseTransition(javafx.util.Duration.seconds(2));
+        autoSuccess.setOnFinished(e -> {
+            progress.setProgress(1);
+            status.setText("Thanh toán thành công");
+            paidButton.setDisable(false);
+            dialog.setResult(paidButtonType);
+            dialog.close();
+        });
+        autoSuccess.play();
+
+        Optional<ButtonType> result = dialog.showAndWait();
+        autoSuccess.stop();
+        return result.orElse(cancelButtonType) == paidButtonType;
+    }
+
+    private void drawFakeQr(javafx.scene.canvas.Canvas canvas, String payload) {
+        final int cells = 29;
+        double width = canvas.getWidth();
+        double height = canvas.getHeight();
+        double size = Math.min(width, height) - 24;
+        double cell = Math.floor(size / cells);
+        double startX = (width - cell * cells) / 2;
+        double startY = (height - cell * cells) / 2;
+
+        javafx.scene.canvas.GraphicsContext g = canvas.getGraphicsContext2D();
+        g.setFill(javafx.scene.paint.Color.WHITE);
+        g.fillRect(0, 0, width, height);
+        g.setFill(javafx.scene.paint.Color.BLACK);
+        drawQrFinder(g, startX, startY, cell);
+        drawQrFinder(g, startX + cell * 22, startY, cell);
+        drawQrFinder(g, startX, startY + cell * 22, cell);
+
+        int hash = payload.hashCode();
+        for (int y = 0; y < cells; y++) {
+            for (int x = 0; x < cells; x++) {
+                if (isQrFinderCell(x, y)) {
+                    continue;
+                }
+                int bit = Integer.rotateLeft(hash ^ (x * 73856093) ^ (y * 19349663), (x + y) % 16);
+                if ((bit & 0x3) == 0) {
+                    g.fillRect(startX + x * cell, startY + y * cell, cell, cell);
+                }
+            }
+        }
+    }
+
+    private void drawQrFinder(javafx.scene.canvas.GraphicsContext g, double x, double y, double cell) {
+        g.setFill(javafx.scene.paint.Color.BLACK);
+        g.fillRect(x, y, cell * 7, cell * 7);
+        g.setFill(javafx.scene.paint.Color.WHITE);
+        g.fillRect(x + cell, y + cell, cell * 5, cell * 5);
+        g.setFill(javafx.scene.paint.Color.BLACK);
+        g.fillRect(x + cell * 2, y + cell * 2, cell * 3, cell * 3);
+    }
+
+    private boolean isQrFinderCell(int x, int y) {
+        return (x < 8 && y < 8) || (x > 20 && y < 8) || (x < 8 && y > 20);
     }
 
     private String money(BigDecimal value) {
