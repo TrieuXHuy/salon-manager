@@ -791,8 +791,10 @@ public class SalonFxApplication extends Application {
                     .filter(r -> selectedStatus == null || r.statusEnum() == selectedStatus)
                     .filter(r -> from == null || !r.time().toLocalDate().isBefore(from))
                     .filter(r -> to == null || !r.time().toLocalDate().isAfter(to))
+                    .sorted(Comparator.comparing(AppointmentRow::time).thenComparing(AppointmentRow::id))
                     .toList();
             table.setItems(FXCollections.observableArrayList(rows));
+            table.sort();
             renderQuickStats(rows);
             status.setText("Sẵn sàng - " + rows.size() + "/" + appointments.size() + " lịch hẹn");
         }
@@ -1347,7 +1349,21 @@ public class SalonFxApplication extends Application {
         column(table, "Khách hàng", AppointmentRow::customer, 190);
         column(table, "Dịch vụ", AppointmentRow::service, 190);
         column(table, "Phòng", AppointmentRow::room, 120);
-        column(table, "Thời gian", r -> r.time().format(DATE_TIME), 150);
+
+        TableColumn<AppointmentRow, LocalDateTime> timeCol = new TableColumn<>("Thời gian");
+        timeCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().time()));
+        timeCol.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(LocalDateTime item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.format(DATE_TIME));
+            }
+        });
+        timeCol.setPrefWidth(150);
+        timeCol.setSortType(TableColumn.SortType.ASCENDING);
+        table.getColumns().add(timeCol);
+        table.getSortOrder().setAll(timeCol);
+
         column(table, "Kết thúc", r -> r.endTime().format(TIME_INPUT), 90);
         column(table, "Giá", r -> money(r.price()), 120);
 
