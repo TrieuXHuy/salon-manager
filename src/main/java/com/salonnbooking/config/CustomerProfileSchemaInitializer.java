@@ -5,6 +5,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+@Component
 public class CustomerProfileSchemaInitializer implements ApplicationRunner {
 	private final JdbcTemplate jdbcTemplate;
 
@@ -59,6 +60,33 @@ public class CustomerProfileSchemaInitializer implements ApplicationRunner {
             CREATE UNIQUE INDEX [UX_customers_username_not_null]
             ON [dbo].[customers] ([username])
             WHERE [username] IS NOT NULL
+    """);
+
+		jdbcTemplate.execute("""
+        DECLARE @constraintName sysname;
+        DECLARE status_constraints CURSOR LOCAL FAST_FORWARD FOR
+            SELECT cc.[name]
+            FROM sys.check_constraints cc
+            JOIN sys.columns c
+                ON c.[object_id] = cc.[parent_object_id]
+               AND c.[column_id] = cc.[parent_column_id]
+            WHERE cc.[parent_object_id] = OBJECT_ID(N'dbo.appointments')
+              AND c.[name] = N'status';
+
+        OPEN status_constraints;
+        FETCH NEXT FROM status_constraints INTO @constraintName;
+
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            EXEC(N'ALTER TABLE [dbo].[appointments] DROP CONSTRAINT [' + @constraintName + N']');
+            FETCH NEXT FROM status_constraints INTO @constraintName;
+        END
+
+        CLOSE status_constraints;
+        DEALLOCATE status_constraints;
+
+        ALTER TABLE [dbo].[appointments] ADD CONSTRAINT [CK_appointment_status]
+        CHECK ([status] IN (N'pending', N'confirmed', N'in_progress', N'awaiting_payment', N'completed', N'cancelled', N'paid'));
     """);
 	}
 }

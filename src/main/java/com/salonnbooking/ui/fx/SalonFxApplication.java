@@ -31,6 +31,7 @@ import java.util.function.Consumer;
 public class SalonFxApplication extends Application {
     private static final NumberFormat CURRENCY = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final DateTimeFormatter DATE_ONLY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter TIME_INPUT = DateTimeFormatter.ofPattern("HH:mm");
     private static final LocalTime OPEN_TIME = LocalTime.of(8, 0);
     private static final LocalTime CLOSE_TIME = LocalTime.of(20, 0);
@@ -207,7 +208,7 @@ public class SalonFxApplication extends Application {
         shell.setLeft(createSidebar());
         shell.setCenter(workspace);
         setScene(shell, 1280, 780);
-        navigate("dashboard");
+        navigate(role == UserRole.OWNER ? "dashboard" : "appointments");
     }
 
     private VBox createSidebar() {
@@ -224,15 +225,20 @@ public class SalonFxApplication extends Application {
         brand.getStyleClass().add("brand");
 
         VBox menu = new VBox(6);
-        addNav(menu, "Tổng quan", "dashboard");
+        if (role == UserRole.OWNER) {
+            addNav(menu, "Tổng quan", "dashboard");
+        }
         if (role == UserRole.OWNER) {
             addNav(menu, "Tài khoản", "users");
         }
         if (role == UserRole.OWNER || role == UserRole.STAFF) {
             addNav(menu, "Khách hàng", "customers");
         }
+        if (role == UserRole.CUSTOMER) {
+            addNav(menu, "Tài khoản", "account");
+        }
         addNav(menu, "Lịch hẹn", "appointments");
-        if (role == UserRole.OWNER || role == UserRole.STAFF) {
+        if (role == UserRole.OWNER) {
             addNav(menu, "Dịch vụ", "services");
             addNav(menu, "Khu vực", "rooms");
         }
@@ -273,6 +279,7 @@ public class SalonFxApplication extends Application {
     private void addNav(VBox menu, String label, String route) {
         String emoji = switch (route) {
             case "dashboard" -> "📊  ";
+            case "account" -> "👤  ";
             case "users" -> "⚙️  ";
             case "customers" -> "👥  ";
             case "appointments" -> "📅  ";
@@ -303,6 +310,7 @@ public class SalonFxApplication extends Application {
             case "services" -> new ServicesViewV2();
             case "rooms" -> new RoomsView();
             case "reports" -> new ReportsView();
+            case "account" -> new AccountView();
             case "users" -> new UsersViewV2();
             default -> new DashboardView();
         };
@@ -312,7 +320,7 @@ public class SalonFxApplication extends Application {
     private final class DashboardView extends VBox {
         private final FlowPane stats = new FlowPane(14, 14);
         private final TableView<AppointmentRow> table = new TableView<>();
-        private final Label status = new Label("Sẵn sàng");
+        private final Label status = new Label();
 
         private DashboardView() {
             getStyleClass().add("page");
@@ -357,6 +365,92 @@ public class SalonFxApplication extends Application {
                 status.setText("Không tải được tổng quan");
                 error("Lỗi tải tổng quan", cleanError(ex));
             });
+        }
+    }
+
+    private final class AccountView extends VBox {
+        private final TextField fullName = new TextField();
+        private final TextField phone = new TextField();
+        private final TextField email = new TextField();
+        private final ComboBox<Gender> gender = new ComboBox<>(FXCollections.observableArrayList(Gender.values()));
+        private final TextArea note = new TextArea();
+        private final Label loyalty = new Label("-");
+        private final Label status = new Label("Sẵn sàng");
+
+        private AccountView() {
+            getStyleClass().add("page");
+            gender.setConverter(stringConverter(Gender::getDisplayName));
+            note.setPrefRowCount(4);
+            status.getStyleClass().add("muted");
+
+            Button save = primaryButton("Lưu thay đổi");
+            save.setOnAction(e -> saveProfile());
+
+            GridPane grid = formGrid();
+            grid.addRow(0, labeled("Tên đăng nhập", readOnlyText(username)), labeled("Điểm tích lũy", loyalty));
+            grid.addRow(1, labeled("Họ và tên", fullName), labeled("Số điện thoại", phone));
+            grid.addRow(2, labeled("Email", email), labeled("Giới tính", gender));
+            grid.add(labeled("Ghi chú", note), 0, 3, 2, 1);
+
+            HBox actions = new HBox(10, save);
+            actions.setAlignment(Pos.CENTER_LEFT);
+
+            getChildren().addAll(
+                    pageHeader("Tài khoản", "Cập nhật thông tin cá nhân của bạn", "Làm mới", e -> loadProfile()),
+                    card(new VBox(16, grid, actions)),
+                    status);
+            loadProfile();
+        }
+
+        private void loadProfile() {
+            status.setText("Đang tải tài khoản...");
+            runAsync(() -> ApiClient.getCustomerProfile(username), profile -> {
+                customerProfile = profile;
+                fill(profile);
+                status.setText("");
+            }, ex -> {
+                status.setText("Không tải được tài khoản");
+                error("Lỗi tải tài khoản", cleanError(ex));
+            });
+        }
+
+        private void fill(CustomerRequests.Response profile) {
+            fullName.setText(orEmpty(profile == null ? null : profile.fullName()));
+            phone.setText(orEmpty(profile == null ? null : profile.phone()));
+            email.setText(orEmpty(profile == null ? null : profile.email()));
+            gender.setValue(profile == null || profile.gender() == null ? Gender.other : profile.gender());
+            note.setText(orEmpty(profile == null ? null : profile.note()));
+            loyalty.setText(String.valueOf(profile == null || profile.loyaltyPoints() == null ? 0 : profile.loyaltyPoints()));
+        }
+
+        private void saveProfile() {
+            if (fullName.getText().trim().isBlank() || phone.getText().trim().isBlank()) {
+                warn("Thiếu thông tin", "Vui lòng nhập họ tên và số điện thoại.");
+                return;
+            }
+            status.setText("Đang lưu tài khoản...");
+            CustomerRequests.CompleteProfile request = new CustomerRequests.CompleteProfile(
+                    username,
+                    fullName.getText().trim(),
+                    phone.getText().trim(),
+                    email.getText().trim(),
+                    gender.getValue(),
+                    note.getText().trim());
+            runAsync(() -> ApiClient.completeCustomerProfile(request), saved -> {
+                customerProfile = saved;
+                fill(saved);
+                status.setText("Đã lưu thay đổi");
+            }, ex -> {
+                status.setText("Lưu thất bại");
+                error("Lỗi lưu tài khoản", cleanError(ex));
+            });
+        }
+
+        private TextField readOnlyText(String value) {
+            TextField field = new TextField(orEmpty(value));
+            field.setEditable(false);
+            field.setFocusTraversable(false);
+            return field;
         }
     }
 
@@ -422,7 +516,11 @@ public class SalonFxApplication extends Application {
             customerSearch.textProperty().addListener((obs, oldValue, newValue) -> applyFilters());
             tierFilter.valueProperty().addListener((obs, oldValue, newValue) -> applyFilters());
 
-            HBox row = new HBox(10, customerSearch, tierFilter, clearFilters);
+            HBox row = new HBox(10, customerSearch);
+            if (role == UserRole.OWNER) {
+                row.getChildren().add(tierFilter);
+            }
+            row.getChildren().add(clearFilters);
             row.getStyleClass().add("filter-bar");
             HBox.setHgrow(customerSearch, Priority.ALWAYS);
             return card(row);
@@ -458,7 +556,11 @@ public class SalonFxApplication extends Application {
         private Node actionsBar() {
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
-            HBox row = new HBox(10, createButton, editButton, deleteButton, clearButton, spacer);
+            HBox row = new HBox(10, createButton, editButton);
+            if (role == UserRole.OWNER) {
+                row.getChildren().add(deleteButton);
+            }
+            row.getChildren().addAll(clearButton, spacer);
             row.setAlignment(Pos.CENTER_LEFT);
             row.setMaxWidth(Double.MAX_VALUE);
 
@@ -478,31 +580,33 @@ public class SalonFxApplication extends Application {
             column(table, "Điện thoại", CustomerRequests.Response::phone, 150);
             column(table, "Email", CustomerRequests.Response::email, 240);
             column(table, "Giới tính", c -> c.gender() == null ? "" : c.gender().getDisplayName(), 120);
-            column(table, "Điểm", c -> c.loyaltyPoints() == null ? 0 : c.loyaltyPoints(), 90);
+            if (role == UserRole.OWNER) {
+                column(table, "Điểm", c -> c.loyaltyPoints() == null ? 0 : c.loyaltyPoints(), 90);
 
-            TableColumn<CustomerRequests.Response, Integer> tierCol = new TableColumn<>("Hạng");
-            tierCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().loyaltyPoints()));
-            tierCol.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
-                @Override
-                protected void updateItem(Integer points, boolean empty) {
-                    super.updateItem(points, empty);
-                    if (empty || points == null) {
-                        setText(null);
-                        setGraphic(null);
-                    } else {
-                        String tier = customerTier(points);
-                        String cssClass = switch (tier) {
-                            case "VIP" -> "tier-vip";
-                            case "Thân thiết" -> "tier-regular";
-                            default -> "tier-new";
-                        };
-                        setGraphic(createBadge(tier, cssClass));
-                        setAlignment(Pos.CENTER);
+                TableColumn<CustomerRequests.Response, Integer> tierCol = new TableColumn<>("Hạng");
+                tierCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().loyaltyPoints()));
+                tierCol.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+                    @Override
+                    protected void updateItem(Integer points, boolean empty) {
+                        super.updateItem(points, empty);
+                        if (empty || points == null) {
+                            setText(null);
+                            setGraphic(null);
+                        } else {
+                            String tier = customerTier(points);
+                            String cssClass = switch (tier) {
+                                case "VIP" -> "tier-vip";
+                                case "Thân thiết" -> "tier-regular";
+                                default -> "tier-new";
+                            };
+                            setGraphic(createBadge(tier, cssClass));
+                            setAlignment(Pos.CENTER);
+                        }
                     }
-                }
-            });
-            tierCol.setPrefWidth(110);
-            table.getColumns().add(tierCol);
+                });
+                tierCol.setPrefWidth(110);
+                table.getColumns().add(tierCol);
+            }
 
             column(table, "Ghi chú", CustomerRequests.Response::note, 220);
             table.setPlaceholder(new Label("Không có khách hàng phù hợp"));
@@ -689,18 +793,23 @@ public class SalonFxApplication extends Application {
                 pointsField.setText("0");
             }
 
-            pointsField.setDisable(!editing);
+            pointsField.setDisable(!editing || role != UserRole.OWNER);
 
-            Label hint = new Label(editing
-                    ? "Điểm tích lũy có thể chỉnh trong chế độ cập nhật."
-                    : "Khách hàng mới sẽ được tạo với điểm mặc định 0.");
+            Label hint = new Label(role == UserRole.OWNER
+                    ? (editing ? "Điểm tích lũy có thể chỉnh trong chế độ cập nhật."
+                    : "Khách hàng mới sẽ được tạo với điểm mặc định 0.")
+                    : "Nhân viên chỉ cập nhật thông tin liên hệ và ghi chú chăm sóc.");
             hint.getStyleClass().add("muted");
 
             GridPane grid = formGrid();
             grid.addRow(0, labeled("Họ và tên", fullNameField), labeled("Số điện thoại", phoneField));
             grid.addRow(1, labeled("Email", emailField), labeled("Giới tính", genderBox));
-            grid.addRow(2, labeled("Điểm tích lũy", pointsField), new Pane());
-            grid.add(labeled("Ghi chú", noteField), 0, 3, 2, 1);
+            if (role == UserRole.OWNER) {
+                grid.addRow(2, labeled("Điểm tích lũy", pointsField), new Pane());
+                grid.add(labeled("Ghi chú", noteField), 0, 3, 2, 1);
+            } else {
+                grid.add(labeled("Ghi chú", noteField), 0, 2, 2, 1);
+            }
 
             VBox content = new VBox(12, sectionTitle(title), hint, grid);
             dialog.getDialogPane().setContent(content);
@@ -721,8 +830,8 @@ public class SalonFxApplication extends Application {
                 return;
             }
 
-            Integer points = 0;
-            if (editing) {
+            Integer points = customer == null || customer.loyaltyPoints() == null ? 0 : customer.loyaltyPoints();
+            if (editing && role == UserRole.OWNER) {
                 try {
                     points = pointsField.getText().trim().isBlank() ? 0 : Integer.parseInt(pointsField.getText().trim());
                 } catch (NumberFormatException ex) {
@@ -1609,7 +1718,7 @@ public class SalonFxApplication extends Application {
             setMaxHeight(Double.MAX_VALUE);
 
             configureAppointmentTable(table);
-            table.setFixedCellSize(44);
+            table.setFixedCellSize(64);
             table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
             table.setPlaceholder(new Label("Không có lịch hẹn phù hợp"));
             load();
@@ -2964,18 +3073,23 @@ public class SalonFxApplication extends Application {
     }
 
     private void configureAppointmentTable(TableView<AppointmentRow> table) {
-        column(table, "ID", AppointmentRow::id, 70);
-        column(table, "Khách hàng", AppointmentRow::customer, 190);
-        column(table, "Dịch vụ", AppointmentRow::service, 190);
+        if (role != UserRole.CUSTOMER) {
+            column(table, "Khách hàng", AppointmentRow::customer, 190);
+        }
+        column(table, "Dịch vụ", AppointmentRow::service, 210);
         column(table, "Phòng", AppointmentRow::room, 120);
 
-        TableColumn<AppointmentRow, LocalDateTime> timeCol = new TableColumn<>("Thời gian");
+        TableColumn<AppointmentRow, LocalDateTime> timeCol = new TableColumn<>("Lịch hẹn");
         timeCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().time()));
         timeCol.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(LocalDateTime item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.format(DATE_TIME));
+                AppointmentRow row = empty ? null : getTableRow().getItem();
+                setText(row == null || item == null
+                        ? null
+                        : item.toLocalDate().format(DATE_ONLY) + "\n"
+                        + item.toLocalTime().format(TIME_INPUT) + " - " + row.endTime().format(TIME_INPUT));
             }
         });
         timeCol.setPrefWidth(150);
@@ -2983,12 +3097,8 @@ public class SalonFxApplication extends Application {
         table.getColumns().add(timeCol);
         table.getSortOrder().setAll(timeCol);
 
-        column(table, "Kết thúc", r -> r.endTime().format(TIME_INPUT), 90);
-        column(table, "Giá", r -> money(r.price()), 120);
-        column(table, "Tổng tiền", r -> money(r.totalAmount()), 120);
-        column(table, "Tiền cọc", r -> money(r.depositAmount()), 120);
-        column(table, "Đã thu", r -> money(r.amountPaid()), 120);
-        column(table, "Còn lại", r -> money(r.remainingAmount()), 120);
+        column(table, "Thanh toán", r -> "Tổng " + money(r.totalAmount()) + "\n"
+                + "Đã thu " + money(r.amountPaid()), 170, true);
 
         TableColumn<AppointmentRow, AppointmentStatus> statusCol = new TableColumn<>("Trạng thái");
         statusCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().statusEnum()));
