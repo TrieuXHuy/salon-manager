@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -33,6 +34,12 @@ public class AppointmentController {
 	@Transactional(readOnly = true)
 	public List<AppointmentRequests.Response> list() {
 		return appointmentService.findAll().stream().map(AppointmentRequests.Response::from).toList();
+	}
+
+	@GetMapping("/mine")
+	@Transactional(readOnly = true)
+	public List<AppointmentRequests.Response> mine(@RequestParam String username) {
+		return appointmentService.findByCustomerUsername(username).stream().map(AppointmentRequests.Response::from).toList();
 	}
 
 	@GetMapping("/{id}")

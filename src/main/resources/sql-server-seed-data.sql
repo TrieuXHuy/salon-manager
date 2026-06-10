@@ -13,8 +13,9 @@ IF OBJECT_ID(N'dbo.customers', N'U') IS NULL
 BEGIN
     CREATE TABLE [dbo].[customers] (
         [id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_customers] PRIMARY KEY,
-        [full_name] nvarchar(255) NOT NULL,
-        [phone] varchar(20) NOT NULL,
+        [username] varchar(50) NULL,
+        [full_name] nvarchar(255) NULL,
+        [phone] varchar(20) NULL,
         [email] nvarchar(255) NULL,
         [gender] nvarchar(10) NULL,
         [loyalty_points] int NOT NULL CONSTRAINT [DF_customers_loyalty_points] DEFAULT 0,
@@ -106,8 +107,26 @@ BEGIN
 END
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_customers_phone' AND object_id = OBJECT_ID(N'dbo.customers'))
-    CREATE UNIQUE INDEX [UX_customers_phone] ON [dbo].[customers] ([phone]);
+IF COL_LENGTH(N'dbo.customers', N'username') IS NULL
+    ALTER TABLE [dbo].[customers] ADD [username] varchar(50) NULL;
+GO
+
+ALTER TABLE [dbo].[customers] ALTER COLUMN [full_name] nvarchar(255) NULL;
+GO
+
+ALTER TABLE [dbo].[customers] ALTER COLUMN [phone] varchar(20) NULL;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_customers_phone' AND object_id = OBJECT_ID(N'dbo.customers'))
+    DROP INDEX [UX_customers_phone] ON [dbo].[customers];
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_customers_phone_not_null' AND object_id = OBJECT_ID(N'dbo.customers'))
+    CREATE UNIQUE INDEX [UX_customers_phone_not_null] ON [dbo].[customers] ([phone]) WHERE [phone] IS NOT NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_customers_username_not_null' AND object_id = OBJECT_ID(N'dbo.customers'))
+    CREATE UNIQUE INDEX [UX_customers_username_not_null] ON [dbo].[customers] ([username]) WHERE [username] IS NOT NULL;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_app_users_username' AND object_id = OBJECT_ID(N'dbo.app_users'))
@@ -264,6 +283,15 @@ BEGIN
 
     SET @i += 1;
 END
+GO
+
+UPDATE [dbo].[customers]
+SET [username] = N'customer01'
+WHERE [phone] = '0910000001' AND ([username] IS NULL OR [username] = N'customer01');
+
+UPDATE [dbo].[customers]
+SET [username] = N'customer02'
+WHERE [phone] = '0910000002' AND ([username] IS NULL OR [username] = N'customer02');
 GO
 
 DECLARE @SeedCustomerIds TABLE ([rn] int, [id] int, [phone] varchar(20));

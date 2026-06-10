@@ -28,17 +28,29 @@ public final class CustomerRequests {
 			String note) {
 	}
 
+	public record CompleteProfile(
+			@NotBlank @Size(max = 50) String username,
+			@NotBlank @Size(max = 100) String fullName,
+			@NotBlank @Size(max = 20) String phone,
+			@Email @Size(max = 100) String email,
+			Gender gender,
+			String note) {
+	}
+
 	public record Response(
 			Integer id,
+			String username,
 			String fullName,
 			String phone,
 			String email,
 			Gender gender,
 			Integer loyaltyPoints,
-			String note) {
+			String note,
+			Boolean profileComplete) {
 		public static Response from(com.salonnbooking.domain.Customer c) {
-			return new Response(c.getId(), c.getFullName(), c.getPhone(), c.getEmail(), c.getGender(),
-					c.getLoyaltyPoints(), c.getNote());
+			return new Response(c.getId(), c.getUsername(), c.getFullName(), c.getPhone(), c.getEmail(), c.getGender(),
+					c.getLoyaltyPoints(), c.getNote(), c.getFullName() != null && !c.getFullName().isBlank()
+							&& c.getPhone() != null && !c.getPhone().isBlank());
 		}
 	}
 }

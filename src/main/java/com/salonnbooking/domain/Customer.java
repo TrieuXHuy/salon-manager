@@ -20,10 +20,13 @@ public class Customer {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Integer id;
 
-	@Column(name = "full_name", nullable = false, columnDefinition = "nvarchar(255)")
+	@Column(name = "username", length = 50)
+	private String username;
+
+	@Column(name = "full_name", columnDefinition = "nvarchar(255)")
 	private String fullName;
 
-	@Column(nullable = false, length = 20, unique = true)
+	@Column(length = 20, unique = true)
 	private String phone;
 
 	@Column(columnDefinition = "nvarchar(255)")
@@ -45,6 +48,14 @@ public class Customer {
 
 	public Integer getId() {
 		return id;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
 	}
 
 	public String getFullName() {

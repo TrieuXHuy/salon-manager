@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,6 +38,16 @@ public class CustomerController {
 	public CustomerRequests.Response get(@PathVariable Integer id) {
 		Customer customer = customerService.findById(id);
 		return CustomerRequests.Response.from(customer);
+	}
+
+	@GetMapping("/profile")
+	public CustomerRequests.Response profile(@RequestParam String username) {
+		return CustomerRequests.Response.from(customerService.findProfile(username));
+	}
+
+	@PutMapping("/profile")
+	public CustomerRequests.Response completeProfile(@Valid @RequestBody CustomerRequests.CompleteProfile req) {
+		return CustomerRequests.Response.from(customerService.completeProfile(req));
 	}
 
 	@PostMapping

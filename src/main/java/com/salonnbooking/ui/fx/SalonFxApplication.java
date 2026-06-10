@@ -40,6 +40,7 @@ public class SalonFxApplication extends Application {
     private StackPane workspace;
     private String username;
     private UserRole role;
+    private CustomerRequests.Response customerProfile;
     private final List<Button> navButtons = new ArrayList<>();
 
     @Override
@@ -91,7 +92,7 @@ public class SalonFxApplication extends Application {
             runAsync(() -> isLogin ? ApiClient.login(user, password) : ApiClient.register(user, password), response -> {
                 this.username = response.username();
                 this.role = response.role() == null ? UserRole.CUSTOMER : response.role();
-                showShell();
+                afterAuthenticated();
             }, ex -> {
                 status.setText("");
                 login.setDisable(false);
@@ -102,6 +103,96 @@ public class SalonFxApplication extends Application {
         login.setOnAction(e -> submit.accept(true));
         register.setOnAction(e -> submit.accept(false));
         passwordField.setOnAction(e -> submit.accept(true));
+
+        StackPane root = new StackPane(card);
+        root.getStyleClass().add("login-root");
+        setScene(root, 980, 680);
+    }
+
+    private void afterAuthenticated() {
+        if (role != UserRole.CUSTOMER) {
+            customerProfile = null;
+            showShell();
+            return;
+        }
+        runAsync(() -> ApiClient.getCustomerProfile(username), profile -> {
+            customerProfile = profile;
+            if (isProfileComplete(profile)) {
+                showShell();
+            } else {
+                showProfileCompletion(profile);
+            }
+        }, ex -> {
+            customerProfile = null;
+            showProfileCompletion(null);
+        });
+    }
+
+    private boolean isProfileComplete(CustomerRequests.Response profile) {
+        return profile != null && Boolean.TRUE.equals(profile.profileComplete());
+    }
+
+    private void showProfileCompletion(CustomerRequests.Response profile) {
+        VBox card = new VBox(16);
+        card.getStyleClass().add("login-card");
+        card.setMaxWidth(560);
+
+        Label title = new Label("Hoàn tất hồ sơ");
+        title.getStyleClass().add("login-title");
+        Label subtitle = new Label("Vui lòng bổ sung thông tin để đặt lịch hẹn.");
+        subtitle.getStyleClass().add("muted");
+
+        TextField fullName = new TextField(orEmpty(profile == null ? null : profile.fullName()));
+        TextField phone = new TextField(orEmpty(profile == null ? null : profile.phone()));
+        TextField email = new TextField(orEmpty(profile == null ? null : profile.email()));
+        TextArea note = new TextArea(orEmpty(profile == null ? null : profile.note()));
+        ComboBox<Gender> gender = new ComboBox<>(FXCollections.observableArrayList(Gender.values()));
+        gender.setConverter(stringConverter(Gender::getDisplayName));
+        gender.setValue(profile == null || profile.gender() == null ? Gender.other : profile.gender());
+        note.setPrefRowCount(3);
+
+        Button save = primaryButton("Lưu hồ sơ");
+        Button logout = ghostButton("Đăng xuất");
+        HBox actions = new HBox(10, save, logout);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+
+        Label status = new Label();
+        status.getStyleClass().add("muted");
+
+        GridPane grid = formGrid();
+        grid.addRow(0, labeled("Họ và tên", fullName), labeled("Số điện thoại", phone));
+        grid.addRow(1, labeled("Email", email), labeled("Giới tính", gender));
+        grid.add(labeled("Ghi chú", note), 0, 2, 2, 1);
+        card.getChildren().addAll(title, subtitle, grid, actions, status);
+
+        save.setOnAction(e -> {
+            if (fullName.getText().trim().isBlank() || phone.getText().trim().isBlank()) {
+                warn("Thiếu thông tin", "Vui lòng nhập họ tên và số điện thoại.");
+                return;
+            }
+            save.setDisable(true);
+            logout.setDisable(true);
+            status.setText("Đang lưu hồ sơ...");
+            CustomerRequests.CompleteProfile request = new CustomerRequests.CompleteProfile(username,
+                    fullName.getText().trim(), phone.getText().trim(), email.getText().trim(), gender.getValue(),
+                    note.getText().trim());
+            runAsync(() -> ApiClient.completeCustomerProfile(request), saved -> {
+                customerProfile = saved;
+                showShell();
+            }, ex -> {
+                save.setDisable(false);
+                logout.setDisable(false);
+                status.setText("");
+                error("Lỗi lưu hồ sơ", cleanError(ex));
+            });
+        });
+
+        logout.setOnAction(e -> {
+            username = null;
+            role = null;
+            customerProfile = null;
+            showLogin();
+        });
 
         StackPane root = new StackPane(card);
         root.getStyleClass().add("login-root");
@@ -155,7 +246,13 @@ public class SalonFxApplication extends Application {
         logout.setOnAction(e -> runAsync(() -> {
             ApiClient.logout();
             return null;
-        }, ignored -> showLogin(), ex -> showLogin()));
+        }, ignored -> {
+            customerProfile = null;
+            showLogin();
+        }, ex -> {
+            customerProfile = null;
+            showLogin();
+        }));
 
         Label nameLabel = new Label(username);
         nameLabel.getStyleClass().add("user-name");
@@ -1585,7 +1682,7 @@ public class SalonFxApplication extends Application {
         }
 
         private Node appointmentToolbar() {
-            Button add = primaryButton("Thêm");
+            Button add = primaryButton(role == UserRole.CUSTOMER ? "Đặt lịch" : "Thêm");
             Button edit = secondaryButton("Sửa");
             Button delete = dangerButton("Xóa");
             Button deposit = secondaryButton("Thu cọc");
@@ -1609,18 +1706,34 @@ public class SalonFxApplication extends Application {
             status.getStyleClass().add("muted");
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
-            return card(new HBox(10, add, edit, delete, deposit, balance, complete, remind, spacer, status));
+            HBox row = new HBox(10, add, edit, delete);
+            if (role != UserRole.CUSTOMER) {
+                row.getChildren().addAll(deposit, balance, complete, remind);
+            }
+            row.getChildren().addAll(spacer, status);
+            return card(row);
         }
 
         private void load() {
             status.setText("Đang tải dữ liệu...");
             runAsync(() -> {
-                customers = ApiClient.getAllCustomers();
+                if (role == UserRole.CUSTOMER) {
+                    if (!isProfileComplete(customerProfile)) {
+                        customerProfile = ApiClient.getCustomerProfile(username);
+                    }
+                    customers = List.of(customerProfile);
+                    appointments = ApiClient.getMyAppointments(username).stream()
+                            .sorted(Comparator.comparing(AppointmentRequests.Response::appointmentTime)
+                                    .thenComparing(AppointmentRequests.Response::id))
+                            .toList();
+                } else {
+                    customers = ApiClient.getAllCustomers();
+                    appointments = ApiClient.getAllAppointments().stream()
+                            .sorted(Comparator.comparing(AppointmentRequests.Response::appointmentTime)
+                                    .thenComparing(AppointmentRequests.Response::id))
+                            .toList();
+                }
                 services = ApiClient.getAllServices();
-                appointments = ApiClient.getAllAppointments().stream()
-                        .sorted(Comparator.comparing(AppointmentRequests.Response::appointmentTime)
-                                .thenComparing(AppointmentRequests.Response::id))
-                        .toList();
                 return appointments;
             }, list -> {
                 currentPage = 0;
@@ -1749,16 +1862,18 @@ public class SalonFxApplication extends Application {
         }
 
         private void openAppointmentDialog(AppointmentRequests.Response appointment) {
-            AppointmentEdit result = new AppointmentDialogFx(customers, services, appointments, appointment).showAndWait().orElse(null);
+            AppointmentEdit result = new AppointmentDialogFx(customers, services, appointments, appointment,
+                    role == UserRole.CUSTOMER).showAndWait().orElse(null);
             if (result == null) {
                 return;
             }
+            Integer customerId = role == UserRole.CUSTOMER && customerProfile != null ? customerProfile.id() : result.customerId();
             if (appointment == null) {
-                runAsync(() -> ApiClient.createAppointment(new AppointmentRequests.Create(result.customerId(),
+                runAsync(() -> ApiClient.createAppointment(new AppointmentRequests.Create(customerId,
                                 List.of(result.serviceId()), result.roomId(), result.time(), result.status(), result.note())), r -> load(),
                         ex -> error("Lỗi tạo lịch hẹn", cleanError(ex)));
             } else {
-                runAsync(() -> ApiClient.updateAppointment(appointment.id(), new AppointmentRequests.Update(result.customerId(),
+                runAsync(() -> ApiClient.updateAppointment(appointment.id(), new AppointmentRequests.Update(customerId,
                                 List.of(result.serviceId()), result.roomId(), result.time(), result.status(), result.note())), r -> load(),
                         ex -> error("Lỗi cập nhật lịch hẹn", cleanError(ex)));
             }
@@ -2450,7 +2565,8 @@ public class SalonFxApplication extends Application {
 
     private final class AppointmentDialogFx extends Dialog<AppointmentEdit> {
         private AppointmentDialogFx(List<CustomerRequests.Response> customers, List<ServiceRequests.Response> services,
-                                    List<AppointmentRequests.Response> appointments, AppointmentRequests.Response appointment) {
+                                    List<AppointmentRequests.Response> appointments, AppointmentRequests.Response appointment,
+                                    boolean customerMode) {
             setTitle(appointment == null ? "Thêm lịch hẹn" : "Cập nhật lịch hẹn");
             initOwner(stage);
             initModality(Modality.APPLICATION_MODAL);
@@ -2461,6 +2577,10 @@ public class SalonFxApplication extends Application {
             ComboBox<CustomerRequests.Response> customer = new ComboBox<>(FXCollections.observableArrayList(customers));
             customer.setConverter(stringConverter(CustomerRequests.Response::fullName));
             customer.setMaxWidth(Double.MAX_VALUE);
+            if (customerMode && !customers.isEmpty()) {
+                customer.setValue(customers.get(0));
+                customer.setDisable(true);
+            }
             ComboBox<ServiceRequests.Response> service = new ComboBox<>(FXCollections.observableArrayList(services));
             service.setConverter(stringConverter(ServiceRequests.Response::name));
             service.setMaxWidth(Double.MAX_VALUE);
@@ -2543,6 +2663,11 @@ public class SalonFxApplication extends Application {
             List<AppointmentStatus> allowedStatuses = new ArrayList<>();
             if (appointment == null) {
                 allowedStatuses.add(AppointmentStatus.pending);
+            } else if (customerMode) {
+                allowedStatuses.addAll(List.of(AppointmentStatus.pending, AppointmentStatus.cancelled));
+                if (appointment.status() != null && !allowedStatuses.contains(appointment.status())) {
+                    allowedStatuses.add(appointment.status());
+                }
             } else {
                 allowedStatuses.addAll(List.of(AppointmentStatus.pending, AppointmentStatus.completed, AppointmentStatus.cancelled));
                 if (appointment.status() != null && !allowedStatuses.contains(appointment.status())) {

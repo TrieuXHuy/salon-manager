@@ -3,6 +3,28 @@ SET NOCOUNT ON;
 USE [booking_system];
 GO
 
+IF COL_LENGTH(N'dbo.customers', N'username') IS NULL
+    ALTER TABLE [dbo].[customers] ADD [username] varchar(50) NULL;
+GO
+
+ALTER TABLE [dbo].[customers] ALTER COLUMN [full_name] nvarchar(255) NULL;
+GO
+
+ALTER TABLE [dbo].[customers] ALTER COLUMN [phone] varchar(20) NULL;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_customers_phone' AND object_id = OBJECT_ID(N'dbo.customers'))
+    DROP INDEX [UX_customers_phone] ON [dbo].[customers];
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_customers_phone_not_null' AND object_id = OBJECT_ID(N'dbo.customers'))
+    CREATE UNIQUE INDEX [UX_customers_phone_not_null] ON [dbo].[customers] ([phone]) WHERE [phone] IS NOT NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_customers_username_not_null' AND object_id = OBJECT_ID(N'dbo.customers'))
+    CREATE UNIQUE INDEX [UX_customers_username_not_null] ON [dbo].[customers] ([username]) WHERE [username] IS NOT NULL;
+GO
+
 /* =========================
    APP USERS
    ========================= */
@@ -65,6 +87,15 @@ WHEN NOT MATCHED THEN
         source.[note],
         DATEADD(day, source.[created_days_ago], SYSDATETIME())
     );
+GO
+
+UPDATE [dbo].[customers]
+SET [username] = N'customer01'
+WHERE [phone] = '0900000001' AND ([username] IS NULL OR [username] = N'customer01');
+
+UPDATE [dbo].[customers]
+SET [username] = N'customer02'
+WHERE [phone] = '0900000002' AND ([username] IS NULL OR [username] = N'customer02');
 GO
 
 /* =========================

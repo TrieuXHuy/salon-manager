@@ -16,9 +16,11 @@ import com.salonnbooking.repository.UserRepository;
 @Transactional
 public class AuthService {
 	private final UserRepository userRepository;
+	private final CustomerService customerService;
 
-	public AuthService(UserRepository userRepository) {
+	public AuthService(UserRepository userRepository, CustomerService customerService) {
 		this.userRepository = userRepository;
+		this.customerService = customerService;
 	}
 
 	public User register(AuthRequests.Register req) {
@@ -31,7 +33,9 @@ public class AuthService {
 		user.setUsername(username);
 		user.setPassword(req.password());
 		user.setRole(UserRole.CUSTOMER);
-		return userRepository.save(user);
+		User saved = userRepository.save(user);
+		customerService.createPendingProfile(username);
+		return saved;
 	}
 
 	public User createUser(AuthRequests.CreateUser req) {
@@ -48,7 +52,11 @@ public class AuthService {
 		user.setUsername(username);
 		user.setPassword(req.password());
 		user.setRole(req.role());
-		return userRepository.save(user);
+		User saved = userRepository.save(user);
+		if (saved.getRole() == UserRole.CUSTOMER) {
+			customerService.createPendingProfile(username);
+		}
+		return saved;
 	}
 
 	@Transactional(readOnly = true)
@@ -84,6 +92,7 @@ public class AuthService {
 
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+		String oldUsername = user.getUsername();
 
 		String username = req.username().trim();
 		if (username.isBlank()) {
@@ -98,7 +107,13 @@ public class AuthService {
 			user.setPassword(req.password());
 		}
 		user.setRole(req.role());
-		return userRepository.save(user);
+		User saved = userRepository.save(user);
+		if (saved.getRole() == UserRole.CUSTOMER) {
+			customerService.syncProfileUsername(oldUsername, username, true);
+		} else {
+			customerService.unlinkProfileUsername(oldUsername);
+		}
+		return saved;
 	}
 
 	public void deleteUser(Integer userId, String requesterUsername) {
@@ -108,6 +123,7 @@ public class AuthService {
 		if (user.getUsername() != null && user.getUsername().equals(requesterUsername.trim())) {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot delete your own account");
 		}
+		customerService.unlinkProfileUsername(user.getUsername());
 		userRepository.delete(user);
 	}
 

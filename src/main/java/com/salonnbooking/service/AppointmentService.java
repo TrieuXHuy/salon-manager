@@ -59,6 +59,15 @@ public class AppointmentService {
 	}
 
 	@Transactional(readOnly = true)
+	public List<Appointment> findByCustomerUsername(String username) {
+		Customer customer = customerRepository.findByUsername(username == null ? "" : username.trim())
+				.orElseThrow(() -> new ResourceNotFoundException("Customer profile not found for username: " + username));
+		return appointmentRepository.findByCustomerId(customer.getId()).stream()
+				.sorted(java.util.Comparator.comparing(Appointment::getId))
+				.toList();
+	}
+
+	@Transactional(readOnly = true)
 	public Appointment findById(Integer id) {
 		return appointmentRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + id));

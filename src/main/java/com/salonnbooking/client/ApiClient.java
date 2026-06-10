@@ -208,6 +208,20 @@ public class ApiClient {
 	/**
 	 * Lấy thông tin khách hàng theo ID
 	 */
+	public static CustomerRequests.Response getCustomerProfile(String username) throws Exception {
+		String encoded = java.net.URLEncoder.encode(username, java.nio.charset.StandardCharsets.UTF_8);
+		HttpResponse<String> response = sendGet("/customers/profile?username=" + encoded);
+		requireStatus(response, 200, "fetch customer profile");
+		return gson.fromJson(response.body(), CustomerRequests.Response.class);
+	}
+
+	public static CustomerRequests.Response completeCustomerProfile(CustomerRequests.CompleteProfile request)
+			throws Exception {
+		HttpResponse<String> response = sendPut("/customers/profile", request);
+		requireStatus(response, 200, "complete customer profile");
+		return gson.fromJson(response.body(), CustomerRequests.Response.class);
+	}
+
 	public static CustomerRequests.Response getCustomer(Integer id) throws Exception {
 		HttpRequest request = HttpRequest.newBuilder()
 				.uri(URI.create(BASE_URL + "/customers/" + id))
@@ -317,6 +331,19 @@ public class ApiClient {
 	/**
 	 * Lấy thông tin lịch hẹn theo ID
 	 */
+	public static List<AppointmentRequests.Response> getMyAppointments(String username) throws Exception {
+		String encoded = java.net.URLEncoder.encode(username, java.nio.charset.StandardCharsets.UTF_8);
+		HttpResponse<String> response = sendGet("/appointments/mine?username=" + encoded);
+		requireStatus(response, 200, "fetch my appointments");
+
+		var list = new java.util.ArrayList<AppointmentRequests.Response>();
+		var jsonArray = com.google.gson.JsonParser.parseString(response.body()).getAsJsonArray();
+		for (var element : jsonArray) {
+			list.add(gson.fromJson(element, AppointmentRequests.Response.class));
+		}
+		return list;
+	}
+
 	public static AppointmentRequests.Response getAppointment(Integer id) throws Exception {
 		HttpRequest request = HttpRequest.newBuilder()
 				.uri(URI.create(BASE_URL + "/appointments/" + id))
