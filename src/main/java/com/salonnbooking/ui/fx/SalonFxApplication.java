@@ -1037,7 +1037,7 @@ public class SalonFxApplication extends Application {
     }
 
     private final class UsersViewV2 extends VBox {
-        private static final int PAGE_SIZE = 6;
+        private int pageSize = 6;
 
         private final TableView<AuthRequests.UserResponse> table = new TableView<>();
         private final TextField usernameFilter = new TextField();
@@ -1050,6 +1050,7 @@ public class SalonFxApplication extends Application {
         private List<AuthRequests.UserResponse> allUsers = List.of();
         private List<AuthRequests.UserResponse> filteredUsers = List.of();
         private int currentPage = 0;
+        private BorderPane tableCard;
 
         private UsersViewV2() {
             getStyleClass().add("page");
@@ -1105,11 +1106,13 @@ public class SalonFxApplication extends Application {
             box.setAlignment(Pos.TOP_CENTER);
             VBox.setVgrow(table, Priority.ALWAYS);
             table.setMaxHeight(Double.MAX_VALUE);
-            BorderPane card = new BorderPane();
+            tableCard = new BorderPane();
+            BorderPane card = tableCard;
             card.getStyleClass().addAll("card", "table-card");
             card.setCenter(box);
             card.setMaxWidth(Double.MAX_VALUE);
             card.setMaxHeight(Double.MAX_VALUE);
+            card.heightProperty().addListener((obs, oldH, newH) -> recalculatePageSize(newH.doubleValue()));
             return card;
         }
 
@@ -1166,7 +1169,7 @@ public class SalonFxApplication extends Application {
                     .filter(user -> selectedRole == null || user.role() == selectedRole)
                     .toList();
 
-            int totalPages = Math.max(1, (int) Math.ceil(filteredUsers.size() / (double) PAGE_SIZE));
+            int totalPages = Math.max(1, (int) Math.ceil(filteredUsers.size() / (double) pageSize));
             if (currentPage >= totalPages) {
                 currentPage = totalPages - 1;
             }
@@ -1177,25 +1180,34 @@ public class SalonFxApplication extends Application {
         }
 
         private void refreshTablePage() {
-            int totalPages = Math.max(1, (int) Math.ceil(filteredUsers.size() / (double) PAGE_SIZE));
-            int fromIndex = Math.min(currentPage * PAGE_SIZE, filteredUsers.size());
-            int toIndex = Math.min(fromIndex + PAGE_SIZE, filteredUsers.size());
+            int totalPages = Math.max(1, (int) Math.ceil(filteredUsers.size() / (double) pageSize));
+            int fromIndex = Math.min(currentPage * pageSize, filteredUsers.size());
+            int toIndex = Math.min(fromIndex + pageSize, filteredUsers.size());
             List<AuthRequests.UserResponse> pageItems = filteredUsers.subList(fromIndex, toIndex);
             table.setItems(FXCollections.observableArrayList(pageItems));
-            double headerHeight = 44;
-            double rowHeight = table.getFixedCellSize() > 0 ? table.getFixedCellSize() : 44;
-            double tableHeight = headerHeight + Math.max(1, pageItems.size()) * rowHeight + 4;
-            table.setPrefHeight(tableHeight);
-            table.setMinHeight(tableHeight);
-            table.setMaxHeight(tableHeight);
             summaryLabel.setText(filteredUsers.size() + " tài khoản");
             rebuildPageButtons(totalPages);
         }
 
         private void goToPage(int page) {
-            int totalPages = Math.max(1, (int) Math.ceil(filteredUsers.size() / (double) PAGE_SIZE));
+            int totalPages = Math.max(1, (int) Math.ceil(filteredUsers.size() / (double) pageSize));
             currentPage = Math.max(0, Math.min(page, totalPages - 1));
             refreshTablePage();
+        }
+
+        private void recalculatePageSize(double cardHeight) {
+            double footerHeight = 52;
+            double padding = 24;
+            double headerHeight = 44;
+            double rowHeight = table.getFixedCellSize() > 0 ? table.getFixedCellSize() : 44;
+            int newPageSize = Math.max(1, (int) Math.floor(
+                    (cardHeight - footerHeight - padding - headerHeight) / rowHeight
+            ));
+            if (newPageSize != pageSize) {
+                pageSize = newPageSize;
+                currentPage = 0;
+                applyFilters();
+            }
         }
 
         private void rebuildPageButtons(int totalPages) {

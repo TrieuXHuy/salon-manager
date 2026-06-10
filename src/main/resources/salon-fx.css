@@ -312,6 +312,9 @@
     -fx-padding: 12px 2px 12px 2px;
     -fx-border-color: #DDE3EE transparent transparent transparent;
     -fx-border-width: 1px 0 0 0;
+    -fx-min-height: 44px;
+    -fx-pref-height: 44px;
+    -fx-max-height: 44px;
 }
 
 .table-summary {
@@ -372,6 +375,7 @@
 .table-view {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
+    -fx-fixed-cell-size: 44px;
 }
 
 .table-view .column-header-background {
