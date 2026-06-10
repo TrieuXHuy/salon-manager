@@ -231,12 +231,18 @@ public class SalonFxApplication extends Application {
             stats.getChildren().setAll(progress());
             runAsync(() -> new DashboardData(ApiClient.getDashboard(), ApiClient.getQuickStats(),
                     ApiClient.getAllCustomers(), ApiClient.getAllServices(), ApiClient.getAllAppointments()), data -> {
+                long confirmedCount = data.appointments.stream()
+                        .map(AppointmentRequests.Response::status)
+                        .filter(Objects::nonNull)
+                        .filter(status -> status == AppointmentStatus.confirmed)
+                        .count();
                 stats.getChildren().setAll(
                         stat("Khách hàng", data.dashboard.totalCustomers(), "stat-customers"),
                         stat("Lịch hẹn hôm nay", data.dashboard.totalAppointmentsToday(), "stat-appointments"),
-                        stat("Chờ xử lý", data.dashboard.pendingAppointments(), "stat-pending"),
-                        stat("Doanh thu hôm nay", money(data.dashboard.todayRevenue()), "stat-revenue"),
-                        stat("Doanh thu tháng", money(data.dashboard.monthlyRevenue()), "stat-revenue"),
+                        stat("Chờ cọc", data.dashboard.pendingAppointments(), "stat-pending"),
+                        stat("Đã cọc", confirmedCount, "stat-revenue"),
+                        stat("Đã thu hôm nay", money(data.dashboard.todayRevenue()), "stat-revenue"),
+                        stat("Đã thu tháng", money(data.dashboard.monthlyRevenue()), "stat-revenue"),
                         stat("Dịch vụ nổi bật", orDash(data.dashboard.topServiceName()), "stat-default"),
                         stat("Lịch tháng này", data.quickStats.appointmentsThisMonth(), "stat-appointments"),
                         stat("Hoàn thành", String.format(Locale.US, "%.1f%%",
@@ -738,9 +744,9 @@ public class SalonFxApplication extends Application {
             Button add = primaryButton("Thêm");
             Button edit = secondaryButton("Sửa");
             Button delete = dangerButton("Xóa");
-            Button confirm = secondaryButton("Xác nhận");
+            Button deposit = secondaryButton("Thu cọc");
+            Button balance = secondaryButton("Thu còn lại");
             Button complete = secondaryButton("Hoàn thành");
-            Button pay = secondaryButton("Thanh toán");
             Button remind = secondaryButton("Nhắc lịch");
             add.setOnAction(e -> openAppointmentDialog(null));
             edit.setOnAction(e -> {
@@ -752,14 +758,14 @@ public class SalonFxApplication extends Application {
                 openAppointmentDialog(findAppointment(row.id()));
             });
             delete.setOnAction(e -> deleteSelected());
-            confirm.setOnAction(e -> updateSelectedStatus(AppointmentStatus.confirmed));
+            deposit.setOnAction(e -> paySelected(PaymentStage.deposit));
+            balance.setOnAction(e -> paySelected(PaymentStage.balance));
             complete.setOnAction(e -> updateSelectedStatus(AppointmentStatus.completed));
-            pay.setOnAction(e -> paySelected());
             remind.setOnAction(e -> remindSelected());
             status.getStyleClass().add("muted");
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
-            return card(new HBox(10, add, edit, delete, confirm, complete, pay, remind, spacer, status));
+            return card(new HBox(10, add, edit, delete, deposit, balance, complete, remind, spacer, status));
         }
 
         private void load() {
@@ -821,17 +827,16 @@ public class SalonFxApplication extends Application {
             LocalDate today = LocalDate.now();
             long todayCount = rows.stream().filter(row -> row.time().toLocalDate().equals(today)).count();
             long pendingCount = rows.stream().filter(row -> row.statusEnum() == AppointmentStatus.pending).count();
-            long paidCount = rows.stream().filter(row -> row.statusEnum() == AppointmentStatus.paid).count();
+            long confirmedCount = rows.stream().filter(row -> row.statusEnum() == AppointmentStatus.confirmed).count();
             BigDecimal visibleRevenue = rows.stream()
-                    .filter(row -> row.statusEnum() == AppointmentStatus.paid)
-                    .map(AppointmentRow::price)
+                    .map(AppointmentRow::amountPaid)
                     .filter(Objects::nonNull)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             quickStats.getChildren().setAll(
                     stat("Hôm nay", todayCount + " lịch", "stat-appointments"),
-                    stat("Chờ xử lý", pendingCount + " lịch", "stat-pending"),
-                    stat("Đã thanh toán", paidCount + " lịch", "stat-revenue"),
-                    stat("Doanh thu đã lọc", money(visibleRevenue), "stat-revenue"));
+                    stat("Chờ cọc", pendingCount + " lịch", "stat-pending"),
+                    stat("Đã cọc", confirmedCount + " lịch", "stat-revenue"),
+                    stat("Đã thu", money(visibleRevenue), "stat-revenue"));
         }
 
         private AppointmentRequests.Response findAppointment(Integer id) {
@@ -862,6 +867,14 @@ public class SalonFxApplication extends Application {
             AppointmentRequests.Response appointment = findAppointment(row.id());
             if (appointment == null) {
                 warn("Không tìm thấy lịch hẹn", "Dữ liệu lịch hẹn đã thay đổi, vui lòng làm mới.");
+                return;
+            }
+            if (newStatus == AppointmentStatus.confirmed || newStatus == AppointmentStatus.paid) {
+                warn("Không thể cập nhật trực tiếp", "Thu cọc và thanh toán phần còn lại phải đi qua nút thanh toán.");
+                return;
+            }
+            if (newStatus == AppointmentStatus.completed && safeAmount(appointment.amountPaid()).compareTo(BigDecimal.ZERO) <= 0) {
+                warn("Chưa thu cọc", "Chỉ có thể hoàn thành lịch hẹn sau khi đã thu cọc.");
                 return;
             }
             if (appointment.status() == AppointmentStatus.paid && newStatus != AppointmentStatus.paid) {
@@ -897,23 +910,44 @@ public class SalonFxApplication extends Application {
             });
         }
 
-        private void paySelected() {
+        private void paySelected(PaymentStage requestedStage) {
             AppointmentRow row = table.getSelectionModel().getSelectedItem();
             if (row == null) {
-                warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để thanh toán.");
+                warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để thu tiền.");
                 return;
             }
-            ServiceRequests.Response service = services.stream()
-                    .filter(s -> Objects.equals(s.name(), row.service()))
-                    .findFirst()
-                    .orElse(null);
-            BigDecimal amount = service == null || service.price() == null ? BigDecimal.ZERO : service.price();
-            if (!showPaymentQrSimulation(row.id(), row.customer(), row.service(), amount, "QR / chuyển khoản")) {
+            AppointmentRequests.Response appointment = findAppointment(row.id());
+            if (appointment == null) {
+                warn("Không tìm thấy lịch hẹn", "Dữ liệu đã thay đổi, vui lòng tải lại.");
+                return;
+            }
+            PaymentStage stage = requestedStage == null
+                    ? (safeAmount(appointment.amountPaid()).compareTo(BigDecimal.ZERO) <= 0
+                    ? PaymentStage.deposit
+                    : PaymentStage.balance)
+                    : requestedStage;
+            BigDecimal amount = stage == PaymentStage.deposit
+                    ? safeAmount(appointment.depositAmount())
+                    : safeAmount(appointment.remainingAmount());
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                warn("Đã thanh toán đủ", "Lịch hẹn này không còn số tiền cần thu.");
+                return;
+            }
+            if (stage == PaymentStage.deposit && safeAmount(appointment.amountPaid()).compareTo(BigDecimal.ZERO) > 0) {
+                warn("Đã thu cọc", "Lịch hẹn này đã có thanh toán cọc.");
+                return;
+            }
+            if (stage == PaymentStage.balance && safeAmount(appointment.amountPaid()).compareTo(BigDecimal.ZERO) <= 0) {
+                warn("Chưa thu cọc", "Cần thu cọc trước khi thu phần còn lại.");
+                return;
+            }
+            String methodLabel = stage == PaymentStage.deposit ? "Cọc 20% / QR" : "Thanh toán phần còn lại / QR";
+            if (!showPaymentQrSimulation(row.id(), row.customer(), row.service(), amount, methodLabel)) {
                 return;
             }
             PaymentRequests.Create request = new PaymentRequests.Create(row.id(), amount, PaymentMethod.bank_transfer,
-                    PaymentStatus.paid, LocalDateTime.now());
-            runAsync(() -> ApiClient.createPayment(request), r -> load(), ex -> error("Lỗi thanh toán", cleanError(ex)));
+                    PaymentStatus.paid, LocalDateTime.now(), stage);
+            runAsync(() -> ApiClient.createPayment(request), r -> load(), ex -> error("L?i thanh to?n", cleanError(ex)));
         }
     }
 
@@ -933,7 +967,8 @@ public class SalonFxApplication extends Application {
         private void load() {
             content.getChildren().setAll(progress());
             runAsync(() -> new ReportData(ApiClient.getDailyRevenueReport(from.getValue(), to.getValue()),
-                            ApiClient.getServiceRevenueReport(), ApiClient.getPaymentMethodReport(), ApiClient.getAppointmentStats()),
+                            ApiClient.getServiceRevenueReport(), ApiClient.getPaymentMethodReport(),
+                            ApiClient.getAppointmentStats(), ApiClient.getAllPayments()),
                     data -> render(data), ex -> error("Lỗi tải báo cáo", cleanError(ex)));
         }
 
@@ -952,14 +987,51 @@ public class SalonFxApplication extends Application {
 
             FlowPane stats = new FlowPane(14, 14,
                     stat("Tổng lịch", data.stats.totalAppointments(), "stat-appointments"),
-                    stat("Chờ xử lý", data.stats.pendingAppointments(), "stat-pending"),
-                    stat("Đã xác nhận", data.stats.confirmedAppointments(), "stat-appointments"),
+                    stat("Chờ cọc", data.stats.pendingAppointments(), "stat-pending"),
+                    stat("Đã cọc", data.stats.confirmedAppointments(), "stat-appointments"),
                     stat("Hoàn thành", data.stats.completedAppointments(), "stat-revenue"),
                     stat("Đã hủy", data.stats.cancelledAppointments(), "stat-pending"));
             content.getChildren().setAll(stats, cardWithTitle("Doanh thu theo ngày", daily),
-                    cardWithTitle("Doanh thu theo dịch vụ", services));
+                    cardWithTitle("Doanh thu theo dịch vụ", services),
+                    cardWithTitle("Chi tiết thanh toán", paymentReport(data.paymentRows)));
             VBox.setVgrow(daily, Priority.ALWAYS);
             VBox.setVgrow(services, Priority.ALWAYS);
+        }
+
+        private Node paymentReport(List<PaymentRequests.Response> payments) {
+            List<PaymentRequests.Response> rows = payments.stream()
+                    .filter(p -> p.paidAt() != null)
+                    .filter(p -> from.getValue() == null || !p.paidAt().toLocalDate().isBefore(from.getValue()))
+                    .filter(p -> to.getValue() == null || !p.paidAt().toLocalDate().isAfter(to.getValue()))
+                    .sorted(Comparator.comparing(PaymentRequests.Response::paidAt).reversed())
+                    .toList();
+
+            BigDecimal depositTotal = rows.stream()
+                    .filter(p -> p.paymentStage() == PaymentStage.deposit)
+                    .map(PaymentRequests.Response::amount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal balanceTotal = rows.stream()
+                    .filter(p -> p.paymentStage() == PaymentStage.balance)
+                    .map(PaymentRequests.Response::amount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            TableView<PaymentRequests.Response> table = new TableView<>(FXCollections.observableArrayList(rows));
+            column(table, "Lịch", PaymentRequests.Response::appointmentId, 90);
+            column(table, "Giai đoạn", p -> p.paymentStage() == null ? "-" : (p.paymentStage() == PaymentStage.deposit ? "Cọc" : "Còn lại"), 120);
+            column(table, "Phương thức", p -> p.paymentMethod() == null ? "-" : p.paymentMethod().name(), 140);
+            column(table, "Số tiền", r -> money(r.amount()), 140);
+            column(table, "Thời gian", r -> r.paidAt() == null ? "-" : r.paidAt().format(DATE_TIME), 170);
+
+            VBox box = new VBox(10,
+                    new HBox(12,
+                            stat("Tiền cọc", money(depositTotal), "stat-pending"),
+                            stat("Tiền còn lại", money(balanceTotal), "stat-revenue"),
+                            stat("Tổng thu", money(depositTotal.add(balanceTotal)), "stat-default")),
+                    table);
+            VBox.setVgrow(table, Priority.ALWAYS);
+            return box;
         }
     }
 
@@ -1059,9 +1131,8 @@ public class SalonFxApplication extends Application {
                     "08:00", "09:00", "10:00", "13:30", "15:00", "17:30", "19:00"));
             quickTime.setPromptText("Khung giờ nhanh");
             quickTime.setMaxWidth(Double.MAX_VALUE);
-            ComboBox<AppointmentStatus> status = new ComboBox<>(FXCollections.observableArrayList(AppointmentStatus.values()));
+            ComboBox<AppointmentStatus> status = new ComboBox<>();
             status.setConverter(stringConverter(AppointmentStatus::getDisplayName));
-            status.setValue(AppointmentStatus.pending);
             status.setMaxWidth(Double.MAX_VALUE);
             TextArea note = new TextArea();
             note.setPrefRowCount(3);
@@ -1116,6 +1187,19 @@ public class SalonFxApplication extends Application {
                 time.setText(appointment.appointmentTime().toLocalTime().format(TIME_INPUT));
                 status.setValue(appointment.status());
                 note.setText(orEmpty(appointment.note()));
+            }
+            List<AppointmentStatus> allowedStatuses = new ArrayList<>();
+            if (appointment == null) {
+                allowedStatuses.add(AppointmentStatus.pending);
+            } else {
+                allowedStatuses.addAll(List.of(AppointmentStatus.pending, AppointmentStatus.completed, AppointmentStatus.cancelled));
+                if (appointment.status() != null && !allowedStatuses.contains(appointment.status())) {
+                    allowedStatuses.add(appointment.status());
+                }
+            }
+            status.getItems().setAll(allowedStatuses);
+            if (status.getValue() == null && !status.getItems().isEmpty()) {
+                status.setValue(status.getItems().get(0));
             }
             Runnable updateSummary = () -> {
                 ServiceRequests.Response selectedService = service.getValue();
@@ -1370,6 +1454,10 @@ public class SalonFxApplication extends Application {
 
         column(table, "Kết thúc", r -> r.endTime().format(TIME_INPUT), 90);
         column(table, "Giá", r -> money(r.price()), 120);
+        column(table, "Tổng tiền", r -> money(r.totalAmount()), 120);
+        column(table, "Tiền cọc", r -> money(r.depositAmount()), 120);
+        column(table, "Đã thu", r -> money(r.amountPaid()), 120);
+        column(table, "Còn lại", r -> money(r.remainingAmount()), 120);
 
         TableColumn<AppointmentRow, AppointmentStatus> statusCol = new TableColumn<>("Trạng thái");
         statusCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().statusEnum()));
@@ -1402,16 +1490,16 @@ public class SalonFxApplication extends Application {
     private AppointmentRow toAppointmentRow(AppointmentRequests.Response a, List<CustomerRequests.Response> customers,
                                             List<ServiceRequests.Response> services) {
         String customer = customers.stream().filter(c -> Objects.equals(c.id(), a.customerId()))
-                .map(CustomerRequests.Response::fullName).findFirst().orElse("Không rõ");
+                .map(CustomerRequests.Response::fullName).findFirst().orElse("Kh?ng r?");
         Integer serviceId = a.serviceIds() == null || a.serviceIds().isEmpty() ? null : a.serviceIds().get(0);
         ServiceRequests.Response serviceResponse = services.stream().filter(s -> Objects.equals(s.id(), serviceId))
                 .findFirst().orElse(null);
-        String service = serviceResponse == null ? "Không rõ" : serviceResponse.name();
+        String service = serviceResponse == null ? "Kh?ng r?" : serviceResponse.name();
         AppointmentStatus st = a.status() == null ? AppointmentStatus.pending : a.status();
         int duration = serviceDuration(serviceResponse);
         BigDecimal price = serviceResponse == null ? BigDecimal.ZERO : serviceResponse.price();
         return new AppointmentRow(a.id(), customer, service, orDash(a.roomName()), a.appointmentTime(), a.appointmentTime().plusMinutes(duration),
-                price, st.getDisplayName(), st, orEmpty(a.note()));
+                price, a.totalAmount(), a.depositAmount(), a.amountPaid(), a.remainingAmount(), st.getDisplayName(), st, orEmpty(a.note()));
     }
 
     private int serviceDuration(ServiceRequests.Response service) {
@@ -1425,7 +1513,12 @@ public class SalonFxApplication extends Application {
             if (currentAppointment != null && Objects.equals(existing.id(), currentAppointment.id())) {
                 continue;
             }
-            if (existing.status() == AppointmentStatus.cancelled || existing.status() == AppointmentStatus.paid) {
+            if (existing.status() == AppointmentStatus.pending || existing.status() == AppointmentStatus.cancelled) {
+                continue;
+            }
+            if (existing.status() != AppointmentStatus.confirmed
+                    && existing.status() != AppointmentStatus.completed
+                    && existing.status() != AppointmentStatus.paid) {
                 continue;
             }
             Integer existingServiceId = existing.serviceIds() == null || existing.serviceIds().isEmpty()
@@ -1441,11 +1534,11 @@ public class SalonFxApplication extends Application {
                 continue;
             }
             if (Objects.equals(existing.customerId(), customerId)) {
-                return "Khách hàng này đã có lịch trong khung giờ "
+                return "Kh?ch h?ng n?y ?? c? l?ch trong khung gi? "
                         + existingStart.format(DATE_TIME) + " - " + existingEnd.toLocalTime().format(TIME_INPUT) + ".";
             }
             if (Objects.equals(existing.roomId(), roomId)) {
-                return "Dịch vụ này đang có lịch khác trong khung giờ "
+                return "D?ch v? n?y ?ang c? l?ch kh?c trong khung gi? "
                         + existingStart.format(DATE_TIME) + " - " + existingEnd.toLocalTime().format(TIME_INPUT) + ".";
             }
         }
@@ -1763,6 +1856,10 @@ public class SalonFxApplication extends Application {
         return CURRENCY.format(value == null ? BigDecimal.ZERO : value);
     }
 
+    private BigDecimal safeAmount(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
     private String orDash(String value) {
         return value == null || value.isBlank() ? "-" : value;
     }
@@ -1803,7 +1900,8 @@ public class SalonFxApplication extends Application {
     }
 
     private record AppointmentRow(Integer id, String customer, String service, String room, LocalDateTime time,
-                                  LocalDateTime endTime, BigDecimal price, String status, AppointmentStatus statusEnum,
+                                  LocalDateTime endTime, BigDecimal price, BigDecimal totalAmount, BigDecimal depositAmount,
+                                  BigDecimal amountPaid, BigDecimal remainingAmount, String status, AppointmentStatus statusEnum,
                                   String note) {
     }
 
@@ -1822,6 +1920,7 @@ public class SalonFxApplication extends Application {
     private record ReportData(List<ReportRequests.DailyRevenueResponse> daily,
                               List<ReportRequests.ServiceRevenueResponse> services,
                               List<ReportRequests.PaymentMethodResponse> payments,
-                              ReportRequests.AppointmentStatsResponse stats) {
+                              ReportRequests.AppointmentStatsResponse stats,
+                              List<PaymentRequests.Response> paymentRows) {
     }
 }

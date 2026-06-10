@@ -56,6 +56,10 @@ BEGIN
         [service_id] int NOT NULL,
         [room_id] int NULL,
         [appointment_time] datetime2(6) NOT NULL,
+        [total_amount] decimal(10,2) NOT NULL CONSTRAINT [DF_appointments_total_amount] DEFAULT 0,
+        [deposit_amount] decimal(10,2) NOT NULL CONSTRAINT [DF_appointments_deposit_amount] DEFAULT 0,
+        [amount_paid] decimal(10,2) NOT NULL CONSTRAINT [DF_appointments_amount_paid] DEFAULT 0,
+        [remaining_amount] decimal(10,2) NOT NULL CONSTRAINT [DF_appointments_remaining_amount] DEFAULT 0,
         [status] nvarchar(50) NOT NULL,
         [note] nvarchar(500) NULL,
         [created_at] datetime2(6) NOT NULL CONSTRAINT [DF_appointments_created_at] DEFAULT SYSUTCDATETIME()
@@ -69,6 +73,7 @@ BEGIN
         [id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_payments] PRIMARY KEY,
         [appointment_id] int NOT NULL,
         [amount] decimal(10,2) NOT NULL,
+        [payment_stage] nvarchar(50) NOT NULL CONSTRAINT [DF_payments_payment_stage] DEFAULT N'deposit',
         [payment_method] nvarchar(50) NULL,
         [payment_status] nvarchar(50) NOT NULL,
         [paid_at] datetime2(6) NULL
@@ -123,6 +128,10 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_payment_method')
     ALTER TABLE [dbo].[payments] ADD CONSTRAINT [CK_payment_method] CHECK ([payment_method] IS NULL OR [payment_method] IN (N'cash', N'bank_transfer', N'momo', N'card'));
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_payment_stage')
+    ALTER TABLE [dbo].[payments] ADD CONSTRAINT [CK_payment_stage] CHECK ([payment_stage] IN (N'deposit', N'balance'));
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_sms_status')
@@ -310,10 +319,11 @@ BEGIN
 END
 GO
 
-INSERT INTO [dbo].[payments] ([appointment_id], [amount], [payment_method], [payment_status], [paid_at])
+INSERT INTO [dbo].[payments] ([appointment_id], [amount], [payment_stage], [payment_method], [payment_status], [paid_at])
 SELECT
     a.[id],
     s.[price],
+    N'balance',
     CASE
         WHEN a.[id] % 4 = 0 THEN N'cash'
         WHEN a.[id] % 4 = 1 THEN N'bank_transfer'

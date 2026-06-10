@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.salonnbooking.domain.PaymentMethod;
+import com.salonnbooking.domain.PaymentStage;
 import com.salonnbooking.domain.PaymentStatus;
 
 import jakarta.validation.constraints.NotNull;
@@ -18,7 +19,12 @@ public final class PaymentRequests {
 			@NotNull @Positive BigDecimal amount,
 			PaymentMethod paymentMethod,
 			PaymentStatus paymentStatus,
-			LocalDateTime paidAt) {
+			LocalDateTime paidAt,
+			PaymentStage paymentStage) {
+		public Create(Integer appointmentId, BigDecimal amount, PaymentMethod paymentMethod,
+				PaymentStatus paymentStatus, LocalDateTime paidAt) {
+			this(appointmentId, amount, paymentMethod, paymentStatus, paidAt, null);
+		}
 	}
 
 	public record Update(
@@ -26,7 +32,12 @@ public final class PaymentRequests {
 			@NotNull @Positive BigDecimal amount,
 			PaymentMethod paymentMethod,
 			@NotNull PaymentStatus paymentStatus,
-			LocalDateTime paidAt) {
+			LocalDateTime paidAt,
+			PaymentStage paymentStage) {
+		public Update(Integer appointmentId, BigDecimal amount, PaymentMethod paymentMethod,
+				PaymentStatus paymentStatus, LocalDateTime paidAt) {
+			this(appointmentId, amount, paymentMethod, paymentStatus, paidAt, null);
+		}
 	}
 
 	public record Response(
@@ -34,6 +45,7 @@ public final class PaymentRequests {
 			Integer appointmentId,
 			BigDecimal amount,
 			PaymentMethod paymentMethod,
+			PaymentStage paymentStage,
 			PaymentStatus paymentStatus,
 			LocalDateTime paidAt) {
 		public static Response from(com.salonnbooking.domain.Payment p) {
@@ -42,6 +54,7 @@ public final class PaymentRequests {
 					p.getAppointment().getId(),
 					p.getAmount(),
 					p.getPaymentMethod(),
+					p.getPaymentStage(),
 					p.getPaymentStatus(),
 					p.getPaidAt());
 		}

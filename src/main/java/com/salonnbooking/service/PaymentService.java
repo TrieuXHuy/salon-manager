@@ -12,20 +12,29 @@ import com.salonnbooking.api.dto.PaymentRequests;
 import com.salonnbooking.domain.Appointment;
 import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.Payment;
+import com.salonnbooking.domain.PaymentStage;
 import com.salonnbooking.domain.PaymentStatus;
+import com.salonnbooking.domain.ServiceEntity;
+import com.salonnbooking.domain.ServiceRoom;
 import com.salonnbooking.exception.ResourceNotFoundException;
 import com.salonnbooking.repository.AppointmentRepository;
 import com.salonnbooking.repository.PaymentRepository;
+import com.salonnbooking.repository.ServiceRoomRepository;
 
 @Service
 @Transactional
 public class PaymentService {
 	private final PaymentRepository paymentRepository;
 	private final AppointmentRepository appointmentRepository;
+	private final ServiceRoomRepository serviceRoomRepository;
+	private final EmailService emailService;
 
-	public PaymentService(PaymentRepository paymentRepository, AppointmentRepository appointmentRepository) {
+	public PaymentService(PaymentRepository paymentRepository, AppointmentRepository appointmentRepository,
+			ServiceRoomRepository serviceRoomRepository, EmailService emailService) {
 		this.paymentRepository = paymentRepository;
 		this.appointmentRepository = appointmentRepository;
+		this.serviceRoomRepository = serviceRoomRepository;
+		this.emailService = emailService;
 	}
 
 	@Transactional(readOnly = true)
@@ -42,34 +51,44 @@ public class PaymentService {
 	public Payment save(PaymentRequests.Create req) {
 		Appointment appointment = appointmentRepository.findById(req.appointmentId())
 				.orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + req.appointmentId()));
-		boolean alreadyPaid = paymentRepository.findByAppointmentId(req.appointmentId()).stream()
-				.anyMatch(payment -> payment.getPaymentStatus() == PaymentStatus.paid);
-		if (alreadyPaid) {
-			throw new IllegalArgumentException("Appointment has already been paid");
-		}
+		PaymentStage stage = req.paymentStage() == null ? inferStage(appointment, normalize(req.amount())) : req.paymentStage();
+		BigDecimal expectedAmount = expectedAmount(appointment, stage);
+		validateAmount(stage, req.amount(), expectedAmount);
+		validateAppointmentForStage(appointment, stage);
 
 		Payment payment = new Payment();
 		payment.setAppointment(appointment);
-		payment.setAmount(req.amount());
+		payment.setAmount(normalize(req.amount()));
 		payment.setPaymentMethod(req.paymentMethod());
-		payment.setPaymentStatus(req.paymentStatus() != null ? req.paymentStatus() : PaymentStatus.unpaid);
-		payment.setPaidAt(req.paidAt());
-		updateAppointmentStatusWhenPaid(appointment, payment.getPaymentStatus());
-		return paymentRepository.save(payment);
+		payment.setPaymentStage(stage);
+		payment.setPaymentStatus(PaymentStatus.paid);
+		payment.setPaidAt(req.paidAt() != null ? req.paidAt() : LocalDateTime.now());
+
+		Payment saved = paymentRepository.save(payment);
+		applyPaymentEffects(appointment, saved);
+		return saved;
 	}
 
 	public Payment update(Integer id, PaymentRequests.Update req) {
 		Payment payment = findById(id);
 		Appointment appointment = appointmentRepository.findById(req.appointmentId())
 				.orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + req.appointmentId()));
+		PaymentStage stage = req.paymentStage() == null ? inferStage(appointment, normalize(req.amount())) : req.paymentStage();
+		BigDecimal expectedAmount = expectedAmount(appointment, stage);
+		validateAmount(stage, req.amount(), expectedAmount);
 
 		payment.setAppointment(appointment);
-		payment.setAmount(req.amount());
+		payment.setAmount(normalize(req.amount()));
 		payment.setPaymentMethod(req.paymentMethod());
+		payment.setPaymentStage(stage);
 		payment.setPaymentStatus(req.paymentStatus());
 		payment.setPaidAt(req.paidAt());
-		updateAppointmentStatusWhenPaid(appointment, payment.getPaymentStatus());
-		return paymentRepository.save(payment);
+
+		Payment saved = paymentRepository.save(payment);
+		recalculateAppointmentFinancials(appointment);
+		updateAppointmentStatusAfterPayment(appointment);
+		appointmentRepository.save(appointment);
+		return saved;
 	}
 
 	public void delete(Integer id) {
@@ -83,22 +102,175 @@ public class PaymentService {
 		Payment payment = findById(id);
 		payment.setPaymentStatus(PaymentStatus.paid);
 		payment.setPaidAt(LocalDateTime.now());
-		updateAppointmentStatusWhenPaid(payment.getAppointment(), payment.getPaymentStatus());
-		return paymentRepository.save(payment);
+		Payment saved = paymentRepository.save(payment);
+		applyPaymentEffects(saved.getAppointment(), saved);
+		return saved;
 	}
 
-	private void updateAppointmentStatusWhenPaid(Appointment appointment, PaymentStatus paymentStatus) {
-		if (paymentStatus == PaymentStatus.paid) {
+	private void applyPaymentEffects(Appointment appointment, Payment payment) {
+		recalculateAppointmentFinancials(appointment);
+		if (payment.getPaymentStage() == PaymentStage.deposit) {
+			lockRoomForAppointment(appointment);
+			if (appointment.getStatus() == AppointmentStatus.pending) {
+				appointment.setStatus(AppointmentStatus.confirmed);
+			}
+			emailService.sendBookingConfirmation(appointment);
+		}
+		updateAppointmentStatusAfterPayment(appointment);
+		appointmentRepository.save(appointment);
+	}
+
+	private void updateAppointmentStatusAfterPayment(Appointment appointment) {
+		recalculateAppointmentFinancials(appointment);
+		if (safeAmount(appointment.getRemainingAmount()).compareTo(BigDecimal.ZERO) <= 0
+				&& appointment.getAmountPaid() != null
+				&& appointment.getAmountPaid().compareTo(BigDecimal.ZERO) > 0) {
+			AppointmentStatus previousStatus = appointment.getStatus();
 			appointment.setStatus(AppointmentStatus.paid);
-			int earnedPoints = calculateLoyaltyPoints(appointment);
-			appointment.getCustomer().setLoyaltyPoints(
-					appointment.getCustomer().getLoyaltyPoints() + earnedPoints);
-			appointmentRepository.save(appointment);
+			if (previousStatus != AppointmentStatus.paid) {
+				int earnedPoints = calculateLoyaltyPoints(appointment);
+				appointment.getCustomer().setLoyaltyPoints(
+						appointment.getCustomer().getLoyaltyPoints() + earnedPoints);
+			}
 		}
 	}
 
+	private void validateAppointmentForStage(Appointment appointment, PaymentStage stage) {
+		if (stage == PaymentStage.deposit) {
+			if (appointment.getStatus() == AppointmentStatus.confirmed || appointment.getStatus() == AppointmentStatus.paid) {
+				throw new IllegalArgumentException("Appointment has already been deposited");
+			}
+			return;
+		}
+		if (stage == PaymentStage.balance) {
+			if (appointment.getStatus() == AppointmentStatus.pending) {
+				throw new IllegalArgumentException("A deposit is required before collecting the remaining balance");
+			}
+			BigDecimal remaining = safeAmount(appointment.getRemainingAmount());
+			if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+				throw new IllegalArgumentException("Appointment has already been fully paid");
+			}
+		}
+	}
+
+	private PaymentStage inferStage(Appointment appointment, BigDecimal amount) {
+		BigDecimal total = normalize(appointment.getService() == null ? BigDecimal.ZERO : appointment.getService().getPrice());
+		BigDecimal deposit = total.multiply(BigDecimal.valueOf(0.2)).setScale(2, RoundingMode.HALF_UP);
+		BigDecimal remaining = normalize(total.subtract(normalize(appointment.getAmountPaid())));
+		if (amount.compareTo(deposit) == 0) {
+			return PaymentStage.deposit;
+		}
+		if (amount.compareTo(total) == 0 || amount.compareTo(remaining) == 0) {
+			return PaymentStage.balance;
+		}
+		if (normalize(appointment.getAmountPaid()).compareTo(BigDecimal.ZERO) > 0) {
+			return PaymentStage.balance;
+		}
+		return amount.compareTo(deposit) > 0 ? PaymentStage.balance : PaymentStage.deposit;
+	}
+
+	private void lockRoomForAppointment(Appointment appointment) {
+		if (appointment.getAppointmentTime() == null) {
+			throw new IllegalArgumentException("Appointment time is required");
+		}
+
+		ServiceRoom chosenRoom = appointment.getRoom();
+		if (chosenRoom != null) {
+			if (!isRoomAvailable(appointment, chosenRoom)) {
+				throw new IllegalArgumentException(chosenRoom.getName() + " is already booked in this time slot");
+			}
+			return;
+		}
+
+		for (ServiceRoom room : serviceRoomRepository.findByIsActiveTrueOrderByIdAsc()) {
+			if (isRoomAvailable(appointment, room)) {
+				appointment.setRoom(room);
+				return;
+			}
+		}
+		throw new IllegalArgumentException("No service room is available in this time slot");
+	}
+
+	private boolean isRoomAvailable(Appointment appointment, ServiceRoom room) {
+		LocalDateTime startTime = appointment.getAppointmentTime();
+		int duration = roundedDuration(appointment.getService() == null ? null : appointment.getService().getDurationMinutes());
+		LocalDateTime endTime = startTime.plusMinutes(duration);
+		LocalDateTime dayStart = startTime.toLocalDate().atStartOfDay();
+		LocalDateTime dayEnd = startTime.toLocalDate().atTime(23, 59, 59);
+		for (Appointment existing : appointmentRepository.findAppointmentsBetween(dayStart, dayEnd)) {
+			if (existing.getId().equals(appointment.getId())) {
+				continue;
+			}
+			if (!isBlockingStatus(existing.getStatus())) {
+				continue;
+			}
+			if (existing.getRoom() == null || !existing.getRoom().getId().equals(room.getId())) {
+				continue;
+			}
+			LocalDateTime existingStart = existing.getAppointmentTime();
+			int existingDuration = roundedDuration(existing.getService() == null ? null : existing.getService().getDurationMinutes());
+			LocalDateTime existingEnd = existingStart.plusMinutes(existingDuration);
+			boolean overlap = startTime.isBefore(existingEnd) && endTime.isAfter(existingStart);
+			if (overlap) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private boolean isBlockingStatus(AppointmentStatus status) {
+		return status == AppointmentStatus.confirmed
+				|| status == AppointmentStatus.completed
+				|| status == AppointmentStatus.paid;
+	}
+
+	private void recalculateAppointmentFinancials(Appointment appointment) {
+		BigDecimal total = normalize(appointment.getService() == null ? BigDecimal.ZERO : appointment.getService().getPrice());
+		BigDecimal deposit = total.multiply(BigDecimal.valueOf(0.2)).setScale(2, RoundingMode.HALF_UP);
+		BigDecimal paid = paymentRepository.findByAppointmentId(appointment.getId()).stream()
+				.filter(payment -> payment.getPaymentStatus() == PaymentStatus.paid)
+				.map(payment -> normalize(payment.getAmount()))
+				.reduce(BigDecimal.ZERO, BigDecimal::add)
+				.setScale(2, RoundingMode.HALF_UP);
+		paid = paid.min(total).setScale(2, RoundingMode.HALF_UP);
+		appointment.setTotalAmount(total);
+		appointment.setDepositAmount(deposit);
+		appointment.setAmountPaid(paid);
+		appointment.setRemainingAmount(normalize(total.subtract(paid)));
+	}
+
+	private BigDecimal expectedAmount(Appointment appointment, PaymentStage stage) {
+		BigDecimal total = normalize(appointment.getService() == null ? BigDecimal.ZERO : appointment.getService().getPrice());
+		BigDecimal deposit = total.multiply(BigDecimal.valueOf(0.2)).setScale(2, RoundingMode.HALF_UP);
+		BigDecimal paid = normalize(appointment.getAmountPaid());
+		BigDecimal remaining = normalize(total.subtract(paid));
+		return stage == PaymentStage.deposit ? deposit : remaining;
+	}
+
+	private void validateAmount(PaymentStage stage, BigDecimal amount, BigDecimal expectedAmount) {
+		BigDecimal normalizedAmount = normalize(amount);
+		BigDecimal normalizedExpected = normalize(expectedAmount);
+		if (normalizedAmount.compareTo(normalizedExpected) != 0) {
+			throw new IllegalArgumentException("Invalid " + stage + " amount. Expected " + normalizedExpected);
+		}
+	}
+
+	private BigDecimal normalize(BigDecimal amount) {
+		return amount == null ? BigDecimal.ZERO : amount.setScale(2, RoundingMode.HALF_UP);
+	}
+
+	private BigDecimal safeAmount(BigDecimal amount) {
+		return amount == null ? BigDecimal.ZERO : amount.setScale(2, RoundingMode.HALF_UP);
+	}
+
+	private int roundedDuration(Integer durationMinutes) {
+		int duration = durationMinutes == null || durationMinutes <= 0 ? 30 : durationMinutes;
+		return ((duration + 29) / 30) * 30;
+	}
+
 	private int calculateLoyaltyPoints(Appointment appointment) {
-		BigDecimal price = appointment.getService().getPrice();
+		ServiceEntity service = appointment.getService();
+		BigDecimal price = service == null ? BigDecimal.ZERO : service.getPrice();
 		if (price == null) {
 			return 0;
 		}

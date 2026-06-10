@@ -1,5 +1,6 @@
 package com.salonnbooking.domain;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
@@ -37,6 +38,18 @@ public class Appointment {
 
 	@Column(name = "appointment_time", nullable = false)
 	private LocalDateTime appointmentTime;
+
+	@Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
+	private BigDecimal totalAmount = BigDecimal.ZERO;
+
+	@Column(name = "deposit_amount", nullable = false, precision = 10, scale = 2)
+	private BigDecimal depositAmount = BigDecimal.ZERO;
+
+	@Column(name = "amount_paid", nullable = false, precision = 10, scale = 2)
+	private BigDecimal amountPaid = BigDecimal.ZERO;
+
+	@Column(name = "remaining_amount", nullable = false, precision = 10, scale = 2)
+	private BigDecimal remainingAmount = BigDecimal.ZERO;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, columnDefinition = "nvarchar(50)")
@@ -83,6 +96,38 @@ public class Appointment {
 
 	public void setAppointmentTime(LocalDateTime appointmentTime) {
 		this.appointmentTime = appointmentTime;
+	}
+
+	public BigDecimal getTotalAmount() {
+		return totalAmount;
+	}
+
+	public void setTotalAmount(BigDecimal totalAmount) {
+		this.totalAmount = totalAmount == null ? BigDecimal.ZERO : totalAmount;
+	}
+
+	public BigDecimal getDepositAmount() {
+		return depositAmount;
+	}
+
+	public void setDepositAmount(BigDecimal depositAmount) {
+		this.depositAmount = depositAmount == null ? BigDecimal.ZERO : depositAmount;
+	}
+
+	public BigDecimal getAmountPaid() {
+		return amountPaid;
+	}
+
+	public void setAmountPaid(BigDecimal amountPaid) {
+		this.amountPaid = amountPaid == null ? BigDecimal.ZERO : amountPaid;
+	}
+
+	public BigDecimal getRemainingAmount() {
+		return remainingAmount;
+	}
+
+	public void setRemainingAmount(BigDecimal remainingAmount) {
+		this.remainingAmount = remainingAmount == null ? BigDecimal.ZERO : remainingAmount;
 	}
 
 	public AppointmentStatus getStatus() {

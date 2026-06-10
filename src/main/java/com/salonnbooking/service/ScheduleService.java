@@ -156,7 +156,12 @@ public class ScheduleService {
 	}
 
 	private boolean isRoomConflict(Appointment apt, ServiceRoom room, LocalDateTime slotTime, Integer serviceDuration) {
-		if (apt.getStatus() == AppointmentStatus.cancelled || apt.getStatus() == AppointmentStatus.paid) {
+		if (apt.getStatus() == AppointmentStatus.pending || apt.getStatus() == AppointmentStatus.cancelled) {
+			return false;
+		}
+		if (apt.getStatus() != AppointmentStatus.confirmed
+				&& apt.getStatus() != AppointmentStatus.completed
+				&& apt.getStatus() != AppointmentStatus.paid) {
 			return false;
 		}
 		if (apt.getRoom() == null || !apt.getRoom().getId().equals(room.getId())) {

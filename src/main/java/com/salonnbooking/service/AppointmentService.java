@@ -1,5 +1,7 @@
 package com.salonnbooking.service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -12,13 +14,16 @@ import com.salonnbooking.api.dto.AppointmentRequests;
 import com.salonnbooking.domain.Appointment;
 import com.salonnbooking.domain.AppointmentStatus;
 import com.salonnbooking.domain.Customer;
+import com.salonnbooking.domain.PaymentStage;
+import com.salonnbooking.domain.PaymentStatus;
 import com.salonnbooking.domain.ServiceEntity;
 import com.salonnbooking.domain.ServiceRoom;
 import com.salonnbooking.exception.ResourceNotFoundException;
 import com.salonnbooking.repository.AppointmentRepository;
 import com.salonnbooking.repository.CustomerRepository;
-import com.salonnbooking.repository.ServiceRoomRepository;
+import com.salonnbooking.repository.PaymentRepository;
 import com.salonnbooking.repository.ServiceRepository;
+import com.salonnbooking.repository.ServiceRoomRepository;
 
 @Service
 @Transactional
@@ -30,6 +35,7 @@ public class AppointmentService {
 	private final CustomerRepository customerRepository;
 	private final ServiceRepository serviceRepository;
 	private final ServiceRoomRepository serviceRoomRepository;
+	private final PaymentRepository paymentRepository;
 	private final EmailService emailService;
 
 	public AppointmentService(
@@ -37,11 +43,13 @@ public class AppointmentService {
 			CustomerRepository customerRepository,
 			ServiceRepository serviceRepository,
 			ServiceRoomRepository serviceRoomRepository,
+			PaymentRepository paymentRepository,
 			EmailService emailService) {
 		this.appointmentRepository = appointmentRepository;
 		this.customerRepository = customerRepository;
 		this.serviceRepository = serviceRepository;
 		this.serviceRoomRepository = serviceRoomRepository;
+		this.paymentRepository = paymentRepository;
 		this.emailService = emailService;
 	}
 
@@ -59,52 +67,58 @@ public class AppointmentService {
 	public Appointment save(AppointmentRequests.Create req) {
 		Customer customer = customerRepository.findById(req.customerId())
 				.orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + req.customerId()));
-		
-		// For now, use the first service ID (backend only supports one service per appointment)
+
 		Integer serviceId = req.serviceIds() != null && !req.serviceIds().isEmpty() ? req.serviceIds().get(0) : null;
 		if (serviceId == null) {
 			throw new ResourceNotFoundException("No service selected");
 		}
-		
+
 		ServiceEntity service = serviceRepository.findById(serviceId)
 				.orElseThrow(() -> new ResourceNotFoundException("Service not found with id: " + serviceId));
-		ServiceRoom room = resolveRoom(null, req.roomId(), customer, service, req.appointmentTime());
+		validateBasicTime(service, req.appointmentTime());
+
+		AppointmentStatus status = req.status() == null ? AppointmentStatus.pending : req.status();
+		validateCreateStatus(status);
 
 		Appointment appointment = new Appointment();
 		appointment.setCustomer(customer);
 		appointment.setService(service);
-		appointment.setRoom(room);
+		appointment.setRoom(resolveRoomOnCreate(status, req.roomId(), customer, service, req.appointmentTime()));
 		appointment.setAppointmentTime(req.appointmentTime());
-		appointment.setStatus(req.status() != null ? req.status() : AppointmentStatus.pending);
+		appointment.setStatus(status);
 		appointment.setNote(req.note());
-
-		Appointment saved = appointmentRepository.save(appointment);
-		emailService.sendBookingConfirmation(saved);
-		return saved;
+		recalculateFinancialSnapshot(appointment);
+		return appointmentRepository.save(appointment);
 	}
 
 	public Appointment update(Integer id, AppointmentRequests.Update req) {
 		Appointment appointment = findById(id);
 		Customer customer = customerRepository.findById(req.customerId())
 				.orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + req.customerId()));
-		
-		// For now, use the first service ID (backend only supports one service per appointment)
+
 		Integer serviceId = req.serviceIds() != null && !req.serviceIds().isEmpty() ? req.serviceIds().get(0) : null;
 		if (serviceId == null) {
 			throw new ResourceNotFoundException("No service selected");
 		}
-		
+
 		ServiceEntity service = serviceRepository.findById(serviceId)
 				.orElseThrow(() -> new ResourceNotFoundException("Service not found with id: " + serviceId));
-		ServiceRoom room = resolveRoom(id, req.roomId(), customer, service, req.appointmentTime());
+		validateBasicTime(service, req.appointmentTime());
+
+		boolean hasPaidPayment = paymentRepository.existsByAppointmentIdAndPaymentStatus(id, PaymentStatus.paid);
+		if (hasPaidPayment && hasCoreFieldChanged(appointment, customer, service, req.appointmentTime(), req.roomId())) {
+			throw new IllegalArgumentException("Confirmed appointment cannot be rescheduled after payment");
+		}
+
+		validateUpdateStatus(appointment, req.status(), hasPaidPayment);
 
 		appointment.setCustomer(customer);
 		appointment.setService(service);
-		appointment.setRoom(room);
+		appointment.setRoom(resolveRoomOnUpdate(id, req.status(), req.roomId(), customer, service, req.appointmentTime()));
 		appointment.setAppointmentTime(req.appointmentTime());
 		appointment.setStatus(req.status());
 		appointment.setNote(req.note());
-
+		recalculateFinancialSnapshot(appointment);
 		return appointmentRepository.save(appointment);
 	}
 
@@ -117,24 +131,57 @@ public class AppointmentService {
 
 	public void sendReminder(Integer id) {
 		Appointment appointment = findById(id);
+		if (appointment.getStatus() == AppointmentStatus.pending) {
+			throw new IllegalArgumentException("Cannot send reminder before deposit is confirmed");
+		}
 		emailService.sendAppointmentReminder(appointment);
 	}
 
-	private ServiceRoom resolveRoom(Integer currentAppointmentId, Integer requestedRoomId, Customer customer, ServiceEntity service,
-			LocalDateTime startTime) {
-		validateBasicTime(service, startTime);
-		if (requestedRoomId != null) {
-			ServiceRoom room = serviceRoomRepository.findById(requestedRoomId)
-					.orElseThrow(() -> new ResourceNotFoundException("Service room not found with id: " + requestedRoomId));
+	private void validateCreateStatus(AppointmentStatus status) {
+		if (status == AppointmentStatus.confirmed || status == AppointmentStatus.paid) {
+			throw new IllegalArgumentException("Use the payment flow to confirm or pay an appointment");
+		}
+	}
+
+	private void validateUpdateStatus(Appointment appointment, AppointmentStatus requestedStatus, boolean hasPaidPayment) {
+		if (requestedStatus == null) {
+			throw new IllegalArgumentException("Appointment status is required");
+		}
+		if (appointment.getStatus() == AppointmentStatus.paid && requestedStatus != AppointmentStatus.paid) {
+			throw new IllegalArgumentException("Paid appointment cannot be changed to another status");
+		}
+		if (requestedStatus == AppointmentStatus.confirmed && !hasPaidPayment) {
+			throw new IllegalArgumentException("Use the deposit payment flow to confirm the appointment");
+		}
+		if (requestedStatus == AppointmentStatus.paid && safeAmount(appointment.getRemainingAmount()).compareTo(BigDecimal.ZERO) > 0) {
+			throw new IllegalArgumentException("Appointment cannot be marked paid before the remaining amount is collected");
+		}
+	}
+
+	private ServiceRoom resolveRoomOnCreate(AppointmentStatus status, Integer requestedRoomId, Customer customer,
+			ServiceEntity service, LocalDateTime startTime) {
+		if (requestedRoomId == null) {
+			return null;
+		}
+		ServiceRoom room = serviceRoomRepository.findById(requestedRoomId)
+				.orElseThrow(() -> new ResourceNotFoundException("Service room not found with id: " + requestedRoomId));
+		if (status != AppointmentStatus.pending) {
+			validateAppointmentSlot(null, customer, service, room, startTime);
+		}
+		return room;
+	}
+
+	private ServiceRoom resolveRoomOnUpdate(Integer currentAppointmentId, AppointmentStatus status, Integer requestedRoomId,
+			Customer customer, ServiceEntity service, LocalDateTime startTime) {
+		if (requestedRoomId == null) {
+			return null;
+		}
+		ServiceRoom room = serviceRoomRepository.findById(requestedRoomId)
+				.orElseThrow(() -> new ResourceNotFoundException("Service room not found with id: " + requestedRoomId));
+		if (status != AppointmentStatus.pending) {
 			validateAppointmentSlot(currentAppointmentId, customer, service, room, startTime);
-			return room;
 		}
-		for (ServiceRoom room : serviceRoomRepository.findByIsActiveTrueOrderByIdAsc()) {
-			if (isRoomAvailable(currentAppointmentId, customer, service, room, startTime)) {
-				return room;
-			}
-		}
-		throw new IllegalArgumentException("No service room is available in this time slot");
+		return room;
 	}
 
 	private void validateBasicTime(ServiceEntity service, LocalDateTime startTime) {
@@ -169,7 +216,7 @@ public class AppointmentService {
 			if (currentAppointmentId != null && currentAppointmentId.equals(existing.getId())) {
 				continue;
 			}
-			if (existing.getStatus() == AppointmentStatus.cancelled || existing.getStatus() == AppointmentStatus.paid) {
+			if (!isBlockingStatus(existing.getStatus())) {
 				continue;
 			}
 			if (existing.getRoom() == null || !existing.getRoom().getId().equals(room.getId())) {
@@ -179,12 +226,52 @@ public class AppointmentService {
 			int existingDuration = roundedDuration(existing.getService().getDurationMinutes());
 			LocalDateTime existingEnd = existingStart.plusMinutes(existingDuration);
 			boolean overlap = startTime.isBefore(existingEnd) && endTime.isAfter(existingStart);
-			if (!overlap) {
-				continue;
+			if (overlap) {
+				return false;
 			}
-			return false;
 		}
 		return true;
+	}
+
+	private boolean isBlockingStatus(AppointmentStatus status) {
+		return status == AppointmentStatus.confirmed
+				|| status == AppointmentStatus.completed
+				|| status == AppointmentStatus.paid;
+	}
+
+	private boolean hasCoreFieldChanged(Appointment appointment, Customer customer, ServiceEntity service,
+			LocalDateTime appointmentTime, Integer roomId) {
+		boolean customerChanged = !appointment.getCustomer().getId().equals(customer.getId());
+		boolean serviceChanged = !appointment.getService().getId().equals(service.getId());
+		boolean timeChanged = !appointment.getAppointmentTime().equals(appointmentTime);
+		boolean roomChanged = !sameRoomId(appointment.getRoom(), roomId);
+		return customerChanged || serviceChanged || timeChanged || roomChanged;
+	}
+
+	private boolean sameRoomId(ServiceRoom room, Integer roomId) {
+		if (room == null || roomId == null) {
+			return room == null && roomId == null;
+		}
+		return room.getId().equals(roomId);
+	}
+
+	private void recalculateFinancialSnapshot(Appointment appointment) {
+		BigDecimal total = safeAmount(appointment.getService() == null ? BigDecimal.ZERO : appointment.getService().getPrice());
+		BigDecimal deposit = total.multiply(BigDecimal.valueOf(0.2)).setScale(2, RoundingMode.HALF_UP);
+		BigDecimal amountPaid = paymentRepository.findByAppointmentId(appointment.getId()).stream()
+				.filter(payment -> payment.getPaymentStatus() == PaymentStatus.paid)
+				.map(payment -> payment.getAmount() == null ? BigDecimal.ZERO : payment.getAmount())
+				.reduce(BigDecimal.ZERO, BigDecimal::add)
+				.setScale(2, RoundingMode.HALF_UP);
+		BigDecimal remaining = total.subtract(amountPaid).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+		appointment.setTotalAmount(total);
+		appointment.setDepositAmount(deposit);
+		appointment.setAmountPaid(amountPaid.min(total).setScale(2, RoundingMode.HALF_UP));
+		appointment.setRemainingAmount(remaining);
+	}
+
+	private BigDecimal safeAmount(BigDecimal amount) {
+		return amount == null ? BigDecimal.ZERO : amount.setScale(2, RoundingMode.HALF_UP);
 	}
 
 	private int roundedDuration(Integer durationMinutes) {

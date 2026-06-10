@@ -632,6 +632,18 @@ public class ApiClient {
 		return list;
 	}
 
+	public static List<PaymentRequests.Response> getAllPayments() throws Exception {
+		HttpResponse<String> response = sendGet("/payments");
+		requireStatus(response, 200, "fetch payments");
+
+		var list = new java.util.ArrayList<PaymentRequests.Response>();
+		var jsonArray = com.google.gson.JsonParser.parseString(response.body()).getAsJsonArray();
+		for (var element : jsonArray) {
+			list.add(gson.fromJson(element, PaymentRequests.Response.class));
+		}
+		return list;
+	}
+
 	public static ReportRequests.AppointmentStatsResponse getAppointmentStats() throws Exception {
 		HttpResponse<String> response = sendGet("/reports/appointment-stats");
 		requireStatus(response, 200, "fetch appointment stats");

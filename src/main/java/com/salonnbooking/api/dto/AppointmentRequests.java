@@ -1,6 +1,7 @@
 package com.salonnbooking.api.dto;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 
 import com.salonnbooking.domain.AppointmentStatus;
@@ -36,6 +37,10 @@ public final class AppointmentRequests {
 			Integer roomId,
 			String roomName,
 			LocalDateTime appointmentTime,
+			BigDecimal totalAmount,
+			BigDecimal depositAmount,
+			BigDecimal amountPaid,
+			BigDecimal remainingAmount,
 			AppointmentStatus status,
 			String note) {
 		public static Response from(com.salonnbooking.domain.Appointment a) {
@@ -46,6 +51,10 @@ public final class AppointmentRequests {
 					a.getRoom() == null ? null : a.getRoom().getId(),
 					a.getRoom() == null ? "" : a.getRoom().getName(),
 					a.getAppointmentTime(),
+					a.getTotalAmount(),
+					a.getDepositAmount(),
+					a.getAmountPaid(),
+					a.getRemainingAmount(),
 					a.getStatus(),
 					a.getNote());
 		}

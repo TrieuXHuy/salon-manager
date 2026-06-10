@@ -30,6 +30,10 @@ public class Payment {
 	private BigDecimal amount;
 
 	@Enumerated(EnumType.STRING)
+	@Column(name = "payment_stage", nullable = false, columnDefinition = "nvarchar(50)")
+	private PaymentStage paymentStage = PaymentStage.deposit;
+
+	@Enumerated(EnumType.STRING)
 	@Column(name = "payment_method", columnDefinition = "nvarchar(50)")
 	private PaymentMethod paymentMethod;
 
@@ -58,6 +62,14 @@ public class Payment {
 
 	public void setAmount(BigDecimal amount) {
 		this.amount = amount;
+	}
+
+	public PaymentStage getPaymentStage() {
+		return paymentStage;
+	}
+
+	public void setPaymentStage(PaymentStage paymentStage) {
+		this.paymentStage = paymentStage;
 	}
 
 	public PaymentMethod getPaymentMethod() {

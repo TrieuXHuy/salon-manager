@@ -1,5 +1,6 @@
 package com.salonnbooking.service;
 
+import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
 
@@ -9,7 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.resend.Resend;
-import com.resend.services.emails.model.*;
+import com.resend.services.emails.model.CreateEmailOptions;
+import com.resend.services.emails.model.CreateEmailResponse;
 import com.salonnbooking.domain.Appointment;
 
 @Service
@@ -19,9 +21,7 @@ public class EmailService {
 	private final Resend resend;
 	private final String fromEmail;
 
-	public EmailService(
-			@Value("${resend.api-key}") String apiKey,
-			@Value("${resend.from-email}") String fromEmail) {
+	public EmailService(@Value("${resend.api-key}") String apiKey, @Value("${resend.from-email}") String fromEmail) {
 		this.resend = new Resend(apiKey);
 		this.fromEmail = fromEmail;
 	}
@@ -33,40 +33,22 @@ public class EmailService {
 
 		String toEmail = appointment.getCustomer().getEmail();
 		if (toEmail == null || toEmail.trim().isEmpty()) {
-			log.info("Customer has no email address. Skipping email confirmation for appointment ID: {}", appointment.getId());
+			log.info("Skipping booking confirmation, customer has no email. appointmentId={}", appointment.getId());
 			return;
 		}
 
-		// Build the HTML content on the calling thread (which has an active Hibernate Session)
 		String htmlContent;
 		try {
 			htmlContent = buildConfirmationHtml(appointment);
 		} catch (Exception e) {
-			log.error("Failed to build booking confirmation HTML for appointment ID: {}", appointment.getId(), e);
+			log.error("Failed to build booking confirmation email for appointmentId={}", appointment.getId(), e);
 			return;
 		}
 
-		final String finalHtml = htmlContent;
 		final Integer appointmentId = appointment.getId();
+		final String finalHtml = htmlContent;
 
-		// Run asynchronously to avoid blocking the caller thread
-		CompletableFuture.runAsync(() -> {
-			try {
-				log.info("Sending booking confirmation email to {} for appointment ID: {}", toEmail, appointmentId);
-				
-				CreateEmailOptions sendEmailRequest = CreateEmailOptions.builder()
-						.from(fromEmail)
-						.to(toEmail)
-						.subject("Xác nhận đặt lịch hẹn thành công - Salon Booking")
-						.html(finalHtml)
-						.build();
-
-				CreateEmailResponse data = resend.emails().send(sendEmailRequest);
-				log.info("Email sent successfully. Email ID: {}", data.getId());
-			} catch (Exception e) {
-				log.error("Failed to send booking confirmation email for appointment ID: {}", appointmentId, e);
-			}
-		});
+		CompletableFuture.runAsync(() -> sendEmail(toEmail, appointmentId, "Xác nhận đặt cọc thành công - Salon Booking", finalHtml));
 	}
 
 	public void sendAppointmentReminder(Appointment appointment) {
@@ -76,194 +58,138 @@ public class EmailService {
 
 		String toEmail = appointment.getCustomer().getEmail();
 		if (toEmail == null || toEmail.trim().isEmpty()) {
-			log.info("Customer has no email address. Skipping email reminder for appointment ID: {}", appointment.getId());
+			log.info("Skipping reminder, customer has no email. appointmentId={}", appointment.getId());
 			return;
 		}
 
-		// Build the HTML content on the calling thread (which has an active Hibernate Session)
 		String htmlContent;
 		try {
 			htmlContent = buildReminderHtml(appointment);
 		} catch (Exception e) {
-			log.error("Failed to build appointment reminder HTML for appointment ID: {}", appointment.getId(), e);
+			log.error("Failed to build reminder email for appointmentId={}", appointment.getId(), e);
 			return;
 		}
 
-		final String finalHtml = htmlContent;
 		final Integer appointmentId = appointment.getId();
+		final String finalHtml = htmlContent;
 
-		CompletableFuture.runAsync(() -> {
-			try {
-				log.info("Sending appointment reminder email to {} for appointment ID: {}", toEmail, appointmentId);
-				
-				CreateEmailOptions sendEmailRequest = CreateEmailOptions.builder()
-						.from(fromEmail)
-						.to(toEmail)
-						.subject("Nhắc lịch hẹn dịch vụ tại Salon Booking")
-						.html(finalHtml)
-						.build();
+		CompletableFuture.runAsync(() -> sendEmail(toEmail, appointmentId, "Nhắc lịch hẹn dịch vụ tại Salon Booking", finalHtml));
+	}
 
-				CreateEmailResponse data = resend.emails().send(sendEmailRequest);
-				log.info("Reminder email sent successfully. Email ID: {}", data.getId());
-			} catch (Exception e) {
-				log.error("Failed to send appointment reminder email for appointment ID: {}", appointmentId, e);
-			}
-		});
+	private void sendEmail(String toEmail, Integer appointmentId, String subject, String html) {
+		try {
+			CreateEmailOptions request = CreateEmailOptions.builder()
+					.from(fromEmail)
+					.to(toEmail)
+					.subject(subject)
+					.html(html)
+					.build();
+			CreateEmailResponse response = resend.emails().send(request);
+			log.info("Email sent successfully. appointmentId={}, emailId={}", appointmentId, response.getId());
+		} catch (Exception e) {
+			log.error("Failed to send email. appointmentId={}", appointmentId, e);
+		}
 	}
 
 	private String buildReminderHtml(Appointment appointment) {
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-		String formattedTime = appointment.getAppointmentTime() != null 
-				? appointment.getAppointmentTime().format(formatter) 
-				: "N/A";
-		
-		String customerName = appointment.getCustomer().getFullName();
-		String serviceName = appointment.getService() != null ? appointment.getService().getName() : "N/A";
-		String price = appointment.getService() != null && appointment.getService().getPrice() != null
-				? String.format("%,.0f VNĐ", appointment.getService().getPrice())
-				: "N/A";
-		String roomName = appointment.getRoom() != null ? appointment.getRoom().getName() : "N/A";
-		String note = appointment.getNote() != null && !appointment.getNote().trim().isEmpty() 
-				? appointment.getNote() 
-				: "Không có";
-
-		return "<!DOCTYPE html>"
-				+ "<html>"
-				+ "<head>"
-				+ "    <meta charset='UTF-8'>"
-				+ "    <title>Nhắc nhở lịch hẹn dịch vụ</title>"
-				+ "</head>"
-				+ "<body style='font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; color: #333;'>"
-				+ "    <div style='max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;'>"
-				+ "        <!-- Header -->"
-				+ "        <div style='background: linear-gradient(135deg, #7C3AED, #3B82F6); padding: 30px; text-align: center; color: white;'>"
-				+ "            <h1 style='margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 0.5px;'>Salon Booking System</h1>"
-				+ "            <p style='margin: 5px 0 0; font-size: 14px; opacity: 0.9;'>Thư nhắc lịch hẹn sắp tới</p>"
-				+ "        </div>"
-				+ "        "
-				+ "        <!-- Content -->"
-				+ "        <div style='padding: 30px; line-height: 1.6;'>"
-				+ "            <h2 style='color: #7C3AED; margin-top: 0;'>Xin chào " + customerName + ",</h2>"
-				+ "            <p>Đây là thông báo nhắc lịch hẹn của bạn tại Salon chúng tôi. Vui lòng lưu ý thời gian và đến đúng giờ để trải nghiệm dịch vụ tốt nhất:</p>"
-				+ "            "
-				+ "            <!-- Summary Card -->"
-				+ "            <div style='background-color: #f8f9fa; border-left: 4px solid #7C3AED; padding: 20px; border-radius: 6px; margin: 25px 0;'>"
-				+ "                <table style='width: 100%; border-collapse: collapse;'>"
-				+ "                    <tr>"
-				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555; width: 150px;'>Mã lịch hẹn:</td>"
-				+ "                        <td style='padding: 6px 0; color: #333;'>#" + appointment.getId() + "</td>"
-				+ "                    </tr>"
-				+ "                    <tr>"
-				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Thời gian:</td>"
-				+ "                        <td style='padding: 6px 0; color: #333; font-weight: bold;'>" + formattedTime + "</td>"
-				+ "                    </tr>"
-				+ "                    <tr>"
-				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Dịch vụ:</td>"
-				+ "                        <td style='padding: 6px 0; color: #333;'>" + serviceName + "</td>"
-				+ "                    </tr>"
-				+ "                    <tr>"
-				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Giá tiền:</td>"
-				+ "                        <td style='padding: 6px 0; color: #e63946; font-weight: bold;'>" + price + "</td>"
-				+ "                    </tr>"
-				+ "                    <tr>"
-				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Phòng dịch vụ:</td>"
-				+ "                        <td style='padding: 6px 0; color: #333;'>" + roomName + "</td>"
-				+ "                    </tr>"
-				+ "                    <tr>"
-				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Ghi chú:</td>"
-				+ "                        <td style='padding: 6px 0; color: #666; font-style: italic;'>" + note + "</td>"
-				+ "                    </tr>"
-				+ "                </table>"
-				+ "            </div>"
-				+ "            "
-				+ "            <p style='margin-bottom: 0;'>Nếu bạn muốn thay đổi hoặc hủy lịch hẹn, vui lòng liên hệ với chúng tôi qua số điện thoại của cửa hàng ít nhất 2 tiếng trước giờ hẹn.</p>"
-				+ "        </div>"
-				+ "        "
-				+ "        <!-- Footer -->"
-				+ "        <div style='background-color: #f4f4f9; padding: 20px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #e0e0e0;'>"
-				+ "            <p style='margin: 0;'>Đây là email tự động từ hệ thống Salon Booking. Vui lòng không trả lời trực tiếp email này.</p>"
-				+ "            <p style='margin: 5px 0 0;'>&copy; 2026 Salon Booking System. All rights reserved.</p>"
-				+ "        </div>"
-				+ "    </div>"
-				+ "</body>"
-				+ "</html>";
+		return buildHtml(
+				"Nhắc lịch hẹn dịch vụ",
+				"Bạn đã đặt cọc. Salon đã giữ slot cho bạn.",
+				appointment);
 	}
 
 	private String buildConfirmationHtml(Appointment appointment) {
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-		String formattedTime = appointment.getAppointmentTime() != null 
-				? appointment.getAppointmentTime().format(formatter) 
-				: "N/A";
-		
-		String customerName = appointment.getCustomer().getFullName();
-		String serviceName = appointment.getService() != null ? appointment.getService().getName() : "N/A";
-		String price = appointment.getService() != null && appointment.getService().getPrice() != null
-				? String.format("%,.0f VNĐ", appointment.getService().getPrice())
-				: "N/A";
-		String roomName = appointment.getRoom() != null ? appointment.getRoom().getName() : "N/A";
-		String note = appointment.getNote() != null && !appointment.getNote().trim().isEmpty() 
-				? appointment.getNote() 
-				: "Không có";
+		return buildHtml(
+				"Xác nhận đặt cọc",
+				"Cảm ơn bạn đã đặt cọc. Salon đã giữ slot cho bạn.",
+				appointment);
+	}
 
-		return "<!DOCTYPE html>"
-				+ "<html>"
-				+ "<head>"
-				+ "    <meta charset='UTF-8'>"
-				+ "    <title>Xác nhận đặt lịch</title>"
-				+ "</head>"
-				+ "<body style='font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; color: #333;'>"
-				+ "    <div style='max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;'>"
-				+ "        <!-- Header -->"
-				+ "        <div style='background: linear-gradient(135deg, #6a11cb, #2575fc); padding: 30px; text-align: center; color: white;'>"
-				+ "            <h1 style='margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 0.5px;'>Salon Booking System</h1>"
-				+ "            <p style='margin: 5px 0 0; font-size: 14px; opacity: 0.9;'>Xác nhận lịch hẹn của bạn</p>"
-				+ "        </div>"
-				+ "        "
-				+ "        <!-- Content -->"
-				+ "        <div style='padding: 30px; line-height: 1.6;'>"
-				+ "            <h2 style='color: #2575fc; margin-top: 0;'>Xin chào " + customerName + ",</h2>"
-				+ "            <p>Cảm ơn bạn đã lựa chọn dịch vụ của chúng tôi. Lịch hẹn của bạn đã được đặt thành công. Dưới đây là thông tin chi tiết lịch hẹn:</p>"
-				+ "            "
-				+ "            <!-- Summary Card -->"
-				+ "            <div style='background-color: #f8f9fa; border-left: 4px solid #2575fc; padding: 20px; border-radius: 6px; margin: 25px 0;'>"
-				+ "                <table style='width: 100%; border-collapse: collapse;'>"
-				+ "                    <tr>"
-				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555; width: 150px;'>Mã lịch hẹn:</td>"
-				+ "                        <td style='padding: 6px 0; color: #333;'>#" + appointment.getId() + "</td>"
-				+ "                    </tr>"
-				+ "                    <tr>"
-				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Thời gian:</td>"
-				+ "                        <td style='padding: 6px 0; color: #333; font-weight: bold;'>" + formattedTime + "</td>"
-				+ "                    </tr>"
-				+ "                    <tr>"
-				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Dịch vụ:</td>"
-				+ "                        <td style='padding: 6px 0; color: #333;'>" + serviceName + "</td>"
-				+ "                    </tr>"
-				+ "                    <tr>"
-				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Giá tiền:</td>"
-				+ "                        <td style='padding: 6px 0; color: #e63946; font-weight: bold;'>" + price + "</td>"
-				+ "                    </tr>"
-				+ "                    <tr>"
-				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Phòng dịch vụ:</td>"
-				+ "                        <td style='padding: 6px 0; color: #333;'>" + roomName + "</td>"
-				+ "                    </tr>"
-				+ "                    <tr>"
-				+ "                        <td style='padding: 6px 0; font-weight: bold; color: #555;'>Ghi chú:</td>"
-				+ "                        <td style='padding: 6px 0; color: #666; font-style: italic;'>" + note + "</td>"
-				+ "                    </tr>"
-				+ "                </table>"
-				+ "            </div>"
-				+ "            "
-				+ "            <p style='margin-bottom: 0;'>Nếu bạn muốn thay đổi hoặc hủy lịch hẹn, vui lòng liên hệ với chúng tôi qua số điện thoại của cửa hàng ít nhất 2 tiếng trước giờ hẹn.</p>"
-				+ "        </div>"
-				+ "        "
-				+ "        <!-- Footer -->"
-				+ "        <div style='background-color: #f4f4f9; padding: 20px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #e0e0e0;'>"
-				+ "            <p style='margin: 0;'>Đây là email tự động từ hệ thống Salon Booking. Vui lòng không trả lời trực tiếp email này.</p>"
-				+ "            <p style='margin: 5px 0 0;'>&copy; 2026 Salon Booking System. All rights reserved.</p>"
-				+ "        </div>"
-				+ "    </div>"
-				+ "</body>"
-				+ "</html>";
+	private String buildHtml(String title, String intro, Appointment appointment) {
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+		String formattedTime = appointment.getAppointmentTime() == null ? "N/A" : appointment.getAppointmentTime().format(formatter);
+		String customerName = safe(appointment.getCustomer().getFullName());
+		String serviceName = appointment.getService() == null ? "N/A" : safe(appointment.getService().getName());
+		String totalAmount = money(appointment.getTotalAmount(), appointment.getService() == null ? null : appointment.getService().getPrice());
+		String depositAmount = money(appointment.getDepositAmount(), null);
+		String remainingAmount = money(appointment.getRemainingAmount(), null);
+		String roomName = appointment.getRoom() == null ? "N/A" : safe(appointment.getRoom().getName());
+		String note = (appointment.getNote() == null || appointment.getNote().trim().isEmpty()) ? "Không có" : appointment.getNote();
+		Integer appointmentId = appointment.getId();
+
+		return """
+				<!DOCTYPE html>
+				<html>
+				<head>
+				  <meta charset='UTF-8'>
+				  <title>%s</title>
+				</head>
+				<body style='font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; color: #333;'>
+				  <div style='max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;'>
+				    <div style='background: linear-gradient(135deg, #6a11cb, #2575fc); padding: 30px; text-align: center; color: white;'>
+				      <h1 style='margin: 0; font-size: 24px; font-weight: bold;'>Salon Booking System</h1>
+				      <p style='margin: 5px 0 0; font-size: 14px; opacity: 0.9;'>%s</p>
+				    </div>
+				    <div style='padding: 30px; line-height: 1.6;'>
+				      <h2 style='color: #2575fc; margin-top: 0;'>Xin chào %s,</h2>
+				      <p>%s</p>
+				      <div style='background-color: #f8f9fa; border-left: 4px solid #2575fc; padding: 20px; border-radius: 6px; margin: 25px 0;'>
+				        <table style='width: 100%%; border-collapse: collapse;'>
+				          %s
+				          %s
+				          %s
+				          %s
+				          %s
+				          %s
+				          %s
+				          %s
+				        </table>
+				      </div>
+				    </div>
+				    <div style='background-color: #f4f4f9; padding: 20px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #e0e0e0;'>
+				      <p style='margin: 0;'>Đây là email tự động từ hệ thống Salon Booking. Vui lòng không trả lời trực tiếp email này.</p>
+				    </div>
+				  </div>
+				</body>
+				</html>
+				""".formatted(
+				title,
+				title,
+				escape(customerName),
+				intro,
+				row("Mã lịch hẹn", "#" + safe(appointmentId)),
+				row("Thời gian", formattedTime),
+				row("Dịch vụ", serviceName),
+				row("Tổng tiền", totalAmount),
+				row("Tiền cọc", depositAmount),
+				row("Còn lại", remainingAmount),
+				row("Phòng dịch vụ", roomName),
+				row("Ghi chú", note));
+	}
+
+	private String row(String label, String value) {
+		return "<tr>"
+				+ "<td style='padding: 6px 0; font-weight: bold; color: #555; width: 150px;'>" + escape(label) + ":</td>"
+				+ "<td style='padding: 6px 0; color: #333;'>" + escape(value) + "</td>"
+				+ "</tr>";
+	}
+
+	private String money(BigDecimal preferred, BigDecimal fallback) {
+		BigDecimal value = preferred != null && preferred.compareTo(BigDecimal.ZERO) > 0 ? preferred : fallback;
+		if (value == null) {
+			return "N/A";
+		}
+		return String.format("%,.0f VNĐ", value);
+	}
+
+	private String safe(Object value) {
+		return value == null ? "" : String.valueOf(value);
+	}
+
+	private String escape(String value) {
+		if (value == null) {
+			return "";
+		}
+		return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
 	}
 }
