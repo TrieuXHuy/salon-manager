@@ -1,6 +1,8 @@
 package com.salonnbooking.service;
 
+import java.text.Normalizer;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -10,16 +12,23 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.salonnbooking.api.dto.CustomerRequests;
 import com.salonnbooking.domain.Customer;
+import com.salonnbooking.domain.User;
+import com.salonnbooking.domain.UserRole;
 import com.salonnbooking.exception.ResourceNotFoundException;
 import com.salonnbooking.repository.CustomerRepository;
+import com.salonnbooking.repository.UserRepository;
 
 @Service
 @Transactional
 public class CustomerService {
-	private final CustomerRepository customerRepository;
+	private static final String DEFAULT_CUSTOMER_PASSWORD = "123456";
 
-	public CustomerService(CustomerRepository customerRepository) {
+	private final CustomerRepository customerRepository;
+	private final UserRepository userRepository;
+
+	public CustomerService(CustomerRepository customerRepository, UserRepository userRepository) {
 		this.customerRepository = customerRepository;
+		this.userRepository = userRepository;
 	}
 
 	@Transactional(readOnly = true)
@@ -73,7 +82,16 @@ public class CustomerService {
 	}
 
 	public Customer save(CustomerRequests.Create req) {
+		String username = uniqueCustomerUsername(req.fullName());
+
+		User user = new User();
+		user.setUsername(username);
+		user.setPassword(DEFAULT_CUSTOMER_PASSWORD);
+		user.setRole(UserRole.CUSTOMER);
+		userRepository.save(user);
+
 		Customer customer = new Customer();
+		customer.setUsername(username);
 		customer.setFullName(req.fullName());
 		customer.setPhone(req.phone());
 		customer.setEmail(req.email());
@@ -136,6 +154,30 @@ public class CustomerService {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username is required");
 		}
 		return username.trim();
+	}
+
+	private String uniqueCustomerUsername(String fullName) {
+		String base = normalizeFullNameForUsername(fullName);
+		String candidate = base;
+		int suffix = 2;
+		while (userRepository.existsByUsername(candidate) || customerRepository.existsByUsername(candidate)) {
+			String suffixText = String.valueOf(suffix++);
+			int maxBaseLength = Math.max(1, 50 - suffixText.length());
+			candidate = base.substring(0, Math.min(base.length(), maxBaseLength)) + suffixText;
+		}
+		return candidate;
+	}
+
+	private String normalizeFullNameForUsername(String fullName) {
+		String value = fullName == null ? "" : fullName.trim().toLowerCase(Locale.ROOT);
+		value = Normalizer.normalize(value, Normalizer.Form.NFD)
+				.replaceAll("\\p{M}", "")
+				.replace("đ", "d");
+		value = value.replaceAll("[^a-z0-9]", "");
+		if (value.isBlank()) {
+			value = "customer";
+		}
+		return value.length() > 50 ? value.substring(0, 50) : value;
 	}
 
 	private String normalizePhone(String phone) {
