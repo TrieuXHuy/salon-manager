@@ -9,6 +9,7 @@ import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -1053,11 +1054,25 @@ public class SalonFxApplication extends Application {
         private UsersViewV2() {
             getStyleClass().add("page");
             pageButtons.getStyleClass().add("page-buttons");
-            getChildren().addAll(
+            VBox top = new VBox(20,
                     pageHeader("Tài khoản", "Quản lý người dùng và phân quyền", "Làm mới", e -> load()),
-                    filters(),
-                    tableCard(),
-                    actionsBar());
+                    filters());
+            Node tableSection = tableCard();
+            Node actionSection = actionsBar();
+            BorderPane layout = new BorderPane();
+            layout.setTop(top);
+            layout.setCenter(tableSection);
+            layout.setBottom(actionSection);
+            BorderPane.setMargin(top, new Insets(0, 0, 12, 0));
+            BorderPane.setMargin(tableSection, new Insets(0, 0, 12, 0));
+            BorderPane.setMargin(actionSection, new Insets(0, 0, 0, 0));
+            layout.setMaxWidth(Double.MAX_VALUE);
+            layout.setMaxHeight(Double.MAX_VALUE);
+            BorderPane.setAlignment(actionSection, Pos.BOTTOM_LEFT);
+            VBox.setVgrow(layout, Priority.ALWAYS);
+            getChildren().add(layout);
+            setMaxWidth(Double.MAX_VALUE);
+            setMaxHeight(Double.MAX_VALUE);
             configureTable();
             load();
         }
@@ -1085,10 +1100,16 @@ public class SalonFxApplication extends Application {
         }
 
         private Node tableCard() {
-            VBox box = new VBox(10, table, paginationBar());
+            VBox box = new VBox(table, paginationBar());
             box.setFillWidth(true);
-            StackPane card = new StackPane(box);
+            box.setAlignment(Pos.TOP_CENTER);
+            VBox.setVgrow(table, Priority.ALWAYS);
+            table.setMaxHeight(Double.MAX_VALUE);
+            BorderPane card = new BorderPane();
             card.getStyleClass().addAll("card", "table-card");
+            card.setCenter(box);
+            card.setMaxWidth(Double.MAX_VALUE);
+            card.setMaxHeight(Double.MAX_VALUE);
             return card;
         }
 
@@ -1108,6 +1129,7 @@ public class SalonFxApplication extends Application {
             HBox.setHgrow(spacer, Priority.ALWAYS);
             HBox row = new HBox(10, createButton, editButton, deleteButton, spacer);
             row.setAlignment(Pos.CENTER_LEFT);
+            row.setMaxWidth(Double.MAX_VALUE);
             createButton.setOnAction(e -> openCreateDialog());
             editButton.setOnAction(e -> openEditDialog(selectedUser()));
             deleteButton.setOnAction(e -> deleteSelected());
