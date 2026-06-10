@@ -308,6 +308,62 @@
     -fx-alignment: center-left;
 }
 
+.table-footer {
+    -fx-padding: 12px 2px 12px 2px;
+    -fx-border-color: #DDE3EE transparent transparent transparent;
+    -fx-border-width: 1px 0 0 0;
+}
+
+.page-buttons {
+    -fx-alignment: center;
+}
+
+.page-buttons .page-number {
+    -fx-min-width: 30px;
+    -fx-min-height: 30px;
+    -fx-padding: 0 8px;
+    -fx-background-radius: 5px;
+    -fx-border-radius: 5px;
+    -fx-border-color: #A3A3A3;
+    -fx-background-color: white;
+    -fx-text-fill: #111111;
+    -fx-font-weight: 700;
+}
+
+.page-buttons .page-number:hover {
+    -fx-background-color: #F3F4F6;
+    -fx-border-color: #7C7C7C;
+}
+
+.page-buttons .page-jump {
+    -fx-min-width: 30px;
+    -fx-min-height: 30px;
+    -fx-padding: 0 8px;
+    -fx-background-radius: 5px;
+    -fx-border-radius: 5px;
+    -fx-border-color: #A3A3A3;
+    -fx-background-color: white;
+    -fx-text-fill: #111111;
+    -fx-font-weight: 700;
+}
+
+.page-buttons .page-jump:hover {
+    -fx-background-color: #F3F4F6;
+    -fx-border-color: #7C7C7C;
+}
+
+.page-buttons .page-ellipsis {
+    -fx-padding: 0 4px;
+    -fx-text-fill: #9CA3AF;
+    -fx-font-weight: 700;
+}
+
+.page-buttons .button.selected-page {
+    -fx-background-color: #3B82F6;
+    -fx-text-fill: white;
+    -fx-border-color: #3B82F6;
+}
+
 /* TableView Customization */
 .table-view {
     -fx-background-color: transparent;
@@ -316,7 +372,7 @@
 
 .table-view .column-header-background {
     -fx-background-color: #EEF2F7;
-    -fx-background-radius: 8px 8px 0 0;
+    -fx-background-radius: 10px 10px 0 0;
 }
 
 .table-view .column-header, .table-view .filler {
@@ -337,7 +393,7 @@
 .table-row-cell {
     -fx-background-color: -card-bg;
     -fx-border-color: transparent transparent -border-color transparent;
-    -fx-cell-size: 48px;
+    -fx-cell-size: 44px;
     -fx-text-fill: #334155;
     -fx-font-size: 13.5px;
 }
@@ -355,17 +411,17 @@
 }
 
 .table-row-cell:hover {
-    -fx-background-color: #F1F5F9;
+    -fx-background-color: #F8FAFC;
 }
 
 .table-row-cell:selected {
-    -fx-background-color: -primary-light;
+    -fx-background-color: #EDE9FE;
     -fx-text-background-color: -text-main;
 }
 
 /* Avoid focus border on table cells */
 .table-view:focused .table-row-cell:selected {
-    -fx-background-color: -primary-light;
+    -fx-background-color: #EDE9FE;
 }
 
 /* Status Badges & Chips */

@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -57,9 +58,21 @@ public class AuthController {
 		return AuthRequests.UserResponse.from(authService.createUser(req));
 	}
 
+	@PutMapping("/users/{id}")
+	public AuthRequests.UserResponse updateUser(@PathVariable Integer id,
+			@Valid @RequestBody AuthRequests.UpdateUser req) {
+		return AuthRequests.UserResponse.from(authService.updateUser(id, req));
+	}
+
 	@PutMapping("/users/{id}/role")
 	public AuthRequests.UserResponse changeRole(@PathVariable Integer id,
 			@Valid @RequestBody AuthRequests.ChangeRole req) {
 		return AuthRequests.UserResponse.from(authService.changeRole(id, req));
+	}
+
+	@DeleteMapping("/users/{id}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void deleteUser(@PathVariable Integer id, @RequestParam String requesterUsername) {
+		authService.deleteUser(id, requesterUsername);
 	}
 }

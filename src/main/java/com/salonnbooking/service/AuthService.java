@@ -76,6 +76,41 @@ public class AuthService {
 		return userRepository.save(user);
 	}
 
+	public User updateUser(Integer userId, AuthRequests.UpdateUser req) {
+		requireOwner(req.requesterUsername());
+		if (req.role() == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role is required");
+		}
+
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+		String username = req.username().trim();
+		if (username.isBlank()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username is required");
+		}
+		if (!username.equals(user.getUsername()) && userRepository.existsByUsername(username)) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+		}
+
+		user.setUsername(username);
+		if (req.password() != null && !req.password().isBlank()) {
+			user.setPassword(req.password());
+		}
+		user.setRole(req.role());
+		return userRepository.save(user);
+	}
+
+	public void deleteUser(Integer userId, String requesterUsername) {
+		requireOwner(requesterUsername);
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+		if (user.getUsername() != null && user.getUsername().equals(requesterUsername.trim())) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot delete your own account");
+		}
+		userRepository.delete(user);
+	}
+
 	private void requireOwner(String username) {
 		User requester = userRepository.findByUsername(username.trim())
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Requester not found"));

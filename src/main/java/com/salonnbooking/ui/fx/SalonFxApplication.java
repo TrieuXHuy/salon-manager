@@ -205,7 +205,7 @@ public class SalonFxApplication extends Application {
             case "services" -> new ServicesView();
             case "rooms" -> new RoomsView();
             case "reports" -> new ReportsView();
-            case "users" -> new UsersView();
+            case "users" -> new UsersViewV2();
             default -> new DashboardView();
         };
         workspace.getChildren().setAll(view);
@@ -1032,6 +1032,319 @@ public class SalonFxApplication extends Application {
                     table);
             VBox.setVgrow(table, Priority.ALWAYS);
             return box;
+        }
+    }
+
+    private final class UsersViewV2 extends VBox {
+        private static final int PAGE_SIZE = 6;
+
+        private final TableView<AuthRequests.UserResponse> table = new TableView<>();
+        private final TextField usernameFilter = new TextField();
+        private final ComboBox<UserRole> roleFilter = new ComboBox<>();
+        private final Label summaryLabel = new Label("0 tài khoản");
+        private final FlowPane pageButtons = new FlowPane(6, 6);
+        private final Button createButton = primaryButton("Tạo tài khoản");
+        private final Button editButton = secondaryButton("Sửa tài khoản");
+        private final Button deleteButton = dangerButton("Xóa tài khoản");
+        private List<AuthRequests.UserResponse> allUsers = List.of();
+        private List<AuthRequests.UserResponse> filteredUsers = List.of();
+        private int currentPage = 0;
+
+        private UsersViewV2() {
+            getStyleClass().add("page");
+            pageButtons.getStyleClass().add("page-buttons");
+            getChildren().addAll(
+                    pageHeader("Tài khoản", "Quản lý người dùng và phân quyền", "Làm mới", e -> load()),
+                    filters(),
+                    tableCard(),
+                    actionsBar());
+            configureTable();
+            load();
+        }
+
+        private Node filters() {
+            usernameFilter.setPromptText("Tìm theo tên đăng nhập");
+            roleFilter.getItems().setAll(UserRole.values());
+            roleFilter.setConverter(stringConverter(UserRole::getDisplayName));
+            roleFilter.setPromptText("Tất cả vai trò");
+
+            Button clear = secondaryButton("Xóa lọc");
+            clear.setOnAction(e -> {
+                usernameFilter.clear();
+                roleFilter.setValue(null);
+                applyFilters();
+            });
+
+            usernameFilter.textProperty().addListener((obs, oldValue, newValue) -> applyFilters());
+            roleFilter.valueProperty().addListener((obs, oldValue, newValue) -> applyFilters());
+
+            HBox row = new HBox(10, usernameFilter, roleFilter, clear);
+            row.getStyleClass().add("filter-bar");
+            HBox.setHgrow(usernameFilter, Priority.ALWAYS);
+            return card(row);
+        }
+
+        private Node tableCard() {
+            VBox box = new VBox(10, table, paginationBar());
+            box.setFillWidth(true);
+            StackPane card = new StackPane(box);
+            card.getStyleClass().addAll("card", "table-card");
+            return card;
+        }
+
+        private Node paginationBar() {
+            BorderPane bar = new BorderPane();
+            bar.setLeft(summaryLabel);
+            bar.setCenter(pageButtons);
+            BorderPane.setAlignment(summaryLabel, Pos.CENTER_LEFT);
+            BorderPane.setAlignment(pageButtons, Pos.CENTER);
+            bar.getStyleClass().add("table-footer");
+            return bar;
+        }
+
+        private Node actionsBar() {
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+            HBox row = new HBox(10, createButton, editButton, deleteButton, spacer);
+            row.setAlignment(Pos.CENTER_LEFT);
+            createButton.setOnAction(e -> openCreateDialog());
+            editButton.setOnAction(e -> openEditDialog(selectedUser()));
+            deleteButton.setOnAction(e -> deleteSelected());
+            editButton.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+            deleteButton.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+            return card(row);
+        }
+
+        private void configureTable() {
+            column(table, "ID", AuthRequests.UserResponse::id, 80);
+            column(table, "Tên đăng nhập", AuthRequests.UserResponse::username, 220);
+            column(table, "Vai trò", u -> u.role() == null ? "" : u.role().getDisplayName(), 180);
+            table.setPlaceholder(new Label("Không có tài khoản phù hợp"));
+            table.setFixedCellSize(44);
+            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        }
+
+        private void load() {
+            runAsync(() -> ApiClient.getUsers(username), list -> {
+                allUsers = list == null ? List.of() : list.stream()
+                        .sorted(Comparator.comparing(AuthRequests.UserResponse::id, Comparator.nullsLast(Integer::compareTo)))
+                        .toList();
+                currentPage = 0;
+                applyFilters();
+            }, ex -> error("Lỗi tải tài khoản", cleanError(ex)));
+        }
+
+        private void applyFilters() {
+            String keyword = usernameFilter.getText() == null ? "" : usernameFilter.getText().trim().toLowerCase(Locale.ROOT);
+            UserRole selectedRole = roleFilter.getValue();
+            filteredUsers = allUsers.stream()
+                    .filter(user -> keyword.isBlank() || (user.username() != null
+                            && user.username().toLowerCase(Locale.ROOT).contains(keyword)))
+                    .filter(user -> selectedRole == null || user.role() == selectedRole)
+                    .toList();
+
+            int totalPages = Math.max(1, (int) Math.ceil(filteredUsers.size() / (double) PAGE_SIZE));
+            if (currentPage >= totalPages) {
+                currentPage = totalPages - 1;
+            }
+            if (currentPage < 0) {
+                currentPage = 0;
+            }
+            refreshTablePage();
+        }
+
+        private void refreshTablePage() {
+            int totalPages = Math.max(1, (int) Math.ceil(filteredUsers.size() / (double) PAGE_SIZE));
+            int fromIndex = Math.min(currentPage * PAGE_SIZE, filteredUsers.size());
+            int toIndex = Math.min(fromIndex + PAGE_SIZE, filteredUsers.size());
+            List<AuthRequests.UserResponse> pageItems = filteredUsers.subList(fromIndex, toIndex);
+            table.setItems(FXCollections.observableArrayList(pageItems));
+            double headerHeight = 44;
+            double rowHeight = table.getFixedCellSize() > 0 ? table.getFixedCellSize() : 44;
+            double tableHeight = headerHeight + Math.max(1, pageItems.size()) * rowHeight + 4;
+            table.setPrefHeight(tableHeight);
+            table.setMinHeight(tableHeight);
+            table.setMaxHeight(tableHeight);
+            summaryLabel.setText(filteredUsers.size() + " tài khoản");
+            rebuildPageButtons(totalPages);
+        }
+
+        private void goToPage(int page) {
+            int totalPages = Math.max(1, (int) Math.ceil(filteredUsers.size() / (double) PAGE_SIZE));
+            currentPage = Math.max(0, Math.min(page, totalPages - 1));
+            refreshTablePage();
+        }
+
+        private void rebuildPageButtons(int totalPages) {
+            pageButtons.getChildren().clear();
+            pageButtons.setVisible(totalPages > 1);
+            pageButtons.setManaged(totalPages > 1);
+
+            pageButtons.getChildren().add(pageJumpButton("«", 0, currentPage == 0));
+            pageButtons.getChildren().add(pageJumpButton("‹", Math.max(0, currentPage - 1), currentPage == 0));
+
+            int visibleWindow = 2;
+            int start = Math.max(0, currentPage - visibleWindow);
+            int end = Math.min(totalPages - 1, currentPage + visibleWindow);
+
+            if (start > 0) {
+                addPageButton(0, totalPages);
+                if (start > 1) {
+                    pageButtons.getChildren().add(pageEllipsis());
+                }
+            }
+
+            for (int i = start; i <= end; i++) {
+                addPageButton(i, totalPages);
+            }
+
+            if (end < totalPages - 1) {
+                if (end < totalPages - 2) {
+                    pageButtons.getChildren().add(pageEllipsis());
+                }
+                addPageButton(totalPages - 1, totalPages);
+            }
+
+            pageButtons.getChildren().add(pageJumpButton("›", Math.min(totalPages - 1, currentPage + 1), currentPage >= totalPages - 1));
+            pageButtons.getChildren().add(pageJumpButton("»", totalPages - 1, currentPage >= totalPages - 1));
+        }
+
+        private void addPageButton(int pageIndex, int totalPages) {
+            Button pageButton = secondaryButton(String.valueOf(pageIndex + 1));
+            pageButton.getStyleClass().add("page-number");
+            if (pageIndex == currentPage) {
+                pageButton.getStyleClass().add("selected-page");
+                pageButton.setDisable(true);
+            }
+            pageButton.setOnAction(e -> goToPage(pageIndex));
+            pageButtons.getChildren().add(pageButton);
+        }
+
+        private Label pageEllipsis() {
+            Label ellipsis = new Label("...");
+            ellipsis.getStyleClass().add("page-ellipsis");
+            return ellipsis;
+        }
+
+        private Button pageJumpButton(String text, int targetPage, boolean disabled) {
+            Button button = secondaryButton(text);
+            button.getStyleClass().add("page-jump");
+            button.setDisable(disabled);
+            button.setOnAction(e -> goToPage(targetPage));
+            return button;
+        }
+
+        private AuthRequests.UserResponse selectedUser() {
+            return table.getSelectionModel().getSelectedItem();
+        }
+
+        private void openCreateDialog() {
+            showUserDialog("Tạo tài khoản", null, false);
+        }
+
+        private void openEditDialog(AuthRequests.UserResponse user) {
+            if (user == null) {
+                warn("Chưa chọn tài khoản", "Vui lòng chọn tài khoản để sửa.");
+                return;
+            }
+            showUserDialog("Sửa tài khoản", user, true);
+        }
+
+        private void showUserDialog(String title, AuthRequests.UserResponse user, boolean editing) {
+            Dialog<ButtonType> dialog = new Dialog<>();
+            dialog.initOwner(stage);
+            dialog.initModality(Modality.APPLICATION_MODAL);
+            dialog.setTitle(title);
+
+            ButtonType saveType = new ButtonType("Lưu", ButtonBar.ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(saveType, ButtonType.CANCEL);
+            dialog.getDialogPane().getStylesheets().add(stylesheet());
+
+            TextField usernameField = new TextField();
+            PasswordField passwordField = new PasswordField();
+            ComboBox<UserRole> roleBox = new ComboBox<>(FXCollections.observableArrayList(UserRole.values()));
+            roleBox.setConverter(stringConverter(UserRole::getDisplayName));
+            roleBox.setMaxWidth(Double.MAX_VALUE);
+
+            usernameField.setPromptText("Tên đăng nhập");
+            passwordField.setPromptText(editing ? "Nhập mật khẩu mới (để trống nếu không đổi)" : "Mật khẩu");
+            roleBox.setPromptText("Chọn vai trò");
+
+            if (user != null) {
+                usernameField.setText(user.username());
+                roleBox.setValue(user.role());
+            } else {
+                roleBox.setValue(UserRole.STAFF);
+            }
+
+            boolean selfEdit = editing && user != null && Objects.equals(user.username(), username);
+            if (selfEdit) {
+                roleBox.setDisable(true);
+            }
+
+            Label hint = new Label(editing
+                    ? "Mật khẩu có thể để trống để giữ nguyên."
+                    : "Tài khoản mới sẽ được thêm vào danh sách.");
+            hint.getStyleClass().add("muted");
+
+            GridPane grid = formGrid();
+            grid.addRow(0, labeled("Tên đăng nhập", usernameField), labeled("Mật khẩu", passwordField));
+            grid.addRow(1, labeled("Vai trò", roleBox), new Pane());
+
+            VBox content = new VBox(12, sectionTitle(title), hint, grid);
+            dialog.getDialogPane().setContent(content);
+
+            Optional<ButtonType> result = dialog.showAndWait();
+            if (result.isEmpty() || result.get() != saveType) {
+                return;
+            }
+
+            String newUsername = usernameField.getText().trim();
+            String password = passwordField.getText();
+            UserRole selectedRole = roleBox.getValue();
+            if (newUsername.isBlank()) {
+                warn("Thiếu thông tin", "Vui lòng nhập tên đăng nhập.");
+                return;
+            }
+            if (!editing && (password == null || password.isBlank())) {
+                warn("Thiếu thông tin", "Vui lòng nhập mật khẩu.");
+                return;
+            }
+            if (selectedRole == null) {
+                warn("Thiếu thông tin", "Vui lòng chọn vai trò.");
+                return;
+            }
+
+            if (editing && user != null) {
+                runAsync(() -> ApiClient.updateUser(user.id(), username, newUsername, password, selectedRole), saved -> {
+                    if (Objects.equals(user.username(), username) && !Objects.equals(newUsername, user.username())) {
+                        SalonFxApplication.this.username = newUsername;
+                    }
+                    load();
+                }, ex -> error("Lỗi cập nhật tài khoản", cleanError(ex)));
+            } else {
+                runAsync(() -> ApiClient.createUser(username, newUsername, password, selectedRole), saved -> load(),
+                        ex -> error("Lỗi tạo tài khoản", cleanError(ex)));
+            }
+        }
+
+        private void deleteSelected() {
+            AuthRequests.UserResponse user = selectedUser();
+            if (user == null) {
+                warn("Chưa chọn tài khoản", "Vui lòng chọn tài khoản để xóa.");
+                return;
+            }
+            if (Objects.equals(user.username(), username)) {
+                warn("Không thể xóa", "Không thể xóa tài khoản đang đăng nhập.");
+                return;
+            }
+            if (!confirm("Xóa tài khoản", "Bạn có chắc chắn muốn xóa tài khoản \"" + user.username() + "\" không?")) {
+                return;
+            }
+            runAsync(() -> {
+                ApiClient.deleteUser(user.id(), username);
+                return null;
+            }, ignored -> load(), ex -> error("Lỗi xóa tài khoản", cleanError(ex)));
         }
     }
 

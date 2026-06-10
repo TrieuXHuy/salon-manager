@@ -27,6 +27,13 @@ public final class AuthRequests {
 			UserRole role) {
 	}
 
+	public record UpdateUser(
+			@NotBlank @Size(max = 50) String requesterUsername,
+			@NotBlank @Size(max = 50) String username,
+			String password,
+			UserRole role) {
+	}
+
 	public record Response(
 			Integer id,
 			String username,

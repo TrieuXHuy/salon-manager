@@ -108,6 +108,14 @@ public class ApiClient {
 		return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 	}
 
+	private static HttpResponse<String> sendDelete(String path) throws IOException, InterruptedException {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(BASE_URL + path))
+				.DELETE()
+				.build();
+		return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+	}
+
 	// ==================== AUTH API ====================
 
 	public static AuthRequests.Response login(String username, String password) throws Exception {
@@ -148,12 +156,26 @@ public class ApiClient {
 		return gson.fromJson(response.body(), AuthRequests.UserResponse.class);
 	}
 
+	public static AuthRequests.UserResponse updateUser(Integer userId, String requesterUsername, String username,
+			String password, UserRole role) throws Exception {
+		HttpResponse<String> response = sendPut("/auth/users/" + userId,
+				new AuthRequests.UpdateUser(requesterUsername, username, password, role));
+		requireStatus(response, 200, "update user");
+		return gson.fromJson(response.body(), AuthRequests.UserResponse.class);
+	}
+
 	public static AuthRequests.UserResponse changeUserRole(Integer userId, String requesterUsername, UserRole role)
 			throws Exception {
 		HttpResponse<String> response = sendPut("/auth/users/" + userId + "/role",
 				new AuthRequests.ChangeRole(requesterUsername, role));
 		requireStatus(response, 200, "change user role");
 		return gson.fromJson(response.body(), AuthRequests.UserResponse.class);
+	}
+
+	public static void deleteUser(Integer userId, String requesterUsername) throws Exception {
+		String encodedRequester = java.net.URLEncoder.encode(requesterUsername, java.nio.charset.StandardCharsets.UTF_8);
+		HttpResponse<String> response = sendDelete("/auth/users/" + userId + "?requesterUsername=" + encodedRequester);
+		requireStatus(response, 204, "delete user");
 	}
 
 	// ==================== CUSTOMER API ====================
