@@ -1094,6 +1094,7 @@ public class SalonFxApplication extends Application {
 
         private Node paginationBar() {
             BorderPane bar = new BorderPane();
+            summaryLabel.getStyleClass().add("table-summary");
             bar.setLeft(summaryLabel);
             bar.setCenter(pageButtons);
             BorderPane.setAlignment(summaryLabel, Pos.CENTER_LEFT);

@@ -314,6 +314,10 @@
     -fx-border-width: 1px 0 0 0;
 }
 
+.table-summary {
+    -fx-padding: 0 0 0 10px;
+}
+
 .page-buttons {
     -fx-alignment: center;
 }
