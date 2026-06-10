@@ -203,7 +203,7 @@ public class SalonFxApplication extends Application {
         Node view = switch (route) {
             case "customers" -> new CustomersViewV2();
             case "appointments" -> new AppointmentsViewV2();
-            case "services" -> new ServicesView();
+            case "services" -> new ServicesViewV2();
             case "rooms" -> new RoomsView();
             case "reports" -> new ReportsView();
             case "users" -> new UsersViewV2();
@@ -971,6 +971,410 @@ public class SalonFxApplication extends Application {
             description.clear();
             active.setSelected(false);
             table.getSelectionModel().clearSelection();
+        }
+    }
+
+    private final class ServicesViewV2 extends VBox {
+        private int pageSize = 6;
+
+        private final TableView<ServiceRequests.Response> table = new TableView<>();
+        private final TextField serviceSearch = new TextField();
+        private final ComboBox<String> statusFilter = new ComboBox<>();
+        private final Label summaryLabel = new Label("0 dịch vụ");
+        private final FlowPane pageButtons = new FlowPane(6, 6);
+
+        private final Button createButton = primaryButton("Thêm dịch vụ");
+        private final Button editButton = secondaryButton("Cập nhật dịch vụ");
+        private final Button deleteButton = dangerButton("Xóa dịch vụ");
+        private final Button clearButton = ghostButton("Bỏ chọn");
+
+        private List<ServiceRequests.Response> allServices = List.of();
+        private List<ServiceRequests.Response> filteredServices = List.of();
+        private int currentPage = 0;
+
+        private ServicesViewV2() {
+            getStyleClass().add("page");
+            pageButtons.getStyleClass().add("page-buttons");
+
+            VBox top = new VBox(20,
+                    pageHeader("Dịch vụ", "Cập nhật danh mục, thời lượng và bảng giá", "Làm mới", e -> load()),
+                    filters());
+
+            Node tableSection = tableCard();
+            Node actionSection = actionsBar();
+
+            BorderPane layout = new BorderPane();
+            layout.setTop(top);
+            layout.setCenter(tableSection);
+            layout.setBottom(actionSection);
+            BorderPane.setMargin(top, new Insets(0, 0, 12, 0));
+            BorderPane.setMargin(tableSection, new Insets(0, 0, 12, 0));
+            layout.setMaxWidth(Double.MAX_VALUE);
+            layout.setMaxHeight(Double.MAX_VALUE);
+            BorderPane.setAlignment(actionSection, Pos.BOTTOM_LEFT);
+            VBox.setVgrow(layout, Priority.ALWAYS);
+            getChildren().add(layout);
+            setMaxWidth(Double.MAX_VALUE);
+            setMaxHeight(Double.MAX_VALUE);
+
+            configureServiceTable();
+            load();
+        }
+
+        private Node filters() {
+            serviceSearch.setPromptText("Tìm theo tên dịch vụ hoặc mô tả");
+
+            statusFilter.getItems().setAll("Tất cả trạng thái", "Hoạt động", "Không hoạt động");
+            statusFilter.setValue("Tất cả trạng thái");
+            statusFilter.setPromptText("Tất cả trạng thái");
+            statusFilter.setMaxWidth(180);
+
+            Button clear = secondaryButton("Xóa lọc");
+            clear.setOnAction(e -> {
+                serviceSearch.clear();
+                statusFilter.setValue("Tất cả trạng thái");
+                applyFilters();
+            });
+
+            serviceSearch.textProperty().addListener((obs, oldValue, newValue) -> {
+                currentPage = 0;
+                applyFilters();
+            });
+            statusFilter.valueProperty().addListener((obs, oldValue, newValue) -> {
+                currentPage = 0;
+                applyFilters();
+            });
+
+            HBox row = new HBox(10, serviceSearch, statusFilter, clear);
+            row.getStyleClass().add("filter-bar");
+            HBox.setHgrow(serviceSearch, Priority.ALWAYS);
+            return card(row);
+        }
+
+        private Node tableCard() {
+            VBox box = new VBox(table, paginationBar());
+            box.setFillWidth(true);
+            box.setAlignment(Pos.TOP_CENTER);
+
+            VBox.setVgrow(table, Priority.ALWAYS);
+            table.setMaxHeight(Double.MAX_VALUE);
+
+            BorderPane tableCard = new BorderPane();
+            tableCard.getStyleClass().addAll("card", "table-card");
+            tableCard.setCenter(box);
+            tableCard.setMaxWidth(Double.MAX_VALUE);
+            tableCard.setMaxHeight(Double.MAX_VALUE);
+
+            tableCard.heightProperty().addListener((obs, oldHeight, newHeight) ->
+                    recalculatePageSize(newHeight.doubleValue()));
+
+            return tableCard;
+        }
+
+        private Node paginationBar() {
+            BorderPane bar = new BorderPane();
+            summaryLabel.getStyleClass().add("table-summary");
+            bar.setLeft(summaryLabel);
+            bar.setCenter(pageButtons);
+            BorderPane.setAlignment(summaryLabel, Pos.CENTER_LEFT);
+            BorderPane.setAlignment(pageButtons, Pos.CENTER);
+            bar.getStyleClass().add("table-footer");
+            return bar;
+        }
+
+        private Node actionsBar() {
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
+            HBox row = new HBox(10, createButton, editButton, deleteButton, clearButton, spacer);
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.setMaxWidth(Double.MAX_VALUE);
+
+            createButton.setOnAction(e -> openCreateDialog());
+            editButton.setOnAction(e -> openEditDialog(selectedService()));
+            deleteButton.setOnAction(e -> deleteSelected());
+            clearButton.setOnAction(e -> table.getSelectionModel().clearSelection());
+
+            editButton.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+            deleteButton.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+            clearButton.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+
+            return card(row);
+        }
+
+        private void configureServiceTable() {
+            column(table, "ID", ServiceRequests.Response::id, 70);
+            column(table, "Tên", ServiceRequests.Response::name, 220);
+            column(table, "Giá", s -> money(s.price()), 140);
+            column(table, "Phút", ServiceRequests.Response::durationMinutes, 90);
+
+            TableColumn<ServiceRequests.Response, Boolean> statusCol = new TableColumn<>("Trạng thái");
+            statusCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().isActive()));
+            statusCol.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+                @Override
+                protected void updateItem(Boolean item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setGraphic(null);
+                    } else {
+                        setGraphic(createBadge(item ? "Hoạt động" : "Không hoạt động",
+                                item ? "status-active" : "status-inactive"));
+                        setAlignment(Pos.CENTER);
+                    }
+                }
+            });
+            statusCol.setPrefWidth(130);
+            table.getColumns().add(statusCol);
+
+            column(table, "Mô tả", ServiceRequests.Response::description, 300);
+
+            table.setPlaceholder(new Label("Không có dịch vụ phù hợp"));
+            table.setFixedCellSize(44);
+            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        }
+
+        private void load() {
+            runAsync(ApiClient::getAllServices, list -> {
+                allServices = list == null ? List.of() : list.stream()
+                        .sorted(Comparator.comparing(ServiceRequests.Response::id, Comparator.nullsLast(Integer::compareTo)))
+                        .toList();
+                currentPage = 0;
+                applyFilters();
+            }, ex -> error("Lỗi tải dịch vụ", cleanError(ex)));
+        }
+
+        private void applyFilters() {
+            String keyword = serviceSearch.getText() == null ? "" : serviceSearch.getText().trim().toLowerCase(Locale.ROOT);
+            String selectedStatus = statusFilter.getValue();
+
+            filteredServices = allServices.stream()
+                    .filter(service -> keyword.isBlank()
+                            || orEmpty(service.name()).toLowerCase(Locale.ROOT).contains(keyword)
+                            || orEmpty(service.description()).toLowerCase(Locale.ROOT).contains(keyword))
+                    .filter(service -> selectedStatus == null
+                            || "Tất cả trạng thái".equals(selectedStatus)
+                            || ("Hoạt động".equals(selectedStatus) && Boolean.TRUE.equals(service.isActive()))
+                            || ("Không hoạt động".equals(selectedStatus) && !Boolean.TRUE.equals(service.isActive())))
+                    .toList();
+
+            int totalPages = Math.max(1, (int) Math.ceil(filteredServices.size() / (double) pageSize));
+            if (currentPage >= totalPages) {
+                currentPage = totalPages - 1;
+            }
+            if (currentPage < 0) {
+                currentPage = 0;
+            }
+            refreshTablePage();
+        }
+
+        private void refreshTablePage() {
+            int totalPages = Math.max(1, (int) Math.ceil(filteredServices.size() / (double) pageSize));
+            int fromIndex = Math.min(currentPage * pageSize, filteredServices.size());
+            int toIndex = Math.min(fromIndex + pageSize, filteredServices.size());
+            List<ServiceRequests.Response> pageItems = filteredServices.subList(fromIndex, toIndex);
+            table.setItems(FXCollections.observableArrayList(pageItems));
+            summaryLabel.setText(filteredServices.size() + " dịch vụ");
+            rebuildPageButtons(totalPages);
+        }
+
+        private void goToPage(int page) {
+            int totalPages = Math.max(1, (int) Math.ceil(filteredServices.size() / (double) pageSize));
+            currentPage = Math.max(0, Math.min(page, totalPages - 1));
+            refreshTablePage();
+        }
+
+        private void recalculatePageSize(double cardHeight) {
+            double footerHeight = 52;
+            double padding = 24;
+            double headerHeight = 44;
+            double rowHeight = table.getFixedCellSize() > 0 ? table.getFixedCellSize() : 44;
+            int newPageSize = Math.max(1, (int) Math.floor(
+                    (cardHeight - footerHeight - padding - headerHeight) / rowHeight
+            ));
+            if (newPageSize != pageSize) {
+                pageSize = newPageSize;
+                currentPage = 0;
+                applyFilters();
+            }
+        }
+
+        private void rebuildPageButtons(int totalPages) {
+            pageButtons.getChildren().clear();
+            pageButtons.setVisible(totalPages > 1);
+            pageButtons.setManaged(totalPages > 1);
+
+            pageButtons.getChildren().add(pageJumpButton("«", 0, currentPage == 0));
+            pageButtons.getChildren().add(pageJumpButton("‹", Math.max(0, currentPage - 1), currentPage == 0));
+
+            int visibleWindow = 2;
+            int start = Math.max(0, currentPage - visibleWindow);
+            int end = Math.min(totalPages - 1, currentPage + visibleWindow);
+
+            for (int i = start; i <= end; i++) {
+                addPageButton(i);
+            }
+
+            pageButtons.getChildren().add(pageJumpButton("›", Math.min(totalPages - 1, currentPage + 1), currentPage >= totalPages - 1));
+            pageButtons.getChildren().add(pageJumpButton("»", totalPages - 1, currentPage >= totalPages - 1));
+        }
+
+        private void addPageButton(int pageIndex) {
+            Button pageButton = secondaryButton(String.valueOf(pageIndex + 1));
+            pageButton.getStyleClass().add("page-number");
+            if (pageIndex == currentPage) {
+                pageButton.getStyleClass().add("selected-page");
+                pageButton.setDisable(true);
+            }
+            pageButton.setOnAction(e -> goToPage(pageIndex));
+            pageButtons.getChildren().add(pageButton);
+        }
+
+        private Button pageJumpButton(String text, int targetPage, boolean disabled) {
+            Button button = secondaryButton(text);
+            button.getStyleClass().add("page-jump");
+            button.setDisable(disabled);
+            button.setOnAction(e -> goToPage(targetPage));
+            return button;
+        }
+
+        private ServiceRequests.Response selectedService() {
+            return table.getSelectionModel().getSelectedItem();
+        }
+
+        private void openCreateDialog() {
+            showServiceDialog("Thêm dịch vụ", null, false);
+        }
+
+        private void openEditDialog(ServiceRequests.Response service) {
+            if (service == null) {
+                warn("Chưa chọn dịch vụ", "Vui lòng chọn một dịch vụ để cập nhật.");
+                return;
+            }
+            showServiceDialog("Cập nhật dịch vụ", service, true);
+        }
+
+        private void showServiceDialog(String title, ServiceRequests.Response service, boolean editing) {
+            Dialog<ButtonType> dialog = new Dialog<>();
+            dialog.initOwner(stage);
+            dialog.initModality(Modality.APPLICATION_MODAL);
+            dialog.setTitle(title);
+
+            ButtonType saveType = new ButtonType("Lưu", ButtonBar.ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(saveType, ButtonType.CANCEL);
+            dialog.getDialogPane().getStylesheets().add(stylesheet());
+
+            TextField nameField = new TextField();
+            TextField priceField = new TextField();
+            TextField durationField = new TextField();
+            TextArea descriptionField = new TextArea();
+            CheckBox activeBox = new CheckBox("Đang hoạt động");
+
+            nameField.setPromptText("Tên dịch vụ");
+            priceField.setPromptText("Giá (VND)");
+            durationField.setPromptText("Thời lượng (phút)");
+            descriptionField.setPromptText("Mô tả");
+            descriptionField.setPrefRowCount(3);
+            descriptionField.setWrapText(true);
+
+            if (service != null) {
+                nameField.setText(orEmpty(service.name()));
+                priceField.setText(service.price() == null ? "" : service.price().toPlainString());
+                durationField.setText(service.durationMinutes() == null ? "" : service.durationMinutes().toString());
+                descriptionField.setText(orEmpty(service.description()));
+                activeBox.setSelected(Boolean.TRUE.equals(service.isActive()));
+            } else {
+                activeBox.setSelected(true);
+            }
+
+            GridPane grid = formGrid();
+            grid.addRow(0, labeled("Tên dịch vụ", nameField), labeled("Giá (VND)", priceField));
+            grid.addRow(1, labeled("Thời lượng (phút)", durationField), activeBox);
+            grid.add(labeled("Mô tả", descriptionField), 0, 2, 2, 1);
+
+            VBox content = new VBox(12, sectionTitle(title), grid);
+            dialog.getDialogPane().setContent(content);
+
+            Optional<ButtonType> result = dialog.showAndWait();
+            if (result.isEmpty() || result.get() != saveType) return;
+
+            saveService(
+                    editing,
+                    service == null ? null : service.id(),
+                    nameField.getText(),
+                    priceField.getText(),
+                    durationField.getText(),
+                    descriptionField.getText(),
+                    activeBox.isSelected()
+            );
+        }
+
+        private void saveService(
+                boolean update,
+                Integer serviceId,
+                String nameValue,
+                String priceValue,
+                String durationValue,
+                String descriptionValue,
+                boolean activeValue
+        ) {
+            if (nameValue == null || nameValue.trim().isBlank()) {
+                warn("Thiếu thông tin", "Tên dịch vụ là bắt buộc.");
+                return;
+            }
+
+            if (update && serviceId == null) {
+                warn("Chưa chọn dịch vụ", "Vui lòng chọn một dịch vụ để cập nhật.");
+                return;
+            }
+
+            try {
+                BigDecimal amount = new BigDecimal(priceValue.trim());
+                Integer minutes = Integer.parseInt(durationValue.trim());
+
+                ServiceRequests.Create create = new ServiceRequests.Create(
+                        nameValue.trim(),
+                        amount,
+                        minutes,
+                        descriptionValue == null ? "" : descriptionValue.trim(),
+                        activeValue
+                );
+
+                ServiceRequests.Update edit = new ServiceRequests.Update(
+                        create.name(),
+                        create.price(),
+                        create.durationMinutes(),
+                        create.description(),
+                        create.isActive()
+                );
+
+                runAsync(() -> update
+                                ? ApiClient.updateService(serviceId, edit)
+                                : ApiClient.createService(create),
+                        r -> load(),
+                        ex -> error("Lỗi lưu dịch vụ", cleanError(ex)));
+
+            } catch (NumberFormatException ex) {
+                warn("Dữ liệu chưa hợp lệ", "Giá và thời lượng phải là số hợp lệ.");
+            }
+        }
+
+        private void deleteSelected() {
+            ServiceRequests.Response service = selectedService();
+
+            if (service == null) {
+                warn("Chưa chọn dịch vụ", "Vui lòng chọn một dịch vụ để xóa.");
+                return;
+            }
+
+            if (!confirm("Xóa dịch vụ", "Bạn chắc chắn muốn xóa dịch vụ \"" + service.name() + "\" không?")) {
+                return;
+            }
+
+            runAsync(() -> {
+                ApiClient.deleteService(service.id());
+                return null;
+            }, r -> load(), ex -> error("Lỗi xóa dịch vụ", cleanError(ex)));
         }
     }
 
