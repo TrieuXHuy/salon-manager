@@ -183,7 +183,7 @@ public class SalonFxApplication extends Application {
             case "reports" -> "📈  ";
             default -> "";
         };
-        Button button = new Button(emoji + label);
+        Button button = new Button(label);
         button.setUserData(route);
         button.getStyleClass().add("nav-button");
         button.setMaxWidth(Double.MAX_VALUE);
@@ -306,6 +306,7 @@ public class SalonFxApplication extends Application {
             loyaltyPoints.setPromptText("Điểm tích lũy");
             customerNote.setPromptText("Sở thích, lưu ý dị ứng, kiểu tóc quen thuộc...");
             customerNote.setPrefRowCount(2);
+            gender.setConverter(stringConverter(Gender::getDisplayName));
             gender.setValue(Gender.other);
             grid.addRow(0, labeled("Họ và tên", name), labeled("Số điện thoại", phone));
             grid.addRow(1, labeled("Email", email), labeled("Giới tính", gender));
@@ -487,7 +488,7 @@ public class SalonFxApplication extends Application {
                         setText(null);
                         setGraphic(null);
                     } else {
-                        String labelText = item ? "Đang bán" : "Tạm ẩn";
+                        String labelText = item ? "Hoạt động" : "Không hoạt động";
                         String cssClass = item ? "status-active" : "status-inactive";
                         setGraphic(createBadge(labelText, cssClass));
                         setAlignment(Pos.CENTER);
@@ -614,7 +615,7 @@ public class SalonFxApplication extends Application {
                         setText(null);
                         setGraphic(null);
                     } else {
-                        String labelText = item ? "Đang dùng" : "Tạm ẩn";
+                        String labelText = item ? "Hoạt động" : "Không hoạt động";
                         String cssClass = item ? "status-active" : "status-inactive";
                         setGraphic(createBadge(labelText, cssClass));
                         setAlignment(Pos.CENTER);
@@ -705,6 +706,7 @@ public class SalonFxApplication extends Application {
         private Node filters() {
             search.setPromptText("Tìm khách hàng hoặc dịch vụ");
             statusFilter.getItems().setAll(AppointmentStatus.values());
+            statusFilter.setConverter(stringConverter(AppointmentStatus::getDisplayName));
             statusFilter.setPromptText("Tất cả trạng thái");
             Button clear = secondaryButton("Xóa lọc");
             Button today = secondaryButton("Hôm nay");
@@ -982,6 +984,7 @@ public class SalonFxApplication extends Application {
         private Node userForm() {
             newUsername.setPromptText("Tên đăng nhập");
             newPassword.setPromptText("Mật khẩu");
+            newRole.setConverter(stringConverter(UserRole::getDisplayName));
             newRole.setValue(UserRole.STAFF);
             Button create = primaryButton("Tạo tài khoản");
             create.setOnAction(e -> {
@@ -1057,6 +1060,7 @@ public class SalonFxApplication extends Application {
             quickTime.setPromptText("Khung giờ nhanh");
             quickTime.setMaxWidth(Double.MAX_VALUE);
             ComboBox<AppointmentStatus> status = new ComboBox<>(FXCollections.observableArrayList(AppointmentStatus.values()));
+            status.setConverter(stringConverter(AppointmentStatus::getDisplayName));
             status.setValue(AppointmentStatus.pending);
             status.setMaxWidth(Double.MAX_VALUE);
             TextArea note = new TextArea();
