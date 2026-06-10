@@ -53,10 +53,14 @@ public class ScheduleService {
 						date.atTime(23, 59, 59));
 		List<ServiceRoom> rooms = serviceRoomRepository.findByIsActiveTrueOrderByIdAsc();
 		int duration = roundedDuration(service.getDurationMinutes());
+		LocalDateTime now = LocalDateTime.now();
 
 		for (int hour = BUSINESS_HOURS_START; hour < BUSINESS_HOURS_END; hour++) {
 			for (int minute = 0; minute < 60; minute += SLOT_DURATION_MINUTES) {
 				LocalDateTime slotTime = date.atTime(hour, minute);
+				if (slotTime.isBefore(now)) {
+					continue;
+				}
 				if (slotTime.plusMinutes(duration).toLocalTime().isAfter(LocalTime.of(BUSINESS_HOURS_END, 0))) {
 					continue;
 				}

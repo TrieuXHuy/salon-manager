@@ -2755,6 +2755,13 @@ public class SalonFxApplication extends Application {
             room.setPromptText("Tất cả phòng");
             room.setMaxWidth(Double.MAX_VALUE);
             DatePicker date = new DatePicker(LocalDate.now());
+            date.setDayCellFactory(picker -> new DateCell() {
+                @Override
+                public void updateItem(LocalDate item, boolean empty) {
+                    super.updateItem(item, empty);
+                    setDisable(empty || item.isBefore(LocalDate.now()));
+                }
+            });
             date.setMaxWidth(Double.MAX_VALUE);
             TextField time = new TextField("09:00");
             time.setMaxWidth(Double.MAX_VALUE);
