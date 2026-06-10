@@ -201,7 +201,7 @@ public class SalonFxApplication extends Application {
                 .ifPresent(b -> b.getStyleClass().add("selected"));
 
         Node view = switch (route) {
-            case "customers" -> new CustomersView();
+            case "customers" -> new CustomersViewV2();
             case "appointments" -> new AppointmentsView();
             case "services" -> new ServicesView();
             case "rooms" -> new RoomsView();
@@ -433,6 +433,414 @@ public class SalonFxApplication extends Application {
             loyaltyPoints.clear();
             customerNote.clear();
             gender.setValue(Gender.other);
+            table.getSelectionModel().clearSelection();
+        }
+    }
+
+    private final class CustomersViewV2 extends VBox {
+        private int pageSize = 6;
+
+        private final TableView<CustomerRequests.Response> table = new TableView<>();
+        private final TextField customerSearch = new TextField();
+        private final ComboBox<String> tierFilter = new ComboBox<>();
+        private final Label summaryLabel = new Label("0 khách hàng");
+        private final FlowPane pageButtons = new FlowPane(6, 6);
+        private final Button createButton = primaryButton("Thêm khách hàng");
+        private final Button editButton = secondaryButton("Cập nhật khách hàng");
+        private final Button deleteButton = dangerButton("Xóa khách hàng");
+        private final Button clearButton = ghostButton("Xóa form / bỏ chọn");
+        private List<CustomerRequests.Response> allCustomers = List.of();
+        private List<CustomerRequests.Response> filteredCustomers = List.of();
+        private int currentPage = 0;
+        private BorderPane tableCard;
+
+        private CustomersViewV2() {
+            getStyleClass().add("page");
+            pageButtons.getStyleClass().add("page-buttons");
+
+            VBox top = new VBox(20,
+                    pageHeader("Khách hàng", "Quản lý hồ sơ và thông tin liên hệ", "Làm mới", e -> load()),
+                    customerFilters());
+            Node tableSection = tableCard();
+            Node actionSection = actionsBar();
+
+            BorderPane layout = new BorderPane();
+            layout.setTop(top);
+            layout.setCenter(tableSection);
+            layout.setBottom(actionSection);
+            BorderPane.setMargin(top, new Insets(0, 0, 12, 0));
+            BorderPane.setMargin(tableSection, new Insets(0, 0, 12, 0));
+            layout.setMaxWidth(Double.MAX_VALUE);
+            layout.setMaxHeight(Double.MAX_VALUE);
+            BorderPane.setAlignment(actionSection, Pos.BOTTOM_LEFT);
+            VBox.setVgrow(layout, Priority.ALWAYS);
+            getChildren().add(layout);
+            setMaxWidth(Double.MAX_VALUE);
+            setMaxHeight(Double.MAX_VALUE);
+
+            configureCustomerTable();
+            load();
+        }
+
+        private Node customerFilters() {
+            customerSearch.setPromptText("Tìm theo tên, điện thoại hoặc email");
+            tierFilter.getItems().setAll("Tất cả hạng", "VIP", "Thân thiết", "Mới");
+            tierFilter.setValue("Tất cả hạng");
+            tierFilter.setPromptText("Tất cả hạng");
+            tierFilter.setMaxWidth(180);
+
+            Button clearFilters = secondaryButton("Xóa lọc");
+            clearFilters.setOnAction(e -> {
+                customerSearch.clear();
+                tierFilter.setValue("Tất cả hạng");
+                applyFilters();
+            });
+
+            customerSearch.textProperty().addListener((obs, oldValue, newValue) -> applyFilters());
+            tierFilter.valueProperty().addListener((obs, oldValue, newValue) -> applyFilters());
+
+            HBox row = new HBox(10, customerSearch, tierFilter, clearFilters);
+            row.getStyleClass().add("filter-bar");
+            HBox.setHgrow(customerSearch, Priority.ALWAYS);
+            return card(row);
+        }
+
+        private Node tableCard() {
+            VBox box = new VBox(table, paginationBar());
+            box.setFillWidth(true);
+            box.setAlignment(Pos.TOP_CENTER);
+            VBox.setVgrow(table, Priority.ALWAYS);
+            table.setMaxHeight(Double.MAX_VALUE);
+
+            tableCard = new BorderPane();
+            tableCard.getStyleClass().addAll("card", "table-card");
+            tableCard.setCenter(box);
+            tableCard.setMaxWidth(Double.MAX_VALUE);
+            tableCard.setMaxHeight(Double.MAX_VALUE);
+            tableCard.heightProperty().addListener((obs, oldHeight, newHeight) -> recalculatePageSize(newHeight.doubleValue()));
+            return tableCard;
+        }
+
+        private Node paginationBar() {
+            BorderPane bar = new BorderPane();
+            summaryLabel.getStyleClass().add("table-summary");
+            bar.setLeft(summaryLabel);
+            bar.setCenter(pageButtons);
+            BorderPane.setAlignment(summaryLabel, Pos.CENTER_LEFT);
+            BorderPane.setAlignment(pageButtons, Pos.CENTER);
+            bar.getStyleClass().add("table-footer");
+            return bar;
+        }
+
+        private Node actionsBar() {
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+            HBox row = new HBox(10, createButton, editButton, deleteButton, clearButton, spacer);
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.setMaxWidth(Double.MAX_VALUE);
+
+            createButton.setOnAction(e -> openCreateDialog());
+            editButton.setOnAction(e -> openEditDialog(selectedCustomer()));
+            deleteButton.setOnAction(e -> deleteSelected());
+            clearButton.setOnAction(e -> clearSelection());
+            editButton.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+            deleteButton.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+
+            return card(row);
+        }
+
+        private void configureCustomerTable() {
+            column(table, "ID", CustomerRequests.Response::id, 70);
+            column(table, "Họ và tên", CustomerRequests.Response::fullName, 220);
+            column(table, "Điện thoại", CustomerRequests.Response::phone, 150);
+            column(table, "Email", CustomerRequests.Response::email, 240);
+            column(table, "Giới tính", c -> c.gender() == null ? "" : c.gender().getDisplayName(), 120);
+            column(table, "Điểm", c -> c.loyaltyPoints() == null ? 0 : c.loyaltyPoints(), 90);
+
+            TableColumn<CustomerRequests.Response, Integer> tierCol = new TableColumn<>("Hạng");
+            tierCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().loyaltyPoints()));
+            tierCol.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+                @Override
+                protected void updateItem(Integer points, boolean empty) {
+                    super.updateItem(points, empty);
+                    if (empty || points == null) {
+                        setText(null);
+                        setGraphic(null);
+                    } else {
+                        String tier = customerTier(points);
+                        String cssClass = switch (tier) {
+                            case "VIP" -> "tier-vip";
+                            case "Thân thiết" -> "tier-regular";
+                            default -> "tier-new";
+                        };
+                        setGraphic(createBadge(tier, cssClass));
+                        setAlignment(Pos.CENTER);
+                    }
+                }
+            });
+            tierCol.setPrefWidth(110);
+            table.getColumns().add(tierCol);
+
+            column(table, "Ghi chú", CustomerRequests.Response::note, 220);
+            table.setPlaceholder(new Label("Không có khách hàng phù hợp"));
+            table.setFixedCellSize(44);
+            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        }
+
+        private void load() {
+            runAsync(ApiClient::getAllCustomers, list -> {
+                        allCustomers = list == null ? List.of() : list.stream()
+                                .sorted(Comparator.comparing(CustomerRequests.Response::id, Comparator.nullsLast(Integer::compareTo)))
+                                .toList();
+                        currentPage = 0;
+                        applyFilters();
+                    },
+                    ex -> error("Lỗi tải khách hàng", cleanError(ex)));
+        }
+
+        private void applyFilters() {
+            String keyword = customerSearch.getText() == null ? "" : customerSearch.getText().trim().toLowerCase(Locale.ROOT);
+            String tier = tierFilter.getValue();
+            filteredCustomers = allCustomers.stream()
+                    .filter(customer -> keyword.isBlank()
+                            || orEmpty(customer.fullName()).toLowerCase(Locale.ROOT).contains(keyword)
+                            || orEmpty(customer.phone()).toLowerCase(Locale.ROOT).contains(keyword)
+                            || orEmpty(customer.email()).toLowerCase(Locale.ROOT).contains(keyword))
+                    .filter(customer -> tier == null
+                            || "Tất cả hạng".equals(tier)
+                            || customerTier(customer.loyaltyPoints()).equals(tier))
+                    .toList();
+
+            int totalPages = Math.max(1, (int) Math.ceil(filteredCustomers.size() / (double) pageSize));
+            if (currentPage >= totalPages) {
+                currentPage = totalPages - 1;
+            }
+            if (currentPage < 0) {
+                currentPage = 0;
+            }
+            refreshTablePage();
+        }
+
+        private void refreshTablePage() {
+            int totalPages = Math.max(1, (int) Math.ceil(filteredCustomers.size() / (double) pageSize));
+            int fromIndex = Math.min(currentPage * pageSize, filteredCustomers.size());
+            int toIndex = Math.min(fromIndex + pageSize, filteredCustomers.size());
+            List<CustomerRequests.Response> pageItems = filteredCustomers.subList(fromIndex, toIndex);
+            table.setItems(FXCollections.observableArrayList(pageItems));
+            summaryLabel.setText(filteredCustomers.size() + " khách hàng");
+            rebuildPageButtons(totalPages);
+        }
+
+        private void goToPage(int page) {
+            int totalPages = Math.max(1, (int) Math.ceil(filteredCustomers.size() / (double) pageSize));
+            currentPage = Math.max(0, Math.min(page, totalPages - 1));
+            refreshTablePage();
+        }
+
+        private void recalculatePageSize(double cardHeight) {
+            double footerHeight = 52;
+            double padding = 24;
+            double headerHeight = 44;
+            double rowHeight = table.getFixedCellSize() > 0 ? table.getFixedCellSize() : 44;
+            int newPageSize = Math.max(1, (int) Math.floor(
+                    (cardHeight - footerHeight - padding - headerHeight) / rowHeight
+            ));
+            if (newPageSize != pageSize) {
+                pageSize = newPageSize;
+                currentPage = 0;
+                applyFilters();
+            }
+        }
+
+        private void rebuildPageButtons(int totalPages) {
+            pageButtons.getChildren().clear();
+            pageButtons.setVisible(totalPages > 1);
+            pageButtons.setManaged(totalPages > 1);
+
+            pageButtons.getChildren().add(pageJumpButton("«", 0, currentPage == 0));
+            pageButtons.getChildren().add(pageJumpButton("‹", Math.max(0, currentPage - 1), currentPage == 0));
+
+            int visibleWindow = 2;
+            int start = Math.max(0, currentPage - visibleWindow);
+            int end = Math.min(totalPages - 1, currentPage + visibleWindow);
+
+            if (start > 0) {
+                addPageButton(0);
+                if (start > 1) {
+                    pageButtons.getChildren().add(pageEllipsis());
+                }
+            }
+
+            for (int i = start; i <= end; i++) {
+                addPageButton(i);
+            }
+
+            if (end < totalPages - 1) {
+                if (end < totalPages - 2) {
+                    pageButtons.getChildren().add(pageEllipsis());
+                }
+                addPageButton(totalPages - 1);
+            }
+
+            pageButtons.getChildren().add(pageJumpButton("›", Math.min(totalPages - 1, currentPage + 1), currentPage >= totalPages - 1));
+            pageButtons.getChildren().add(pageJumpButton("»", totalPages - 1, currentPage >= totalPages - 1));
+        }
+
+        private void addPageButton(int pageIndex) {
+            Button pageButton = secondaryButton(String.valueOf(pageIndex + 1));
+            pageButton.getStyleClass().add("page-number");
+            if (pageIndex == currentPage) {
+                pageButton.getStyleClass().add("selected-page");
+                pageButton.setDisable(true);
+            }
+            pageButton.setOnAction(e -> goToPage(pageIndex));
+            pageButtons.getChildren().add(pageButton);
+        }
+
+        private Label pageEllipsis() {
+            Label ellipsis = new Label("...");
+            ellipsis.getStyleClass().add("page-ellipsis");
+            return ellipsis;
+        }
+
+        private Button pageJumpButton(String text, int targetPage, boolean disabled) {
+            Button button = secondaryButton(text);
+            button.getStyleClass().add("page-jump");
+            button.setDisable(disabled);
+            button.setOnAction(e -> goToPage(targetPage));
+            return button;
+        }
+
+        private CustomerRequests.Response selectedCustomer() {
+            return table.getSelectionModel().getSelectedItem();
+        }
+
+        private void openCreateDialog() {
+            showCustomerDialog("Thêm khách hàng", null, false);
+        }
+
+        private void openEditDialog(CustomerRequests.Response customer) {
+            if (customer == null) {
+                warn("Chưa chọn khách hàng", "Vui lòng chọn một khách hàng để cập nhật.");
+                return;
+            }
+            showCustomerDialog("Cập nhật khách hàng", customer, true);
+        }
+
+        private void showCustomerDialog(String title, CustomerRequests.Response customer, boolean editing) {
+            Dialog<ButtonType> dialog = new Dialog<>();
+            dialog.initOwner(stage);
+            dialog.initModality(Modality.APPLICATION_MODAL);
+            dialog.setTitle(title);
+
+            ButtonType saveType = new ButtonType("Lưu", ButtonBar.ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(saveType, ButtonType.CANCEL);
+            dialog.getDialogPane().getStylesheets().add(stylesheet());
+
+            TextField fullNameField = new TextField();
+            TextField phoneField = new TextField();
+            TextField emailField = new TextField();
+            ComboBox<Gender> genderBox = new ComboBox<>(FXCollections.observableArrayList(Gender.values()));
+            TextField pointsField = new TextField();
+            TextArea noteField = new TextArea();
+
+            fullNameField.setPromptText("Họ và tên");
+            phoneField.setPromptText("Số điện thoại");
+            emailField.setPromptText("Email");
+            genderBox.setConverter(stringConverter(Gender::getDisplayName));
+            genderBox.setPromptText("Giới tính");
+            pointsField.setPromptText("Điểm tích lũy");
+            noteField.setPromptText("Ghi chú chăm sóc, sở thích, lưu ý...");
+            noteField.setPrefRowCount(3);
+            noteField.setWrapText(true);
+
+            if (customer != null) {
+                fullNameField.setText(orEmpty(customer.fullName()));
+                phoneField.setText(orEmpty(customer.phone()));
+                emailField.setText(orEmpty(customer.email()));
+                genderBox.setValue(customer.gender() == null ? Gender.other : customer.gender());
+                pointsField.setText(String.valueOf(customer.loyaltyPoints() == null ? 0 : customer.loyaltyPoints()));
+                noteField.setText(orEmpty(customer.note()));
+            } else {
+                genderBox.setValue(Gender.other);
+                pointsField.setText("0");
+            }
+
+            pointsField.setDisable(!editing);
+
+            Label hint = new Label(editing
+                    ? "Điểm tích lũy có thể chỉnh trong chế độ cập nhật."
+                    : "Khách hàng mới sẽ được tạo với điểm mặc định 0.");
+            hint.getStyleClass().add("muted");
+
+            GridPane grid = formGrid();
+            grid.addRow(0, labeled("Họ và tên", fullNameField), labeled("Số điện thoại", phoneField));
+            grid.addRow(1, labeled("Email", emailField), labeled("Giới tính", genderBox));
+            grid.addRow(2, labeled("Điểm tích lũy", pointsField), new Pane());
+            grid.add(labeled("Ghi chú", noteField), 0, 3, 2, 1);
+
+            VBox content = new VBox(12, sectionTitle(title), hint, grid);
+            dialog.getDialogPane().setContent(content);
+
+            Optional<ButtonType> result = dialog.showAndWait();
+            if (result.isEmpty() || result.get() != saveType) {
+                return;
+            }
+
+            String fullName = fullNameField.getText().trim();
+            String phone = phoneField.getText().trim();
+            String email = emailField.getText().trim();
+            Gender selectedGender = genderBox.getValue();
+            String note = noteField.getText().trim();
+
+            if (fullName.isBlank() || phone.isBlank() || email.isBlank()) {
+                warn("Thiếu thông tin", "Vui lòng nhập đầy đủ họ tên, điện thoại và email.");
+                return;
+            }
+
+            Integer points = 0;
+            if (editing) {
+                try {
+                    points = pointsField.getText().trim().isBlank() ? 0 : Integer.parseInt(pointsField.getText().trim());
+                } catch (NumberFormatException ex) {
+                    warn("Điểm chưa hợp lệ", "Điểm tích lũy phải là số nguyên.");
+                    return;
+                }
+            }
+
+            CustomerRequests.Create createReq = new CustomerRequests.Create(fullName, phone, email, selectedGender, note);
+            CustomerRequests.Update updateReq = new CustomerRequests.Update(fullName, phone, email, selectedGender, points, note);
+
+            if (editing && customer != null) {
+                runAsync(() -> ApiClient.updateCustomer(customer.id(), updateReq), saved -> {
+                    clearSelection();
+                    load();
+                }, ex -> error("Lỗi cập nhật khách hàng", cleanError(ex)));
+            } else {
+                runAsync(() -> ApiClient.createCustomer(createReq), saved -> load(),
+                        ex -> error("Lỗi lưu khách hàng", cleanError(ex)));
+            }
+        }
+
+        private void deleteSelected() {
+            CustomerRequests.Response customer = selectedCustomer();
+            if (customer == null) {
+                warn("Chưa chọn khách hàng", "Vui lòng chọn một khách hàng để xóa.");
+                return;
+            }
+            if (!confirm("Xóa khách hàng", "Bạn chắc chắn muốn xóa khách hàng này?")) {
+                return;
+            }
+            runAsync(() -> {
+                ApiClient.deleteCustomer(customer.id());
+                return null;
+            }, r -> {
+                clearSelection();
+                load();
+            }, ex -> error("Lỗi xóa khách hàng", cleanError(ex)));
+        }
+
+        private void clearSelection() {
             table.getSelectionModel().clearSelection();
         }
     }
