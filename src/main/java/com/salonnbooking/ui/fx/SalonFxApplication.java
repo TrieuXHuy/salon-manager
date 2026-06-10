@@ -1076,45 +1076,126 @@ public class SalonFxApplication extends Application {
     }
 
     private final class RoomsView extends VBox {
-        private final TextField name = new TextField();
-        private final TextArea description = new TextArea();
-        private final CheckBox active = new CheckBox("Đang hoạt động");
+        private int pageSize = 6;
+
         private final TableView<ServiceRoomRequests.Response> table = new TableView<>();
-        private Integer selectedId;
+        private final TextField roomSearch = new TextField();
+        private final ComboBox<String> statusFilter = new ComboBox<>();
+        private final Label summaryLabel = new Label("0 khu vực");
+        private final FlowPane pageButtons = new FlowPane(6, 6);
+        private final Button createButton = primaryButton("Thêm khu vực");
+        private final Button editButton = secondaryButton("Cập nhật khu vực");
+        private final Button deleteButton = dangerButton("Xóa khu vực");
+        private final Button clearButton = ghostButton("Bỏ chọn");
+        private List<ServiceRoomRequests.Response> allRooms = List.of();
+        private List<ServiceRoomRequests.Response> filteredRooms = List.of();
+        private int currentPage = 0;
 
         private RoomsView() {
             getStyleClass().add("page");
-            getChildren().addAll(pageHeader("Khu vực", "Quản lý khu/phòng dùng để chia slot đặt lịch", "Làm mới", e -> load()),
-                    roomForm(), card(table));
-            VBox.setVgrow(table, Priority.ALWAYS);
+            pageButtons.getStyleClass().add("page-buttons");
+
+            VBox top = new VBox(20,
+                    pageHeader("Khu vực", "Quản lý khu/phòng dùng để chia slot đặt lịch", "Làm mới", e -> load()),
+                    filters());
+
+            Node tableSection = tableCard();
+            Node actionSection = actionsBar();
+
+            BorderPane layout = new BorderPane();
+            layout.setTop(top);
+            layout.setCenter(tableSection);
+            layout.setBottom(actionSection);
+            BorderPane.setMargin(top, new Insets(0, 0, 12, 0));
+            BorderPane.setMargin(tableSection, new Insets(0, 0, 12, 0));
+            layout.setMaxWidth(Double.MAX_VALUE);
+            layout.setMaxHeight(Double.MAX_VALUE);
+            BorderPane.setAlignment(actionSection, Pos.BOTTOM_LEFT);
+            VBox.setVgrow(layout, Priority.ALWAYS);
+            getChildren().add(layout);
+            setMaxWidth(Double.MAX_VALUE);
+            setMaxHeight(Double.MAX_VALUE);
+
             configureRoomTable();
-            table.getSelectionModel().selectedItemProperty().addListener((obs, old, value) -> {
-                if (value != null) {
-                    selectedId = value.id();
-                    name.setText(value.name());
-                    description.setText(orEmpty(value.description()));
-                    active.setSelected(Boolean.TRUE.equals(value.isActive()));
-                }
-            });
             load();
         }
 
-        private Node roomForm() {
-            name.setPromptText("Ví dụ: Phòng 1, Khu VIP, Ghế gội 2");
-            description.setPromptText("Mô tả ngắn về vị trí hoặc mục đích sử dụng");
-            description.setPrefRowCount(3);
-            active.setSelected(true);
+        private Node filters() {
+            roomSearch.setPromptText("Tìm theo tên phòng/khu hoặc mô tả");
 
-            GridPane grid = formGrid();
-            grid.addRow(0, labeled("Tên phòng/khu", name), active);
-            grid.add(labeled("Mô tả", description), 0, 1, 2, 1);
+            statusFilter.getItems().setAll("Tất cả trạng thái", "Hoạt động", "Không hoạt động");
+            statusFilter.setValue("Tất cả trạng thái");
+            statusFilter.setPromptText("Tất cả trạng thái");
+            statusFilter.setMaxWidth(180);
 
-            HBox actions = actions(primaryButton("Thêm"), secondaryButton("Cập nhật"), dangerButton("Xóa"), ghostButton("Xóa form"));
-            ((Button) actions.getChildren().get(0)).setOnAction(e -> save(false));
-            ((Button) actions.getChildren().get(1)).setOnAction(e -> save(true));
-            ((Button) actions.getChildren().get(2)).setOnAction(e -> delete());
-            ((Button) actions.getChildren().get(3)).setOnAction(e -> clear());
-            return card(new VBox(12, sectionTitle("Thông tin khu phục vụ"), grid, actions));
+            Button clear = secondaryButton("Xóa lọc");
+            clear.setOnAction(e -> {
+                roomSearch.clear();
+                statusFilter.setValue("Tất cả trạng thái");
+                applyFilters();
+            });
+
+            roomSearch.textProperty().addListener((obs, oldValue, newValue) -> {
+                currentPage = 0;
+                applyFilters();
+            });
+            statusFilter.valueProperty().addListener((obs, oldValue, newValue) -> {
+                currentPage = 0;
+                applyFilters();
+            });
+
+            HBox row = new HBox(10, roomSearch, statusFilter, clear);
+            row.getStyleClass().add("filter-bar");
+            HBox.setHgrow(roomSearch, Priority.ALWAYS);
+            return card(row);
+        }
+
+        private Node tableCard() {
+            VBox box = new VBox(table, paginationBar());
+            box.setFillWidth(true);
+            box.setAlignment(Pos.TOP_CENTER);
+            VBox.setVgrow(table, Priority.ALWAYS);
+            table.setMaxHeight(Double.MAX_VALUE);
+
+            BorderPane card = new BorderPane();
+            card.getStyleClass().addAll("card", "table-card");
+            card.setCenter(box);
+            card.setMaxWidth(Double.MAX_VALUE);
+            card.setMaxHeight(Double.MAX_VALUE);
+            card.heightProperty().addListener((obs, oldHeight, newHeight) ->
+                    recalculatePageSize(newHeight.doubleValue()));
+            return card;
+        }
+
+        private Node paginationBar() {
+            BorderPane bar = new BorderPane();
+            summaryLabel.getStyleClass().add("table-summary");
+            bar.setLeft(summaryLabel);
+            bar.setCenter(pageButtons);
+            BorderPane.setAlignment(summaryLabel, Pos.CENTER_LEFT);
+            BorderPane.setAlignment(pageButtons, Pos.CENTER);
+            bar.getStyleClass().add("table-footer");
+            return bar;
+        }
+
+        private Node actionsBar() {
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
+            HBox row = new HBox(10, createButton, editButton, deleteButton, clearButton, spacer);
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.setMaxWidth(Double.MAX_VALUE);
+
+            createButton.setOnAction(e -> openCreateDialog());
+            editButton.setOnAction(e -> openEditDialog(selectedRoom()));
+            deleteButton.setOnAction(e -> deleteSelected());
+            clearButton.setOnAction(e -> table.getSelectionModel().clearSelection());
+
+            editButton.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+            deleteButton.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+            clearButton.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+
+            return card(row);
         }
 
         private void configureRoomTable() {
@@ -1142,59 +1223,236 @@ public class SalonFxApplication extends Application {
             table.getColumns().add(statusCol);
 
             column(table, "Mô tả", ServiceRoomRequests.Response::description, 420);
+
+            table.setPlaceholder(new Label("Không có khu vực phù hợp"));
+            table.setFixedCellSize(44);
+            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         }
 
         private void load() {
-            runAsync(ApiClient::getAllServiceRooms, list -> table.setItems(FXCollections.observableArrayList(list)),
+            runAsync(ApiClient::getAllServiceRooms, list -> {
+                allRooms = list == null ? List.of() : list.stream()
+                        .sorted(Comparator.comparing(ServiceRoomRequests.Response::id, Comparator.nullsLast(Integer::compareTo)))
+                        .toList();
+                currentPage = 0;
+                applyFilters();
+            },
                     ex -> error("Lỗi tải phòng phục vụ", cleanError(ex)));
         }
 
-        private void save(boolean update) {
-            if (name.getText().trim().isBlank()) {
+        private void applyFilters() {
+            String keyword = roomSearch.getText() == null ? "" : roomSearch.getText().trim().toLowerCase(Locale.ROOT);
+            String selectedStatus = statusFilter.getValue();
+
+            filteredRooms = allRooms.stream()
+                    .filter(room -> keyword.isBlank()
+                            || orEmpty(room.name()).toLowerCase(Locale.ROOT).contains(keyword)
+                            || orEmpty(room.description()).toLowerCase(Locale.ROOT).contains(keyword))
+                    .filter(room -> selectedStatus == null
+                            || "Tất cả trạng thái".equals(selectedStatus)
+                            || ("Hoạt động".equals(selectedStatus) && Boolean.TRUE.equals(room.isActive()))
+                            || ("Không hoạt động".equals(selectedStatus) && !Boolean.TRUE.equals(room.isActive())))
+                    .toList();
+
+            int totalPages = Math.max(1, (int) Math.ceil(filteredRooms.size() / (double) pageSize));
+            if (currentPage >= totalPages) {
+                currentPage = totalPages - 1;
+            }
+            if (currentPage < 0) {
+                currentPage = 0;
+            }
+            refreshTablePage();
+        }
+
+        private void refreshTablePage() {
+            int totalPages = Math.max(1, (int) Math.ceil(filteredRooms.size() / (double) pageSize));
+            int fromIndex = Math.min(currentPage * pageSize, filteredRooms.size());
+            int toIndex = Math.min(fromIndex + pageSize, filteredRooms.size());
+            List<ServiceRoomRequests.Response> pageItems = filteredRooms.subList(fromIndex, toIndex);
+            table.setItems(FXCollections.observableArrayList(pageItems));
+            summaryLabel.setText(filteredRooms.size() + " khu vực");
+            rebuildPageButtons(totalPages);
+        }
+
+        private void goToPage(int page) {
+            int totalPages = Math.max(1, (int) Math.ceil(filteredRooms.size() / (double) pageSize));
+            currentPage = Math.max(0, Math.min(page, totalPages - 1));
+            refreshTablePage();
+        }
+
+        private void recalculatePageSize(double cardHeight) {
+            double footerHeight = 52;
+            double padding = 24;
+            double headerHeight = 44;
+            double rowHeight = table.getFixedCellSize() > 0 ? table.getFixedCellSize() : 44;
+            int newPageSize = Math.max(1, (int) Math.floor(
+                    (cardHeight - footerHeight - padding - headerHeight) / rowHeight
+            ));
+            if (newPageSize != pageSize) {
+                pageSize = newPageSize;
+                currentPage = 0;
+                applyFilters();
+            }
+        }
+
+        private void rebuildPageButtons(int totalPages) {
+            pageButtons.getChildren().clear();
+            pageButtons.setVisible(totalPages > 1);
+            pageButtons.setManaged(totalPages > 1);
+
+            pageButtons.getChildren().add(pageJumpButton("«", 0, currentPage == 0));
+            pageButtons.getChildren().add(pageJumpButton("‹", Math.max(0, currentPage - 1), currentPage == 0));
+
+            int visibleWindow = 2;
+            int start = Math.max(0, currentPage - visibleWindow);
+            int end = Math.min(totalPages - 1, currentPage + visibleWindow);
+
+            if (start > 0) {
+                addPageButton(0);
+                if (start > 1) {
+                    pageButtons.getChildren().add(pageEllipsis());
+                }
+            }
+
+            for (int i = start; i <= end; i++) {
+                addPageButton(i);
+            }
+
+            if (end < totalPages - 1) {
+                if (end < totalPages - 2) {
+                    pageButtons.getChildren().add(pageEllipsis());
+                }
+                addPageButton(totalPages - 1);
+            }
+
+            pageButtons.getChildren().add(pageJumpButton("›", Math.min(totalPages - 1, currentPage + 1), currentPage >= totalPages - 1));
+            pageButtons.getChildren().add(pageJumpButton("»", totalPages - 1, currentPage >= totalPages - 1));
+        }
+
+        private void addPageButton(int pageIndex) {
+            Button pageButton = secondaryButton(String.valueOf(pageIndex + 1));
+            pageButton.getStyleClass().add("page-number");
+            if (pageIndex == currentPage) {
+                pageButton.getStyleClass().add("selected-page");
+                pageButton.setDisable(true);
+            }
+            pageButton.setOnAction(e -> goToPage(pageIndex));
+            pageButtons.getChildren().add(pageButton);
+        }
+
+        private Label pageEllipsis() {
+            Label ellipsis = new Label("...");
+            ellipsis.getStyleClass().add("page-ellipsis");
+            return ellipsis;
+        }
+
+        private Button pageJumpButton(String text, int targetPage, boolean disabled) {
+            Button button = secondaryButton(text);
+            button.getStyleClass().add("page-jump");
+            button.setDisable(disabled);
+            button.setOnAction(e -> goToPage(targetPage));
+            return button;
+        }
+
+        private ServiceRoomRequests.Response selectedRoom() {
+            return table.getSelectionModel().getSelectedItem();
+        }
+
+        private void openCreateDialog() {
+            showRoomDialog("Thêm khu vực", null, false);
+        }
+
+        private void openEditDialog(ServiceRoomRequests.Response room) {
+            if (room == null) {
+                warn("Chưa chọn phòng", "Vui lòng chọn một phòng để cập nhật.");
+                return;
+            }
+            showRoomDialog("Cập nhật khu vực", room, true);
+        }
+
+        private void showRoomDialog(String title, ServiceRoomRequests.Response room, boolean editing) {
+            Dialog<ButtonType> dialog = new Dialog<>();
+            dialog.initOwner(stage);
+            dialog.initModality(Modality.APPLICATION_MODAL);
+            dialog.setTitle(title);
+
+            ButtonType saveType = new ButtonType("Lưu", ButtonBar.ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(saveType, ButtonType.CANCEL);
+            dialog.getDialogPane().getStylesheets().add(stylesheet());
+
+            TextField nameField = new TextField();
+            TextArea descriptionField = new TextArea();
+            CheckBox activeBox = new CheckBox("Đang hoạt động");
+
+            nameField.setPromptText("Ví dụ: Phòng 1, Khu VIP, Ghế gội 2");
+            descriptionField.setPromptText("Mô tả ngắn về vị trí hoặc mục đích sử dụng");
+            descriptionField.setPrefRowCount(3);
+            descriptionField.setWrapText(true);
+
+            if (room != null) {
+                nameField.setText(orEmpty(room.name()));
+                descriptionField.setText(orEmpty(room.description()));
+                activeBox.setSelected(Boolean.TRUE.equals(room.isActive()));
+            } else {
+                activeBox.setSelected(true);
+            }
+
+            GridPane grid = formGrid();
+            grid.addRow(0, labeled("Tên phòng/khu", nameField), activeBox);
+            grid.add(labeled("Mô tả", descriptionField), 0, 1, 2, 1);
+
+            VBox content = new VBox(12, sectionTitle(title), grid);
+            dialog.getDialogPane().setContent(content);
+
+            Optional<ButtonType> result = dialog.showAndWait();
+            if (result.isEmpty() || result.get() != saveType) {
+                return;
+            }
+
+            saveRoom(
+                    editing,
+                    room == null ? null : room.id(),
+                    nameField.getText(),
+                    descriptionField.getText(),
+                    activeBox.isSelected()
+            );
+        }
+
+        private void saveRoom(boolean update, Integer roomId, String nameValue, String descriptionValue, boolean activeValue) {
+            if (nameValue == null || nameValue.trim().isBlank()) {
                 warn("Thiếu thông tin", "Tên phòng/khu là bắt buộc.");
                 return;
             }
-            if (update && selectedId == null) {
+            if (update && roomId == null) {
                 warn("Chưa chọn phòng", "Vui lòng chọn một phòng để cập nhật.");
                 return;
             }
             ServiceRoomRequests.Create create = new ServiceRoomRequests.Create(
-                    name.getText().trim(),
-                    description.getText().trim(),
-                    active.isSelected());
+                    nameValue.trim(),
+                    descriptionValue == null ? "" : descriptionValue.trim(),
+                    activeValue);
             ServiceRoomRequests.Update edit = new ServiceRoomRequests.Update(
                     create.name(),
                     create.description(),
                     create.isActive());
-            runAsync(() -> update ? ApiClient.updateServiceRoom(selectedId, edit) : ApiClient.createServiceRoom(create), r -> {
-                clear();
-                load();
-            }, ex -> error("Lỗi lưu phòng phục vụ", cleanError(ex)));
+            runAsync(() -> update ? ApiClient.updateServiceRoom(roomId, edit) : ApiClient.createServiceRoom(create),
+                    r -> load(),
+                    ex -> error("Lỗi lưu phòng phục vụ", cleanError(ex)));
         }
 
-        private void delete() {
-            if (selectedId == null) {
+        private void deleteSelected() {
+            ServiceRoomRequests.Response room = selectedRoom();
+            if (room == null) {
                 warn("Chưa chọn phòng", "Vui lòng chọn một phòng để xóa.");
                 return;
             }
-            if (!confirm("Xóa phòng phục vụ", "Bạn chắc chắn muốn xóa phòng này? Lịch hẹn cũ có thể đang tham chiếu phòng này.")) {
+            if (!confirm("Xóa phòng phục vụ", "Bạn chắc chắn muốn xóa phòng \"" + room.name() + "\" không? Lịch hẹn cũ có thể đang tham chiếu phòng này.")) {
                 return;
             }
             runAsync(() -> {
-                ApiClient.deleteServiceRoom(selectedId);
+                ApiClient.deleteServiceRoom(room.id());
                 return null;
-            }, r -> {
-                clear();
-                load();
-            }, ex -> error("Lỗi xóa phòng phục vụ", cleanError(ex)));
-        }
-
-        private void clear() {
-            selectedId = null;
-            name.clear();
-            description.clear();
-            active.setSelected(true);
-            table.getSelectionModel().clearSelection();
+            }, r -> load(), ex -> error("Lỗi xóa phòng phục vụ", cleanError(ex)));
         }
     }
 
@@ -1638,17 +1896,78 @@ public class SalonFxApplication extends Application {
         private final DatePicker from = new DatePicker(LocalDate.now().minusDays(7));
         private final DatePicker to = new DatePicker(LocalDate.now());
         private final VBox content = new VBox(14);
+        private final StackPane reportBody = new StackPane();
 
         private ReportsView() {
             getStyleClass().add("page");
-            getChildren().addAll(pageHeader("Báo cáo", "Doanh thu, dịch vụ và trạng thái lịch hẹn", "Tải báo cáo", e -> load()),
-                    card(new HBox(10, labeled("Từ ngày", from), labeled("Đến ngày", to))), content);
+            content.getStyleClass().add("report-content");
+            VBox reportBox = new VBox(14, reportFilters(), reportBody);
+            reportBox.getStyleClass().add("report-box");
+            reportBox.setFillWidth(true);
+            VBox.setVgrow(reportBody, Priority.ALWAYS);
+            content.getChildren().setAll(card(reportBox));
+            getChildren().addAll(
+                    pageHeader("Báo cáo", "Doanh thu, dịch vụ và trạng thái lịch hẹn", "Tải báo cáo", e -> load()),
+                    content);
             VBox.setVgrow(content, Priority.ALWAYS);
+            setMaxWidth(Double.MAX_VALUE);
+            setMaxHeight(Double.MAX_VALUE);
             load();
         }
 
+        private Node reportFilters() {
+            from.setMaxWidth(180);
+            to.setMaxWidth(180);
+
+            Button last7 = secondaryButton("7 ngày");
+            Button last30 = secondaryButton("30 ngày");
+            Button month = secondaryButton("Tháng này");
+            Button clear = ghostButton("Xóa lọc");
+
+            last7.setOnAction(e -> {
+                to.setValue(LocalDate.now());
+                from.setValue(LocalDate.now().minusDays(7));
+                load();
+            });
+            last30.setOnAction(e -> {
+                to.setValue(LocalDate.now());
+                from.setValue(LocalDate.now().minusDays(30));
+                load();
+            });
+            month.setOnAction(e -> {
+                LocalDate today = LocalDate.now();
+                from.setValue(today.withDayOfMonth(1));
+                to.setValue(today);
+                load();
+            });
+            clear.setOnAction(e -> {
+                to.setValue(LocalDate.now());
+                from.setValue(LocalDate.now().minusDays(7));
+                load();
+            });
+
+            HBox row = new HBox(10,
+                    labeled("Từ ngày", from),
+                    labeled("Đến ngày", to),
+                    last7,
+                    last30,
+                    month,
+                    clear);
+            row.getStyleClass().addAll("filter-bar", "report-filter-bar");
+            row.setAlignment(Pos.BOTTOM_LEFT);
+            return row;
+        }
+
         private void load() {
-            content.getChildren().setAll(progress());
+            if (from.getValue() == null || to.getValue() == null) {
+                warn("Thiếu khoảng ngày", "Vui lòng chọn đủ Từ ngày và Đến ngày để tải báo cáo.");
+                return;
+            }
+            if (from.getValue() != null && to.getValue() != null && from.getValue().isAfter(to.getValue())) {
+                warn("Khoảng ngày chưa hợp lệ", "Từ ngày không được lớn hơn Đến ngày.");
+                return;
+            }
+            reportBody.getChildren().setAll(progress());
             runAsync(() -> new ReportData(ApiClient.getDailyRevenueReport(from.getValue(), to.getValue()),
                             ApiClient.getServiceRevenueReport(), ApiClient.getPaymentMethodReport(),
                             ApiClient.getAppointmentStats(), ApiClient.getAllPayments()),
@@ -1656,65 +1975,129 @@ public class SalonFxApplication extends Application {
         }
 
         private void render(ReportData data) {
-            TableView<ReportRequests.DailyRevenueResponse> daily = new TableView<>(FXCollections.observableArrayList(data.daily));
+            List<PaymentRequests.Response> paymentRows = filteredPaymentRows(data.paymentRows);
+
+            TableView<ReportRequests.DailyRevenueResponse> daily = new TableView<>(
+                    FXCollections.observableArrayList(data.daily == null ? List.of() : data.daily));
             column(daily, "Ngày", r -> r.date().toString(), 140);
             column(daily, "Doanh thu", r -> money(r.totalRevenue()), 160);
             column(daily, "Lịch hẹn", ReportRequests.DailyRevenueResponse::appointmentCount, 100);
             column(daily, "Hoàn thành", ReportRequests.DailyRevenueResponse::completedCount, 120);
+            prepareReportTable(daily, "Không có dữ liệu doanh thu theo ngày", 390);
 
-            TableView<ReportRequests.ServiceRevenueResponse> services = new TableView<>(FXCollections.observableArrayList(data.services));
+            List<ReportRequests.ServiceRevenueResponse> serviceRows = (data.services == null ? List.<ReportRequests.ServiceRevenueResponse>of() : data.services)
+                    .stream()
+                    .sorted(Comparator.comparing((ReportRequests.ServiceRevenueResponse r) -> safeAmount(r.totalRevenue()))
+                            .thenComparing(r -> valueOrZero(r.appointmentCount()))
+                            .reversed())
+                    .toList();
+            TableView<ReportRequests.ServiceRevenueResponse> services = new TableView<>(FXCollections.observableArrayList(serviceRows));
             column(services, "Dịch vụ", ReportRequests.ServiceRevenueResponse::serviceName, 220);
             column(services, "Lượt đặt", ReportRequests.ServiceRevenueResponse::appointmentCount, 100);
             column(services, "Doanh thu", r -> money(r.totalRevenue()), 160);
             column(services, "Trung bình", r -> money(r.avgRevenue()), 160);
+            prepareReportTable(services, "Không có dữ liệu doanh thu theo dịch vụ", 390);
 
-            FlowPane stats = new FlowPane(14, 14,
-                    stat("Tổng lịch", data.stats.totalAppointments(), "stat-appointments"),
-                    stat("Chờ cọc", data.stats.pendingAppointments(), "stat-pending"),
-                    stat("Đã cọc", data.stats.confirmedAppointments(), "stat-appointments"),
-                    stat("Hoàn thành", data.stats.completedAppointments(), "stat-revenue"),
-                    stat("Đã hủy", data.stats.cancelledAppointments(), "stat-pending"));
-            content.getChildren().setAll(stats, cardWithTitle("Doanh thu theo ngày", daily),
-                    cardWithTitle("Doanh thu theo dịch vụ", services),
-                    cardWithTitle("Chi tiết thanh toán", paymentReport(data.paymentRows)));
-            VBox.setVgrow(daily, Priority.ALWAYS);
-            VBox.setVgrow(services, Priority.ALWAYS);
+            Node paymentMethods = paymentMethodReport(data.payments);
+            VBox paymentTabContent = new VBox(14, paymentMethods, reportPanel("Chi tiết thanh toán", paymentTable(paymentRows)));
+            paymentTabContent.getStyleClass().add("report-tab-content");
+            paymentTabContent.setFillWidth(true);
+
+            TabPane tabs = new TabPane();
+            tabs.getStyleClass().add("report-tabs");
+            tabs.setFocusTraversable(false);
+            tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+            tabs.getTabs().addAll(
+                    reportTab("Doanh thu theo ngày", reportPanel("Doanh thu theo ngày", daily)),
+                    reportTab("Dịch vụ", reportPanel("Doanh thu theo dịch vụ", services)),
+                    reportTab("Phương thức thanh toán", paymentTabContent));
+            tabs.setMaxWidth(Double.MAX_VALUE);
+            tabs.setMaxHeight(Double.MAX_VALUE);
+
+            VBox.setVgrow(tabs, Priority.ALWAYS);
+            reportBody.getChildren().setAll(tabs);
         }
 
-        private Node paymentReport(List<PaymentRequests.Response> payments) {
-            List<PaymentRequests.Response> rows = payments.stream()
+        private Tab reportTab(String title, Node content) {
+            Tab tab = new Tab(title);
+            tab.setContent(content);
+            return tab;
+        }
+
+        private Node reportPanel(String title, Node node) {
+            VBox box = new VBox(10, sectionTitle(title), node);
+            box.getStyleClass().add("report-section");
+            box.setFillWidth(true);
+            VBox.setVgrow(node, Priority.ALWAYS);
+            return box;
+        }
+
+        private Node paymentMethodReport(List<ReportRequests.PaymentMethodResponse> payments) {
+            List<ReportRequests.PaymentMethodResponse> rows = payments == null ? List.of() : payments.stream()
+                    .sorted(Comparator.comparing((ReportRequests.PaymentMethodResponse p) -> safeAmount(p.totalAmount())).reversed())
+                    .toList();
+
+            TableView<ReportRequests.PaymentMethodResponse> table = new TableView<>(FXCollections.observableArrayList(rows));
+            column(table, "Phương thức", p -> paymentMethodLabel(p.paymentMethod()), 160);
+            column(table, "Số giao dịch", ReportRequests.PaymentMethodResponse::count, 120);
+            column(table, "Tổng tiền", p -> money(p.totalAmount()), 160);
+            column(table, "Tỷ trọng", p -> String.format(Locale.US, "%.1f%%", p.percentage() == null ? 0 : p.percentage()), 100);
+            prepareReportTable(table, "Không có dữ liệu phương thức thanh toán", 180);
+            return reportPanel("Phương thức thanh toán", table);
+        }
+
+        private TableView<PaymentRequests.Response> paymentTable(List<PaymentRequests.Response> rows) {
+            TableView<PaymentRequests.Response> table = new TableView<>(FXCollections.observableArrayList(rows));
+            column(table, "Lịch", PaymentRequests.Response::appointmentId, 90);
+            column(table, "Giai đoạn", p -> p.paymentStage() == null ? "-" : (p.paymentStage() == PaymentStage.deposit ? "Cọc" : "Còn lại"), 120);
+            column(table, "Phương thức", p -> paymentMethodLabel(p.paymentMethod() == null ? null : p.paymentMethod().name()), 140);
+            column(table, "Số tiền", r -> money(r.amount()), 140);
+            column(table, "Thời gian", r -> r.paidAt() == null ? "-" : r.paidAt().format(DATE_TIME), 170);
+            prepareReportTable(table, "Không có thanh toán trong khoảng ngày này", 230);
+            return table;
+        }
+
+        private List<PaymentRequests.Response> filteredPaymentRows(List<PaymentRequests.Response> payments) {
+            return (payments == null ? List.<PaymentRequests.Response>of() : payments).stream()
                     .filter(p -> p.paidAt() != null)
                     .filter(p -> from.getValue() == null || !p.paidAt().toLocalDate().isBefore(from.getValue()))
                     .filter(p -> to.getValue() == null || !p.paidAt().toLocalDate().isAfter(to.getValue()))
                     .sorted(Comparator.comparing(PaymentRequests.Response::paidAt).reversed())
                     .toList();
+        }
 
-            BigDecimal depositTotal = rows.stream()
-                    .filter(p -> p.paymentStage() == PaymentStage.deposit)
+        private BigDecimal paymentTotal(List<PaymentRequests.Response> rows, PaymentStage stage) {
+            return rows.stream()
+                    .filter(p -> p.paymentStage() == stage)
                     .map(PaymentRequests.Response::amount)
-                    .filter(Objects::nonNull)
+                    .map(SalonFxApplication.this::safeAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal balanceTotal = rows.stream()
-                    .filter(p -> p.paymentStage() == PaymentStage.balance)
-                    .map(PaymentRequests.Response::amount)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
 
-            TableView<PaymentRequests.Response> table = new TableView<>(FXCollections.observableArrayList(rows));
-            column(table, "Lịch", PaymentRequests.Response::appointmentId, 90);
-            column(table, "Giai đoạn", p -> p.paymentStage() == null ? "-" : (p.paymentStage() == PaymentStage.deposit ? "Cọc" : "Còn lại"), 120);
-            column(table, "Phương thức", p -> p.paymentMethod() == null ? "-" : p.paymentMethod().name(), 140);
-            column(table, "Số tiền", r -> money(r.amount()), 140);
-            column(table, "Thời gian", r -> r.paidAt() == null ? "-" : r.paidAt().format(DATE_TIME), 170);
+        private <T> void prepareReportTable(TableView<T> table, String placeholder, double height) {
+            table.setPlaceholder(new Label(placeholder));
+            table.setFixedCellSize(44);
+            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+            table.setMinHeight(height);
+            table.setPrefHeight(height);
+            table.setMaxHeight(height);
+        }
 
-            VBox box = new VBox(10,
-                    new HBox(12,
-                            stat("Tiền cọc", money(depositTotal), "stat-pending"),
-                            stat("Tiền còn lại", money(balanceTotal), "stat-revenue"),
-                            stat("Tổng thu", money(depositTotal.add(balanceTotal)), "stat-default")),
-                    table);
-            VBox.setVgrow(table, Priority.ALWAYS);
-            return box;
+        private int valueOrZero(Integer value) {
+            return value == null ? 0 : value;
+        }
+
+        private String paymentMethodLabel(String value) {
+            if (value == null || value.isBlank()) {
+                return "-";
+            }
+            return switch (value) {
+                case "bank_transfer" -> "Chuyển khoản";
+                case "cash" -> "Tiền mặt";
+                case "momo" -> "MoMo";
+                case "card" -> "Thẻ";
+                default -> value;
+            };
         }
     }
 

@@ -308,6 +308,66 @@
     -fx-alignment: center-left;
 }
 
+.report-content {
+    -fx-spacing: 14px;
+}
+
+.report-filter-bar {
+    -fx-spacing: 10px;
+}
+
+.report-box {
+    -fx-spacing: 14px;
+}
+
+.report-section {
+    -fx-spacing: 10px;
+}
+
+.report-tabs {
+    -fx-background-color: transparent;
+    -fx-tab-min-height: 38px;
+    -fx-tab-max-height: 38px;
+}
+
+.report-tabs .tab-header-area {
+    -fx-padding: 0 0 8px 0;
+}
+
+.report-tabs .tab-header-background {
+    -fx-background-color: transparent;
+}
+
+.report-tabs .tab {
+    -fx-background-color: #FFFFFF;
+    -fx-background-insets: 0 8px 0 0;
+    -fx-background-radius: 8px 8px 0 0;
+    -fx-border-color: -border-color;
+    -fx-border-insets: 0 8px 0 0;
+    -fx-border-radius: 8px 8px 0 0;
+    -fx-padding: 8px 16px;
+}
+
+.report-tabs .tab:selected {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: -border-color -border-color -primary-color -border-color;
+    -fx-border-width: 1px 1px 3px 1px;
+}
+
+.report-tabs .tab-label {
+    -fx-text-fill: -text-main;
+    -fx-font-weight: 700;
+}
+
+.report-tabs .focus-indicator,
+.report-tabs .tab:selected .focus-indicator {
+    -fx-border-color: transparent;
+}
+
+.report-tab-content {
+    -fx-spacing: 14px;
+}
+
 .table-footer {
     -fx-padding: 12px 2px 12px 2px;
     -fx-border-color: #DDE3EE transparent transparent transparent;
