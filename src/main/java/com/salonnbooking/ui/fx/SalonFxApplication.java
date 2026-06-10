@@ -963,11 +963,8 @@ public class SalonFxApplication extends Application {
         private final TableView<AuthRequests.UserResponse> table = new TableView<>();
         private final TextField newUsername = new TextField();
         private final PasswordField newPassword = new PasswordField();
-        private final ComboBox<UserRole> newRole = new ComboBox<>(FXCollections.observableArrayList(UserRole.values()));
-        private final TextField customerName = new TextField();
-        private final TextField customerPhone = new TextField();
-        private final TextField customerEmail = new TextField();
-        private final ComboBox<Gender> customerGender = new ComboBox<>(FXCollections.observableArrayList(Gender.values()));
+        private final ComboBox<UserRole> newRole = new ComboBox<>(
+                FXCollections.observableArrayList(UserRole.OWNER, UserRole.STAFF));
 
         private UsersView() {
             getStyleClass().add("page");
@@ -984,43 +981,21 @@ public class SalonFxApplication extends Application {
             newUsername.setPromptText("Tên đăng nhập");
             newPassword.setPromptText("Mật khẩu");
             newRole.setValue(UserRole.STAFF);
-            customerName.setPromptText("Họ và tên khách hàng");
-            customerPhone.setPromptText("Số điện thoại");
-            customerEmail.setPromptText("Email");
-            customerGender.setValue(Gender.other);
             Button create = primaryButton("Tạo tài khoản");
             create.setOnAction(e -> {
                 if (newUsername.getText().trim().isBlank() || newPassword.getText().isBlank()) {
                     warn("Thiếu thông tin", "Vui lòng nhập tên đăng nhập và mật khẩu.");
                     return;
                 }
-                boolean createsCustomerProfile = newRole.getValue() == UserRole.CUSTOMER;
-                if (createsCustomerProfile && (customerName.getText().trim().isBlank()
-                        || customerPhone.getText().trim().isBlank()
-                        || customerEmail.getText().trim().isBlank())) {
-                    warn("Thiếu hồ sơ khách hàng",
-                            "Vui lòng nhập họ tên, số điện thoại và email khi tạo tài khoản khách hàng.");
+                if (newRole.getValue() == null) {
+                    warn("Thiếu thông tin", "Vui lòng chọn vai trò.");
                     return;
                 }
-                runAsync(() -> {
-                    AuthRequests.UserResponse createdUser = ApiClient.createUser(username, newUsername.getText().trim(),
-                            newPassword.getText(), newRole.getValue());
-                    if (createsCustomerProfile) {
-                        ApiClient.createCustomer(new CustomerRequests.Create(
-                                customerName.getText().trim(),
-                                customerPhone.getText().trim(),
-                                customerEmail.getText().trim(),
-                                customerGender.getValue(),
-                                "Tạo từ tài khoản đăng nhập"));
-                    }
-                    return createdUser;
-                }, r -> {
+                runAsync(() -> ApiClient.createUser(username, newUsername.getText().trim(),
+                        newPassword.getText(), newRole.getValue()), r -> {
                     newUsername.clear();
                     newPassword.clear();
-                    customerName.clear();
-                    customerPhone.clear();
-                    customerEmail.clear();
-                    customerGender.setValue(Gender.other);
+                    newRole.setValue(UserRole.STAFF);
                     load();
                 }, ex -> error("Lỗi tạo tài khoản", cleanError(ex)));
             });
@@ -1030,15 +1005,10 @@ public class SalonFxApplication extends Application {
                     labeled("Mật khẩu", newPassword));
             grid.addRow(1,
                     labeled("Vai trò", newRole),
-                    labeled("Họ tên khách hàng", customerName));
-            grid.addRow(2,
-                    labeled("Số điện thoại", customerPhone),
-                    labeled("Email", customerEmail));
+                    new Pane());
             HBox actionBox = new HBox(create);
             actionBox.setAlignment(Pos.BOTTOM_LEFT);
-            grid.addRow(3,
-                    labeled("Giới tính", customerGender),
-                    actionBox);
+            grid.add(actionBox, 0, 2, 2, 1);
             VBox form = new VBox(12, sectionTitle("Tạo tài khoản"), grid);
             return card(form);
         }

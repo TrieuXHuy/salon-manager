@@ -141,13 +141,11 @@ public class ApiClient {
 
 	public static AuthRequests.UserResponse createUser(String requesterUsername, String username, String password,
 			UserRole role) throws Exception {
-		AuthRequests.Response registered = register(username, password);
-		UserRole selectedRole = role == null ? UserRole.CUSTOMER : role;
-		if (selectedRole == UserRole.CUSTOMER) {
-			return new AuthRequests.UserResponse(registered.id(), registered.username(), registered.role(),
-					registered.roleName());
-		}
-		return changeUserRole(registered.id(), requesterUsername, selectedRole);
+		UserRole selectedRole = role == null ? UserRole.STAFF : role;
+		HttpResponse<String> response = sendPost("/auth/users",
+				new AuthRequests.CreateUser(requesterUsername, username, password, selectedRole));
+		requireStatus(response, 201, "create user");
+		return gson.fromJson(response.body(), AuthRequests.UserResponse.class);
 	}
 
 	public static AuthRequests.UserResponse changeUserRole(Integer userId, String requesterUsername, UserRole role)
