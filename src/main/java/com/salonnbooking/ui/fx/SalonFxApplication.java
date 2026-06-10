@@ -202,7 +202,7 @@ public class SalonFxApplication extends Application {
 
         Node view = switch (route) {
             case "customers" -> new CustomersViewV2();
-            case "appointments" -> new AppointmentsView();
+            case "appointments" -> new AppointmentsViewV2();
             case "services" -> new ServicesView();
             case "rooms" -> new RoomsView();
             case "reports" -> new ReportsView();
@@ -1357,6 +1357,442 @@ public class SalonFxApplication extends Application {
             PaymentRequests.Create request = new PaymentRequests.Create(row.id(), amount, PaymentMethod.bank_transfer,
                     PaymentStatus.paid, LocalDateTime.now(), stage);
             runAsync(() -> ApiClient.createPayment(request), r -> load(), ex -> error("L?i thanh to?n", cleanError(ex)));
+        }
+    }
+
+    private final class AppointmentsViewV2 extends VBox {
+        private int pageSize = 6;
+
+        private final TableView<AppointmentRow> table = new TableView<>();
+        private final FlowPane quickStats = new FlowPane(14, 14);
+        private final TextField search = new TextField();
+        private final ComboBox<AppointmentStatus> statusFilter = new ComboBox<>();
+        private final DatePicker start = new DatePicker();
+        private final DatePicker end = new DatePicker();
+        private final Label status = new Label("Sẵn sàng");
+        private final Label summaryLabel = new Label("0 lịch hẹn");
+        private final FlowPane pageButtons = new FlowPane(6, 6);
+        private List<CustomerRequests.Response> customers = List.of();
+        private List<ServiceRequests.Response> services = List.of();
+        private List<AppointmentRequests.Response> appointments = List.of();
+        private List<AppointmentRow> filteredRows = List.of();
+        private int currentPage = 0;
+        private BorderPane tableCard;
+
+        private AppointmentsViewV2() {
+            getStyleClass().add("page");
+            pageButtons.getStyleClass().add("page-buttons");
+
+            VBox top = new VBox(20,
+                    pageHeader("Lịch hẹn", "Tạo, lọc, cập nhật và thanh toán lịch hẹn", "Làm mới", e -> load()),
+                    quickStats,
+                    filters());
+
+            Node tableSection = tableCard();
+            Node actionSection = appointmentToolbar();
+
+            BorderPane layout = new BorderPane();
+            layout.setTop(top);
+            layout.setCenter(tableSection);
+            layout.setBottom(actionSection);
+            BorderPane.setMargin(top, new Insets(0, 0, 12, 0));
+            BorderPane.setMargin(tableSection, new Insets(0, 0, 12, 0));
+            layout.setMaxWidth(Double.MAX_VALUE);
+            layout.setMaxHeight(Double.MAX_VALUE);
+            BorderPane.setAlignment(actionSection, Pos.BOTTOM_LEFT);
+            VBox.setVgrow(layout, Priority.ALWAYS);
+            getChildren().add(layout);
+            setMaxWidth(Double.MAX_VALUE);
+            setMaxHeight(Double.MAX_VALUE);
+
+            configureAppointmentTable(table);
+            table.setFixedCellSize(44);
+            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+            table.setPlaceholder(new Label("Không có lịch hẹn phù hợp"));
+            load();
+        }
+
+        private Node filters() {
+            search.setPromptText("Tìm khách hàng hoặc dịch vụ");
+            statusFilter.getItems().setAll(AppointmentStatus.values());
+            statusFilter.setConverter(stringConverter(AppointmentStatus::getDisplayName));
+            statusFilter.setPromptText("Tất cả trạng thái");
+
+            Button today = secondaryButton("Hôm nay");
+            today.setTooltip(new Tooltip("Lọc nhanh lịch hẹn trong ngày hôm nay"));
+            today.setOnAction(e -> {
+                LocalDate now = LocalDate.now();
+                start.setValue(now);
+                end.setValue(now);
+                currentPage = 0;
+                applyFilters();
+            });
+
+            Button clear = secondaryButton("Xóa lọc");
+            clear.setOnAction(e -> {
+                search.clear();
+                statusFilter.setValue(null);
+                start.setValue(null);
+                end.setValue(null);
+                currentPage = 0;
+                applyFilters();
+            });
+
+            search.textProperty().addListener((obs, o, n) -> {
+                currentPage = 0;
+                applyFilters();
+            });
+            statusFilter.valueProperty().addListener((obs, o, n) -> {
+                currentPage = 0;
+                applyFilters();
+            });
+            start.valueProperty().addListener((obs, o, n) -> {
+                currentPage = 0;
+                applyFilters();
+            });
+            end.valueProperty().addListener((obs, o, n) -> {
+                currentPage = 0;
+                applyFilters();
+            });
+
+            HBox row = new HBox(10, search, statusFilter, start, end, today, clear);
+            row.getStyleClass().add("filter-bar");
+            HBox.setHgrow(search, Priority.ALWAYS);
+            return card(row);
+        }
+
+        private Node tableCard() {
+            VBox box = new VBox(table, paginationBar());
+            box.setFillWidth(true);
+            box.setAlignment(Pos.TOP_CENTER);
+            VBox.setVgrow(table, Priority.ALWAYS);
+            table.setMaxHeight(Double.MAX_VALUE);
+
+            tableCard = new BorderPane();
+            tableCard.getStyleClass().addAll("card", "table-card");
+            tableCard.setCenter(box);
+            tableCard.setMaxWidth(Double.MAX_VALUE);
+            tableCard.setMaxHeight(Double.MAX_VALUE);
+            tableCard.heightProperty().addListener((obs, oldH, newH) -> recalculatePageSize(newH.doubleValue()));
+            return tableCard;
+        }
+
+        private Node paginationBar() {
+            BorderPane bar = new BorderPane();
+            summaryLabel.getStyleClass().add("table-summary");
+            bar.setLeft(summaryLabel);
+            bar.setCenter(pageButtons);
+            BorderPane.setAlignment(summaryLabel, Pos.CENTER_LEFT);
+            BorderPane.setAlignment(pageButtons, Pos.CENTER);
+            bar.getStyleClass().add("table-footer");
+            return bar;
+        }
+
+        private Node appointmentToolbar() {
+            Button add = primaryButton("Thêm");
+            Button edit = secondaryButton("Sửa");
+            Button delete = dangerButton("Xóa");
+            Button deposit = secondaryButton("Thu cọc");
+            Button balance = secondaryButton("Thu còn lại");
+            Button complete = secondaryButton("Hoàn thành");
+            Button remind = secondaryButton("Nhắc lịch");
+            add.setOnAction(e -> openAppointmentDialog(null));
+            edit.setOnAction(e -> {
+                AppointmentRow row = table.getSelectionModel().getSelectedItem();
+                if (row == null) {
+                    warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để sửa.");
+                    return;
+                }
+                openAppointmentDialog(findAppointment(row.id()));
+            });
+            delete.setOnAction(e -> deleteSelected());
+            deposit.setOnAction(e -> paySelected(PaymentStage.deposit));
+            balance.setOnAction(e -> paySelected(PaymentStage.balance));
+            complete.setOnAction(e -> updateSelectedStatus(AppointmentStatus.completed));
+            remind.setOnAction(e -> remindSelected());
+            status.getStyleClass().add("muted");
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+            return card(new HBox(10, add, edit, delete, deposit, balance, complete, remind, spacer, status));
+        }
+
+        private void load() {
+            status.setText("Đang tải dữ liệu...");
+            runAsync(() -> {
+                customers = ApiClient.getAllCustomers();
+                services = ApiClient.getAllServices();
+                appointments = ApiClient.getAllAppointments().stream()
+                        .sorted(Comparator.comparing(AppointmentRequests.Response::appointmentTime)
+                                .thenComparing(AppointmentRequests.Response::id))
+                        .toList();
+                return appointments;
+            }, list -> {
+                currentPage = 0;
+                applyFilters();
+                status.setText("Sẵn sàng - " + list.size() + " lịch hẹn");
+            }, ex -> {
+                status.setText("Lỗi tải dữ liệu");
+                error("Lỗi tải lịch hẹn", cleanError(ex));
+            });
+        }
+
+        private void applyFilters() {
+            String keyword = search.getText() == null ? "" : search.getText().trim().toLowerCase(Locale.ROOT);
+            AppointmentStatus selectedStatus = statusFilter.getValue();
+            LocalDate from = start.getValue();
+            LocalDate to = end.getValue();
+            filteredRows = appointments.stream()
+                    .map(a -> toAppointmentRow(a, customers, services))
+                    .filter(r -> keyword.isBlank() || r.customer().toLowerCase(Locale.ROOT).contains(keyword)
+                            || r.service().toLowerCase(Locale.ROOT).contains(keyword))
+                    .filter(r -> selectedStatus == null || r.statusEnum() == selectedStatus)
+                    .filter(r -> from == null || !r.time().toLocalDate().isBefore(from))
+                    .filter(r -> to == null || !r.time().toLocalDate().isAfter(to))
+                    .sorted(Comparator.comparing(AppointmentRow::time).thenComparing(AppointmentRow::id))
+                    .toList();
+            renderQuickStats(filteredRows);
+
+            int totalPages = Math.max(1, (int) Math.ceil(filteredRows.size() / (double) pageSize));
+            if (currentPage >= totalPages) {
+                currentPage = totalPages - 1;
+            }
+            if (currentPage < 0) {
+                currentPage = 0;
+            }
+            refreshTablePage();
+            status.setText("Sẵn sàng - " + filteredRows.size() + "/" + appointments.size() + " lịch hẹn");
+        }
+
+        private void refreshTablePage() {
+            int totalPages = Math.max(1, (int) Math.ceil(filteredRows.size() / (double) pageSize));
+            int fromIndex = Math.min(currentPage * pageSize, filteredRows.size());
+            int toIndex = Math.min(fromIndex + pageSize, filteredRows.size());
+            table.setItems(FXCollections.observableArrayList(filteredRows.subList(fromIndex, toIndex)));
+            summaryLabel.setText(filteredRows.size() + " lịch hẹn");
+            rebuildPageButtons(totalPages);
+        }
+
+        private void recalculatePageSize(double cardHeight) {
+            double footerHeight = 52;
+            double padding = 24;
+            double headerHeight = 44;
+            double rowHeight = table.getFixedCellSize() > 0 ? table.getFixedCellSize() : 44;
+            int newPageSize = Math.max(1, (int) Math.floor(
+                    (cardHeight - footerHeight - padding - headerHeight) / rowHeight
+            ));
+            if (newPageSize != pageSize) {
+                pageSize = newPageSize;
+                currentPage = 0;
+                applyFilters();
+            }
+        }
+
+        private void goToPage(int page) {
+            int totalPages = Math.max(1, (int) Math.ceil(filteredRows.size() / (double) pageSize));
+            currentPage = Math.max(0, Math.min(page, totalPages - 1));
+            refreshTablePage();
+        }
+
+        private void rebuildPageButtons(int totalPages) {
+            pageButtons.getChildren().clear();
+            pageButtons.setVisible(totalPages > 1);
+            pageButtons.setManaged(totalPages > 1);
+
+            pageButtons.getChildren().add(pageJumpButton("«", 0, currentPage == 0));
+            pageButtons.getChildren().add(pageJumpButton("‹", Math.max(0, currentPage - 1), currentPage == 0));
+
+            int visibleWindow = 2;
+            int startPage = Math.max(0, currentPage - visibleWindow);
+            int endPage = Math.min(totalPages - 1, currentPage + visibleWindow);
+
+            if (startPage > 0) {
+                addPageButton(0);
+                if (startPage > 1) {
+                    pageButtons.getChildren().add(pageEllipsis());
+                }
+            }
+
+            for (int i = startPage; i <= endPage; i++) {
+                addPageButton(i);
+            }
+
+            if (endPage < totalPages - 1) {
+                if (endPage < totalPages - 2) {
+                    pageButtons.getChildren().add(pageEllipsis());
+                }
+                addPageButton(totalPages - 1);
+            }
+
+            pageButtons.getChildren().add(pageJumpButton("›", Math.min(totalPages - 1, currentPage + 1), currentPage >= totalPages - 1));
+            pageButtons.getChildren().add(pageJumpButton("»", totalPages - 1, currentPage >= totalPages - 1));
+        }
+
+        private void addPageButton(int pageIndex) {
+            Button pageButton = secondaryButton(String.valueOf(pageIndex + 1));
+            pageButton.getStyleClass().add("page-number");
+            if (pageIndex == currentPage) {
+                pageButton.getStyleClass().add("selected-page");
+                pageButton.setDisable(true);
+            }
+            pageButton.setOnAction(e -> goToPage(pageIndex));
+            pageButtons.getChildren().add(pageButton);
+        }
+
+        private Label pageEllipsis() {
+            Label ellipsis = new Label("...");
+            ellipsis.getStyleClass().add("page-ellipsis");
+            return ellipsis;
+        }
+
+        private Button pageJumpButton(String text, int targetPage, boolean disabled) {
+            Button button = secondaryButton(text);
+            button.getStyleClass().add("page-jump");
+            button.setDisable(disabled);
+            button.setOnAction(e -> goToPage(targetPage));
+            return button;
+        }
+
+        private void openAppointmentDialog(AppointmentRequests.Response appointment) {
+            AppointmentEdit result = new AppointmentDialogFx(customers, services, appointments, appointment).showAndWait().orElse(null);
+            if (result == null) {
+                return;
+            }
+            if (appointment == null) {
+                runAsync(() -> ApiClient.createAppointment(new AppointmentRequests.Create(result.customerId(),
+                                List.of(result.serviceId()), result.roomId(), result.time(), result.status(), result.note())), r -> load(),
+                        ex -> error("Lỗi tạo lịch hẹn", cleanError(ex)));
+            } else {
+                runAsync(() -> ApiClient.updateAppointment(appointment.id(), new AppointmentRequests.Update(result.customerId(),
+                                List.of(result.serviceId()), result.roomId(), result.time(), result.status(), result.note())), r -> load(),
+                        ex -> error("Lỗi cập nhật lịch hẹn", cleanError(ex)));
+            }
+        }
+
+        private void renderQuickStats(List<AppointmentRow> rows) {
+            LocalDate today = LocalDate.now();
+            long todayCount = rows.stream().filter(row -> row.time().toLocalDate().equals(today)).count();
+            long pendingCount = rows.stream().filter(row -> row.statusEnum() == AppointmentStatus.pending).count();
+            long confirmedCount = rows.stream().filter(row -> row.statusEnum() == AppointmentStatus.confirmed).count();
+            BigDecimal visibleRevenue = rows.stream()
+                    .map(AppointmentRow::amountPaid)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            quickStats.getChildren().setAll(
+                    stat("Hôm nay", todayCount + " lịch", "stat-appointments"),
+                    stat("Chờ cọc", pendingCount + " lịch", "stat-pending"),
+                    stat("Đã cọc", confirmedCount + " lịch", "stat-revenue"),
+                    stat("Đã thu", money(visibleRevenue), "stat-revenue"));
+        }
+
+        private AppointmentRequests.Response findAppointment(Integer id) {
+            return appointments.stream().filter(a -> Objects.equals(a.id(), id)).findFirst().orElse(null);
+        }
+
+        private void deleteSelected() {
+            AppointmentRow row = table.getSelectionModel().getSelectedItem();
+            if (row == null) {
+                warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để xóa.");
+                return;
+            }
+            if (!confirm("Xóa lịch hẹn", "Bạn chắc chắn muốn xóa lịch hẹn này?")) {
+                return;
+            }
+            runAsync(() -> {
+                ApiClient.deleteAppointment(row.id());
+                return null;
+            }, r -> load(), ex -> error("Lỗi xóa lịch hẹn", cleanError(ex)));
+        }
+
+        private void updateSelectedStatus(AppointmentStatus newStatus) {
+            AppointmentRow row = table.getSelectionModel().getSelectedItem();
+            if (row == null) {
+                warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để cập nhật trạng thái.");
+                return;
+            }
+            AppointmentRequests.Response appointment = findAppointment(row.id());
+            if (appointment == null) {
+                warn("Không tìm thấy lịch hẹn", "Dữ liệu lịch hẹn đã thay đổi, vui lòng làm mới.");
+                return;
+            }
+            if (newStatus == AppointmentStatus.confirmed || newStatus == AppointmentStatus.paid) {
+                warn("Không thể cập nhật trực tiếp", "Thu cọc và thanh toán phần còn lại phải đi qua nút thanh toán.");
+                return;
+            }
+            if (newStatus == AppointmentStatus.completed && safeAmount(appointment.amountPaid()).compareTo(BigDecimal.ZERO) <= 0) {
+                warn("Chưa thu cọc", "Chỉ có thể hoàn thành lịch hẹn sau khi đã thu cọc.");
+                return;
+            }
+            if (appointment.status() == AppointmentStatus.paid && newStatus != AppointmentStatus.paid) {
+                warn("Không thể đổi trạng thái", "Lịch hẹn đã thanh toán không nên chuyển về trạng thái khác.");
+                return;
+            }
+            runAsync(() -> ApiClient.updateAppointment(appointment.id(), new AppointmentRequests.Update(
+                    appointment.customerId(),
+                    appointment.serviceIds() == null ? List.of() : appointment.serviceIds(),
+                    appointment.roomId(),
+                    appointment.appointmentTime(),
+                    newStatus,
+                    appointment.note())), r -> load(), ex -> error("Lỗi cập nhật trạng thái", cleanError(ex)));
+        }
+
+        private void remindSelected() {
+            AppointmentRow row = table.getSelectionModel().getSelectedItem();
+            if (row == null) {
+                warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để nhắc lịch.");
+                return;
+            }
+            status.setText("Đang gửi email nhắc lịch...");
+            runAsync(() -> {
+                ApiClient.remindAppointment(row.id());
+                return null;
+            }, ignored -> {
+                status.setText("Sẵn sàng");
+                alert(Alert.AlertType.INFORMATION, "Gửi nhắc lịch thành công",
+                        "Đã gửi email nhắc lịch hẹn qua Resend cho khách hàng " + row.customer() + " thành công!");
+            }, ex -> {
+                status.setText("Sẵn sàng");
+                error("Lỗi gửi nhắc lịch", cleanError(ex));
+            });
+        }
+
+        private void paySelected(PaymentStage requestedStage) {
+            AppointmentRow row = table.getSelectionModel().getSelectedItem();
+            if (row == null) {
+                warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để thu tiền.");
+                return;
+            }
+            AppointmentRequests.Response appointment = findAppointment(row.id());
+            if (appointment == null) {
+                warn("Không tìm thấy lịch hẹn", "Dữ liệu đã thay đổi, vui lòng tải lại.");
+                return;
+            }
+            PaymentStage stage = requestedStage == null
+                    ? (safeAmount(appointment.amountPaid()).compareTo(BigDecimal.ZERO) <= 0
+                    ? PaymentStage.deposit
+                    : PaymentStage.balance)
+                    : requestedStage;
+            BigDecimal amount = stage == PaymentStage.deposit
+                    ? safeAmount(appointment.depositAmount())
+                    : safeAmount(appointment.remainingAmount());
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                warn("Đã thanh toán đủ", "Lịch hẹn này không còn số tiền cần thu.");
+                return;
+            }
+            if (stage == PaymentStage.deposit && safeAmount(appointment.amountPaid()).compareTo(BigDecimal.ZERO) > 0) {
+                warn("Đã thu cọc", "Lịch hẹn này đã có thanh toán cọc.");
+                return;
+            }
+            if (stage == PaymentStage.balance && safeAmount(appointment.amountPaid()).compareTo(BigDecimal.ZERO) <= 0) {
+                warn("Chưa thu cọc", "Cần thu cọc trước khi thu phần còn lại.");
+                return;
+            }
+            String methodLabel = stage == PaymentStage.deposit ? "Cọc 20% / QR" : "Thanh toán phần còn lại / QR";
+            if (!showPaymentQrSimulation(row.id(), row.customer(), row.service(), amount, methodLabel)) {
+                return;
+            }
+            PaymentRequests.Create request = new PaymentRequests.Create(row.id(), amount, PaymentMethod.bank_transfer,
+                    PaymentStatus.paid, LocalDateTime.now(), stage);
+            runAsync(() -> ApiClient.createPayment(request), r -> load(), ex -> error("Lỗi thanh toán", cleanError(ex)));
         }
     }
 
