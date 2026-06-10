@@ -1469,6 +1469,9 @@ public class SalonFxApplication extends Application {
     private Node card(Node content) {
         StackPane card = new StackPane(content);
         card.getStyleClass().add("card");
+        if (content instanceof TableView<?>) {
+            card.getStyleClass().add("table-card");
+        }
         return card;
     }
 
