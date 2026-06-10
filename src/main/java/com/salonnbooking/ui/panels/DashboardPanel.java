@@ -35,10 +35,10 @@ public class DashboardPanel extends JPanel {
         // Simple modern table
         String[] columns = {"Khách hàng", "Dịch vụ", "Thời gian", "Trạng thái"};
         Object[][] data = {
-            {"Nguyễn Văn A", "Cắt tóc nam", "10:00 - Hôm nay", "Đã xác nhận"},
+            {"Nguyễn Văn A", "Cắt tóc nam", "10:00 - Hôm nay", "Đã giữ chỗ"},
             {"Trần Thị B", "Nhuộm tóc + Phục hồi", "11:30 - Hôm nay", "Khách đã đến"},
             {"Lê Văn M", "Gội đầu", "14:00 - Hôm nay", "Chờ xác nhận"},
-            {"Phạm N", "Cắt + Uốn", "16:00 - Hôm nay", "Đã xác nhận"}
+            {"Phạm N", "Cắt + Uốn", "16:00 - Hôm nay", "Đã giữ chỗ"}
         };
         
         DefaultTableModel model = new DefaultTableModel(data, columns);

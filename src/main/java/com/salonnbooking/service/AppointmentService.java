@@ -147,7 +147,7 @@ public class AppointmentService {
 	}
 
 	private void validateCreateStatus(AppointmentStatus status) {
-		if (status == AppointmentStatus.confirmed || status == AppointmentStatus.paid) {
+		if (status == AppointmentStatus.confirmed || status == AppointmentStatus.completed || status == AppointmentStatus.paid) {
 			throw new IllegalArgumentException("Use the payment flow to confirm or pay an appointment");
 		}
 	}
@@ -156,14 +156,16 @@ public class AppointmentService {
 		if (requestedStatus == null) {
 			throw new IllegalArgumentException("Appointment status is required");
 		}
-		if (appointment.getStatus() == AppointmentStatus.paid && requestedStatus != AppointmentStatus.paid) {
-			throw new IllegalArgumentException("Paid appointment cannot be changed to another status");
+		if ((appointment.getStatus() == AppointmentStatus.completed || appointment.getStatus() == AppointmentStatus.paid)
+				&& requestedStatus != AppointmentStatus.completed && requestedStatus != AppointmentStatus.paid) {
+			throw new IllegalArgumentException("Completed appointment cannot be changed to another status");
 		}
 		if (requestedStatus == AppointmentStatus.confirmed && !hasPaidPayment) {
 			throw new IllegalArgumentException("Use the deposit payment flow to confirm the appointment");
 		}
-		if (requestedStatus == AppointmentStatus.paid && safeAmount(appointment.getRemainingAmount()).compareTo(BigDecimal.ZERO) > 0) {
-			throw new IllegalArgumentException("Appointment cannot be marked paid before the remaining amount is collected");
+		if ((requestedStatus == AppointmentStatus.completed || requestedStatus == AppointmentStatus.paid)
+				&& safeAmount(appointment.getRemainingAmount()).compareTo(BigDecimal.ZERO) > 0) {
+			throw new IllegalArgumentException("Appointment cannot be completed before the remaining amount is collected");
 		}
 	}
 
@@ -244,6 +246,8 @@ public class AppointmentService {
 
 	private boolean isBlockingStatus(AppointmentStatus status) {
 		return status == AppointmentStatus.confirmed
+				|| status == AppointmentStatus.in_progress
+				|| status == AppointmentStatus.awaiting_payment
 				|| status == AppointmentStatus.completed
 				|| status == AppointmentStatus.paid;
 	}

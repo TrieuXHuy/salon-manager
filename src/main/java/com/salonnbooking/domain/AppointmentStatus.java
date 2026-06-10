@@ -1,11 +1,13 @@
 package com.salonnbooking.domain;
 
 public enum AppointmentStatus {
-	pending("Chờ cọc"),
-	confirmed("Đã cọc"),
-	completed("\u0110\u00e3 l\u00e0m xong"),
-	cancelled("\u0110\u00e3 h\u1ee7y"),
-	paid("\u0110\u00e3 thanh to\u00e1n \u0111\u1ee7");
+	pending("Chờ đặt cọc"),
+	confirmed("Đã giữ chỗ"),
+	in_progress("Đang phục vụ"),
+	awaiting_payment("Chờ thanh toán"),
+	completed("Hoàn thành"),
+	cancelled("Đã hủy"),
+	paid("Hoàn thành");
 
 	private final String displayName;
 

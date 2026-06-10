@@ -3,7 +3,7 @@ spring:
     name: salonn-booking
 
   datasource:
-    url: jdbc:sqlserver://localhost:1433;databaseName=booking_system;encrypt=true;trustServerCertificate=true
+    url: jdbc:sqlserver://localhost:11433;databaseName=booking_system;encrypt=true;trustServerCertificate=true
     username: sa
     password: YourStrong@Pass123
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver

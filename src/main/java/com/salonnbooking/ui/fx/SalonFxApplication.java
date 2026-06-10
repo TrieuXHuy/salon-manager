@@ -337,8 +337,8 @@ public class SalonFxApplication extends Application {
                 stats.getChildren().setAll(
                         stat("Khách hàng", data.dashboard.totalCustomers(), "stat-customers"),
                         stat("Lịch hẹn hôm nay", data.dashboard.totalAppointmentsToday(), "stat-appointments"),
-                        stat("Chờ cọc", data.dashboard.pendingAppointments(), "stat-pending"),
-                        stat("Đã cọc", confirmedCount, "stat-revenue"),
+                        stat("Chờ đặt cọc", data.dashboard.pendingAppointments(), "stat-pending"),
+                        stat("Đã giữ chỗ", confirmedCount, "stat-revenue"),
                         stat("Đã thu hôm nay", money(data.dashboard.todayRevenue()), "stat-revenue"),
                         stat("Đã thu tháng", money(data.dashboard.monthlyRevenue()), "stat-revenue"),
                         stat("Dịch vụ nổi bật", orDash(data.dashboard.topServiceName()), "stat-default"),
@@ -1571,6 +1571,16 @@ public class SalonFxApplication extends Application {
         private List<AppointmentRow> filteredRows = List.of();
         private int currentPage = 0;
         private BorderPane tableCard;
+        private HBox actionRow;
+        private Region actionSpacer;
+        private Button addButton;
+        private Button editButton;
+        private Button cancelButton;
+        private Button startServiceButton;
+        private Button finishServiceButton;
+        private Button customerDepositButton;
+        private Button balanceButton;
+        private Button remindButton;
 
         private AppointmentsViewV2() {
             getStyleClass().add("page");
@@ -1682,15 +1692,16 @@ public class SalonFxApplication extends Application {
         }
 
         private Node appointmentToolbar() {
-            Button add = primaryButton(role == UserRole.CUSTOMER ? "Đặt lịch" : "Thêm");
-            Button edit = secondaryButton("Sửa");
-            Button delete = dangerButton("Xóa");
-            Button deposit = secondaryButton("Thu cọc");
-            Button balance = secondaryButton("Thu còn lại");
-            Button complete = secondaryButton("Hoàn thành");
-            Button remind = secondaryButton("Nhắc lịch");
-            add.setOnAction(e -> openAppointmentDialog(null));
-            edit.setOnAction(e -> {
+            addButton = primaryButton(role == UserRole.CUSTOMER ? "Đặt lịch" : "Thêm");
+            editButton = secondaryButton("Sửa");
+            cancelButton = dangerButton("Hủy lịch");
+            startServiceButton = secondaryButton("Bắt đầu phục vụ");
+            finishServiceButton = secondaryButton("Kết thúc dịch vụ");
+            customerDepositButton = secondaryButton("Đặt cọc");
+            balanceButton = secondaryButton(role == UserRole.CUSTOMER ? "Thu còn lại" : "Hoàn thành");
+            remindButton = secondaryButton("Nhắc lịch");
+            addButton.setOnAction(e -> openAppointmentDialog(null));
+            editButton.setOnAction(e -> {
                 AppointmentRow row = table.getSelectionModel().getSelectedItem();
                 if (row == null) {
                     warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để sửa.");
@@ -1698,20 +1709,19 @@ public class SalonFxApplication extends Application {
                 }
                 openAppointmentDialog(findAppointment(row.id()));
             });
-            delete.setOnAction(e -> deleteSelected());
-            deposit.setOnAction(e -> paySelected(PaymentStage.deposit));
-            balance.setOnAction(e -> paySelected(PaymentStage.balance));
-            complete.setOnAction(e -> updateSelectedStatus(AppointmentStatus.completed));
-            remind.setOnAction(e -> remindSelected());
+            cancelButton.setOnAction(e -> cancelSelected());
+            startServiceButton.setOnAction(e -> updateSelectedStatus(AppointmentStatus.in_progress));
+            finishServiceButton.setOnAction(e -> updateSelectedStatus(AppointmentStatus.awaiting_payment));
+            customerDepositButton.setOnAction(e -> paySelected(PaymentStage.deposit));
+            balanceButton.setOnAction(e -> paySelected(PaymentStage.balance));
+            remindButton.setOnAction(e -> remindSelected());
+            table.getSelectionModel().selectedItemProperty().addListener((obs, oldRow, newRow) -> refreshAppointmentActions());
             status.getStyleClass().add("muted");
-            Region spacer = new Region();
-            HBox.setHgrow(spacer, Priority.ALWAYS);
-            HBox row = new HBox(10, add, edit, delete);
-            if (role != UserRole.CUSTOMER) {
-                row.getChildren().addAll(deposit, balance, complete, remind);
-            }
-            row.getChildren().addAll(spacer, status);
-            return card(row);
+            actionSpacer = new Region();
+            HBox.setHgrow(actionSpacer, Priority.ALWAYS);
+            actionRow = new HBox(10);
+            refreshAppointmentActions();
+            return card(actionRow);
         }
 
         private void load() {
@@ -1779,6 +1789,7 @@ public class SalonFxApplication extends Application {
             table.setItems(FXCollections.observableArrayList(filteredRows.subList(fromIndex, toIndex)));
             summaryLabel.setText(filteredRows.size() + " lịch hẹn");
             rebuildPageButtons(totalPages);
+            refreshAppointmentActions();
         }
 
         private void recalculatePageSize(double cardHeight) {
@@ -1890,8 +1901,8 @@ public class SalonFxApplication extends Application {
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             quickStats.getChildren().setAll(
                     stat("Hôm nay", todayCount + " lịch", "stat-appointments"),
-                    stat("Chờ cọc", pendingCount + " lịch", "stat-pending"),
-                    stat("Đã cọc", confirmedCount + " lịch", "stat-revenue"),
+                    stat("Chờ đặt cọc", pendingCount + " lịch", "stat-pending"),
+                    stat("Đã giữ chỗ", confirmedCount + " lịch", "stat-revenue"),
                     stat("Đã thu", money(visibleRevenue), "stat-revenue"));
         }
 
@@ -1899,19 +1910,57 @@ public class SalonFxApplication extends Application {
             return appointments.stream().filter(a -> Objects.equals(a.id(), id)).findFirst().orElse(null);
         }
 
-        private void deleteSelected() {
+        private void refreshAppointmentActions() {
+            if (actionRow == null) {
+                return;
+            }
+            editButton.setText("Sửa");
+            AppointmentRow row = table.getSelectionModel().getSelectedItem();
+            AppointmentRequests.Response appointment = row == null ? null : findAppointment(row.id());
+            actionRow.getChildren().clear();
+            if (appointment == null) {
+                actionRow.getChildren().add(addButton);
+            } else if (role == UserRole.CUSTOMER) {
+                addCustomerActions(appointment);
+            } else {
+                addAdminActions(appointment);
+            }
+            actionRow.getChildren().addAll(actionSpacer, status);
+        }
+
+        private void addCustomerActions(AppointmentRequests.Response appointment) {
+            AppointmentStatus currentStatus = appointment.status() == null ? AppointmentStatus.pending : appointment.status();
+            if (currentStatus == AppointmentStatus.pending) {
+                actionRow.getChildren().addAll(editButton, cancelButton, customerDepositButton);
+            }
+        }
+
+        private void addAdminActions(AppointmentRequests.Response appointment) {
+            AppointmentStatus currentStatus = appointment.status() == null ? AppointmentStatus.pending : appointment.status();
+            switch (currentStatus) {
+                case pending -> actionRow.getChildren().addAll(editButton, cancelButton);
+                case confirmed -> actionRow.getChildren().addAll(editButton, cancelButton, startServiceButton, remindButton);
+                case in_progress -> actionRow.getChildren().addAll(editButton, finishServiceButton);
+                case awaiting_payment -> actionRow.getChildren().addAll(editButton, balanceButton);
+                case completed, paid, cancelled -> {
+                    editButton.setText("Sửa ghi chú");
+                    actionRow.getChildren().add(editButton);
+                    return;
+                }
+            }
+            editButton.setText("Sửa");
+        }
+
+        private void cancelSelected() {
             AppointmentRow row = table.getSelectionModel().getSelectedItem();
             if (row == null) {
-                warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để xóa.");
+                warn("Chưa chọn lịch hẹn", "Vui lòng chọn lịch hẹn để hủy.");
                 return;
             }
-            if (!confirm("Xóa lịch hẹn", "Bạn chắc chắn muốn xóa lịch hẹn này?")) {
+            if (!confirm("Hủy lịch hẹn", "Bạn chắc chắn muốn hủy lịch hẹn này?")) {
                 return;
             }
-            runAsync(() -> {
-                ApiClient.deleteAppointment(row.id());
-                return null;
-            }, r -> load(), ex -> error("Lỗi xóa lịch hẹn", cleanError(ex)));
+            updateSelectedStatus(AppointmentStatus.cancelled);
         }
 
         private void updateSelectedStatus(AppointmentStatus newStatus) {
@@ -1925,15 +1974,16 @@ public class SalonFxApplication extends Application {
                 warn("Không tìm thấy lịch hẹn", "Dữ liệu lịch hẹn đã thay đổi, vui lòng làm mới.");
                 return;
             }
-            if (newStatus == AppointmentStatus.confirmed || newStatus == AppointmentStatus.paid) {
-                warn("Không thể cập nhật trực tiếp", "Thu cọc và thanh toán phần còn lại phải đi qua nút thanh toán.");
+            if (newStatus == AppointmentStatus.confirmed || newStatus == AppointmentStatus.completed || newStatus == AppointmentStatus.paid) {
+                warn("Không thể cập nhật trực tiếp", "Đặt cọc và hoàn thành thanh toán phải đi qua nút thanh toán.");
                 return;
             }
-            if (newStatus == AppointmentStatus.completed && safeAmount(appointment.amountPaid()).compareTo(BigDecimal.ZERO) <= 0) {
-                warn("Chưa thu cọc", "Chỉ có thể hoàn thành lịch hẹn sau khi đã thu cọc.");
+            if (newStatus == AppointmentStatus.awaiting_payment && safeAmount(appointment.amountPaid()).compareTo(BigDecimal.ZERO) <= 0) {
+                warn("Chưa đặt cọc", "Chỉ có thể chuyển sang chờ thanh toán sau khi khách đã đặt cọc.");
                 return;
             }
-            if (appointment.status() == AppointmentStatus.paid && newStatus != AppointmentStatus.paid) {
+            if ((appointment.status() == AppointmentStatus.completed || appointment.status() == AppointmentStatus.paid)
+                    && newStatus != AppointmentStatus.completed && newStatus != AppointmentStatus.paid) {
                 warn("Không thể đổi trạng thái", "Lịch hẹn đã thanh toán không nên chuyển về trạng thái khác.");
                 return;
             }
@@ -1986,7 +2036,7 @@ public class SalonFxApplication extends Application {
                     ? safeAmount(appointment.depositAmount())
                     : safeAmount(appointment.remainingAmount());
             if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-                warn("Đã thanh toán đủ", "Lịch hẹn này không còn số tiền cần thu.");
+                warn("Hoàn thành", "Lịch hẹn này không còn số tiền cần thu.");
                 return;
             }
             if (stage == PaymentStage.deposit && safeAmount(appointment.amountPaid()).compareTo(BigDecimal.ZERO) > 0) {
@@ -2669,7 +2719,11 @@ public class SalonFxApplication extends Application {
                     allowedStatuses.add(appointment.status());
                 }
             } else {
-                allowedStatuses.addAll(List.of(AppointmentStatus.pending, AppointmentStatus.completed, AppointmentStatus.cancelled));
+                allowedStatuses.addAll(List.of(
+                        AppointmentStatus.pending,
+                        AppointmentStatus.in_progress,
+                        AppointmentStatus.awaiting_payment,
+                        AppointmentStatus.cancelled));
                 if (appointment.status() != null && !allowedStatuses.contains(appointment.status())) {
                     allowedStatuses.add(appointment.status());
                 }
@@ -2949,6 +3003,8 @@ public class SalonFxApplication extends Application {
                     String cssClass = switch (item) {
                         case pending -> "status-pending";
                         case confirmed -> "status-confirmed";
+                        case in_progress -> "status-confirmed";
+                        case awaiting_payment -> "status-paid";
                         case completed -> "status-completed";
                         case paid -> "status-paid";
                         case cancelled -> "status-cancelled";
@@ -2994,6 +3050,8 @@ public class SalonFxApplication extends Application {
                 continue;
             }
             if (existing.status() != AppointmentStatus.confirmed
+                    && existing.status() != AppointmentStatus.in_progress
+                    && existing.status() != AppointmentStatus.awaiting_payment
                     && existing.status() != AppointmentStatus.completed
                     && existing.status() != AppointmentStatus.paid) {
                 continue;
@@ -3222,7 +3280,7 @@ public class SalonFxApplication extends Application {
 
     private boolean showPaymentQrSimulation(Integer appointmentId, String customerName, String serviceName,
                                             BigDecimal amount, String methodLabel) {
-        ButtonType paidButtonType = new ButtonType("Đã thanh toán", ButtonBar.ButtonData.OK_DONE);
+        ButtonType paidButtonType = new ButtonType("Hoàn tất thanh toán", ButtonBar.ButtonData.OK_DONE);
         ButtonType cancelButtonType = new ButtonType("Hủy", ButtonBar.ButtonData.CANCEL_CLOSE);
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.initOwner(stage);

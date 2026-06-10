@@ -126,8 +126,8 @@ public class PaymentService {
 				&& appointment.getAmountPaid() != null
 				&& appointment.getAmountPaid().compareTo(BigDecimal.ZERO) > 0) {
 			AppointmentStatus previousStatus = appointment.getStatus();
-			appointment.setStatus(AppointmentStatus.paid);
-			if (previousStatus != AppointmentStatus.paid) {
+			appointment.setStatus(AppointmentStatus.completed);
+			if (previousStatus != AppointmentStatus.completed && previousStatus != AppointmentStatus.paid) {
 				int earnedPoints = calculateLoyaltyPoints(appointment);
 				appointment.getCustomer().setLoyaltyPoints(
 						appointment.getCustomer().getLoyaltyPoints() + earnedPoints);
@@ -137,14 +137,14 @@ public class PaymentService {
 
 	private void validateAppointmentForStage(Appointment appointment, PaymentStage stage) {
 		if (stage == PaymentStage.deposit) {
-			if (appointment.getStatus() == AppointmentStatus.confirmed || appointment.getStatus() == AppointmentStatus.paid) {
+			if (appointment.getStatus() != AppointmentStatus.pending) {
 				throw new IllegalArgumentException("Appointment has already been deposited");
 			}
 			return;
 		}
 		if (stage == PaymentStage.balance) {
-			if (appointment.getStatus() == AppointmentStatus.pending) {
-				throw new IllegalArgumentException("A deposit is required before collecting the remaining balance");
+			if (appointment.getStatus() != AppointmentStatus.awaiting_payment) {
+				throw new IllegalArgumentException("The appointment must be waiting for payment before collecting the remaining balance");
 			}
 			BigDecimal remaining = safeAmount(appointment.getRemainingAmount());
 			if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
@@ -220,6 +220,8 @@ public class PaymentService {
 
 	private boolean isBlockingStatus(AppointmentStatus status) {
 		return status == AppointmentStatus.confirmed
+				|| status == AppointmentStatus.in_progress
+				|| status == AppointmentStatus.awaiting_payment
 				|| status == AppointmentStatus.completed
 				|| status == AppointmentStatus.paid;
 	}

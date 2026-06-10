@@ -147,8 +147,8 @@ public class ReportPanel extends JPanel {
 		JPanel panel = new JPanel(new GridLayout(1, 5, 12, 0));
 		panel.setOpaque(false);
 		panel.add(createStat("Tổng số", totalAppointmentsValue));
-		panel.add(createStat("Chờ xử lý", pendingValue));
-		panel.add(createStat("Đã xác nhận", confirmedValue));
+		panel.add(createStat("Chờ đặt cọc", pendingValue));
+		panel.add(createStat("Đã giữ chỗ", confirmedValue));
 		panel.add(createStat("Hoàn thành", completedValue));
 		panel.add(createStat("Đã hủy", cancelledValue));
 		return panel;

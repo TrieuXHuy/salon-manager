@@ -137,8 +137,9 @@ IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_customers_g
     ALTER TABLE [dbo].[customers] ADD CONSTRAINT [CK_customers_gender] CHECK ([gender] IS NULL OR [gender] IN (N'male', N'female', N'other'));
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_appointment_status')
-    ALTER TABLE [dbo].[appointments] ADD CONSTRAINT [CK_appointment_status] CHECK ([status] IN (N'pending', N'confirmed', N'completed', N'cancelled', N'paid'));
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_appointment_status')
+    ALTER TABLE [dbo].[appointments] DROP CONSTRAINT [CK_appointment_status];
+ALTER TABLE [dbo].[appointments] ADD CONSTRAINT [CK_appointment_status] CHECK ([status] IN (N'pending', N'confirmed', N'in_progress', N'awaiting_payment', N'completed', N'cancelled', N'paid'));
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_payment_status')
@@ -325,8 +326,9 @@ BEGIN
     DECLARE @status nvarchar(50) =
         CASE
             WHEN @n % 12 = 0 THEN N'cancelled'
-            WHEN @n % 7 = 0 THEN N'paid'
-            WHEN @n % 5 = 0 THEN N'completed'
+            WHEN @n % 7 = 0 THEN N'completed'
+            WHEN @n % 5 = 0 THEN N'awaiting_payment'
+            WHEN @n % 4 = 0 THEN N'in_progress'
             WHEN @n % 3 = 0 THEN N'confirmed'
             ELSE N'pending'
         END;
@@ -380,7 +382,7 @@ SELECT
 FROM [dbo].[appointments] a
 JOIN [dbo].[customers] c ON c.[id] = a.[customer_id]
 WHERE a.[note] LIKE N'[[]SEED] Lịch hẹn mẫu #%'
-  AND a.[status] IN (N'confirmed', N'completed', N'paid')
+  AND a.[status] IN (N'confirmed', N'in_progress', N'awaiting_payment', N'completed', N'paid')
   AND NOT EXISTS (
       SELECT 1
       FROM [dbo].[sms_logs] l

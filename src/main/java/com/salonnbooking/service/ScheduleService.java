@@ -160,6 +160,8 @@ public class ScheduleService {
 			return false;
 		}
 		if (apt.getStatus() != AppointmentStatus.confirmed
+				&& apt.getStatus() != AppointmentStatus.in_progress
+				&& apt.getStatus() != AppointmentStatus.awaiting_payment
 				&& apt.getStatus() != AppointmentStatus.completed
 				&& apt.getStatus() != AppointmentStatus.paid) {
 			return false;

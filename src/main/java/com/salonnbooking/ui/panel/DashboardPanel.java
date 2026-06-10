@@ -164,7 +164,7 @@ public class DashboardPanel extends JPanel {
 		grid.setOpaque(false);
 		grid.add(createStatCard("Khách hàng", totalCustomersValue, "Tổng số khách hàng", new Color(124, 92, 255), "KH"));
 		grid.add(createStatCard("Hôm nay", todayAppointmentsValue, "Lịch hẹn hôm nay", new Color(34, 197, 94), "HN"));
-		grid.add(createStatCard("Chờ xử lý", pendingAppointmentsValue, "Lịch hẹn chờ xử lý", new Color(245, 158, 11), "CH"));
+		grid.add(createStatCard("Chờ đặt cọc", pendingAppointmentsValue, "Lịch hẹn chờ khách đặt cọc", new Color(245, 158, 11), "CĐ"));
 		grid.add(createStatCard("Doanh thu hôm nay", todayRevenueValue, "Tổng doanh thu", new Color(99, 102, 241), "DT"));
 		grid.add(createStatCard("Doanh thu tháng", monthlyRevenueValue, "Tổng doanh thu tháng", new Color(59, 130, 246), "TM"));
 		grid.add(createStatCard("Dịch vụ hàng đầu", topServiceValue, "Dịch vụ được đặt nhiều nhất", new Color(16, 185, 129), "DV"));
@@ -594,11 +594,13 @@ public class DashboardPanel extends JPanel {
 		}
 		String normalized = status.trim().toLowerCase(Locale.US);
 		return switch (normalized) {
-			case "confirmed" -> "Đã xác nhận";
-			case "pending" -> "Chờ xử lý";
+			case "confirmed" -> "Đã giữ chỗ";
+			case "pending" -> "Chờ đặt cọc";
+			case "in_progress" -> "Đang phục vụ";
+			case "awaiting_payment" -> "Chờ thanh toán";
 			case "completed" -> "Hoàn thành";
 			case "cancelled" -> "Đã hủy";
-			case "paid" -> "Đã thanh toán";
+			case "paid" -> "Hoàn thành";
 			default -> capitalize(status);
 		};
 	}
