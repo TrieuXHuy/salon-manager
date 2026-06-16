@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Salon Manager Backend Ôn Thi Nhanh</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-soft: #111827;
+      --card: #0b1220;
+      --card-2: #111c33;
+      --line: rgba(148, 163, 184, 0.18);
+      --text: #e5eefc;
+      --muted: #9fb0cc;
+      --accent: #7dd3fc;
+      --accent-2: #fbbf24;
+      --good: #34d399;
+      --bad: #fb7185;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(251, 191, 36, 0.10), transparent 24%),
+        linear-gradient(180deg, #08111f 0%, #0f172a 35%, #0b1020 100%);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .wrap {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(125, 211, 252, 0.14), rgba(17, 24, 39, 0.86));
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -90px -90px auto;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(251, 191, 36, 0.22), transparent 60%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    h1, h2, h3 { margin: 0; line-height: 1.2; }
+    h1 {
+      margin-top: 12px;
+      font-size: clamp(30px, 4vw, 50px);
+      max-width: 900px;
+    }
+
+    .summary {
+      max-width: 900px;
+      color: var(--muted);
+      margin-top: 14px;
+      font-size: 16px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      background: rgba(15, 23, 42, 0.65);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 18px;
+      margin-top: 18px;
+      align-items: start;
+    }
+
+    .toc, .panel, .entity-card, .controller-card {
+      background: rgba(11, 18, 32, 0.92);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .toc {
+      position: sticky;
+      top: 16px;
+      padding: 18px;
+    }
+
+    .toc h2, .section-title {
+      font-size: 18px;
+      margin-bottom: 12px;
+    }
+
+    .toc ol {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+
+    .toc li { margin: 8px 0; }
+
+    .toc a {
+      color: var(--text);
+    }
+
+    .main {
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel {
+      padding: 20px;
+    }
+
+    .section {
+      scroll-margin-top: 18px;
+    }
+
+    .section + .section { margin-top: 0; }
+
+    .note {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    .entity-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .entity-card, .controller-card {
+      padding: 16px;
+    }
+
+    .entity-card h3, .controller-card h3 {
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: rgba(17, 24, 39, 0.7);
+    }
+
+    .tag.accent { color: var(--accent); }
+    .tag.good { color: var(--good); }
+    .tag.warn { color: var(--accent-2); }
+    .tag.bad { color: var(--bad); }
+
+    ul.clean {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--text);
+    }
+
+    ul.clean li { margin: 6px 0; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      margin-top: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+      background: rgba(11, 18, 32, 0.94);
+    }
+
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    th {
+      color: var(--accent);
+      background: rgba(17, 24, 39, 0.88);
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.95em;
+      color: #dbeafe;
+    }
+
+    .endpoint {
+      white-space: nowrap;
+      color: #dbeafe;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .footer {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: 1fr; }
+      .toc { position: static; }
+      .entity-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .wrap { width: min(100% - 20px, 1180px); padding-top: 16px; }
+      .hero, .panel { padding: 16px; }
+      h1 { font-size: 28px; }
+      .meta { gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="eyebrow">Salon Manager Backend</div>
+      <h1>HTML ôn thi nhanh phần backend</h1>
+      <p class="summary">
+        Tài liệu một trang, dễ đọc trên trình duyệt, tập trung vào entity, quan hệ dữ liệu và REST controller.
+        Nội dung chỉ nhấn mạnh luồng nghiệp vụ backend, không đưa phần giao diện frontend.
+      </p>
+      <div class="meta">
+        <span class="pill">Tên gốc giữ nguyên: <code>Entity</code>, <code>Controller</code>, <code>Endpoint</code></span>
+        <span class="pill">Giải thích bằng tiếng Việt</span>
+        <span class="pill">Dựa trên code hiện tại trong <code>src/main/java/com/salonnbooking</code></span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <aside class="toc">
+        <h2>Mục lục</h2>
+        <ol>
+          <li><a href="#overview">Tổng quan backend</a></li>
+          <li><a href="#entities">Entities &amp; enums</a></li>
+          <li><a href="#controllers">Controllers REST</a></li>
+          <li><a href="#quick-remember">Mẹo nhớ nhanh</a></li>
+        </ol>
+      </aside>
+
+      <main class="main">
+        <section id="overview" class="panel section">
+          <div class="section-title">Tổng quan backend</div>
+          <p class="note">
+            Trọng tâm của backend là quản lý người dùng, khách hàng, lịch hẹn, dịch vụ, phòng phục vụ,
+            thanh toán, nhắc lịch SMS và thống kê báo cáo.
+          </p>
+          <div class="tag-row">
+            <span class="tag accent">Booking flow</span>
+            <span class="tag good">Payment flow</span>
+            <span class="tag warn">Schedule flow</span>
+            <span class="tag">Report flow</span>
+          </div>
+          <ul class="clean">
+            <li><strong>Appointment</strong> là trung tâm, liên kết <code>Customer</code>, <code>ServiceEntity</code>, có thể gắn <code>ServiceRoom</code>.</li>
+            <li><strong>Payment</strong> bám vào <code>Appointment</code> để quản lý đặt cọc, thanh toán đủ, hoặc hoàn tiền.</li>
+            <li><strong>Customer</strong> giữ hồ sơ khách, có thể đồng bộ với <code>User</code> qua username.</li>
+            <li><strong>ServiceEntity</strong> và <strong>ServiceRoom</strong> là dữ liệu nền cho đặt lịch và xếp ca.</li>
+            <li><strong>SmsLog</strong> lưu lịch sử nhắc lịch hoặc thông báo cho từng cuộc hẹn.</li>
+          </ul>
+        </section>
+
+        <section id="entities" class="panel section">
+          <div class="section-title">Entities &amp; enums</div>
+          <p class="note">Nhóm này nên học theo quan hệ dữ liệu trước, sau đó nhớ field quan trọng và vai trò nghiệp vụ.</p>
+
+          <div class="entity-grid">
+            <article class="entity-card">
+              <h3>User</h3>
+              <div class="tag-row">
+                <span class="tag accent">Table: <code>app_users</code></span>
+                <span class="tag">Role-based</span>
+              </div>
+              <ul class="clean">
+                <li><strong>Vai trò:</strong> tài khoản hệ thống cho đăng nhập và phân quyền.</li>
+                <li><strong>Field chính:</strong> <code>username</code>, <code>password</code>, <code>role</code>, <code>createdAt</code>.</li>
+                <li><strong>Quan hệ:</strong> hiện tại là dữ liệu độc lập, không map trực tiếp sang <code>Customer</code>.</li>
+                <li><strong>Logic:</strong> kiểm soát truy cập bằng <code>UserRole</code>.</li>
+              </ul>
+            </article>
+
+            <article class="entity-card">
+              <h3>Customer</h3>
+              <div class="tag-row">
+                <span class="tag accent">Table: <code>customers</code></span>
+                <span class="tag">Profile</span>
+              </div>
+              <ul class="clean">
+                <li><strong>Vai trò:</strong> hồ sơ khách hàng, dùng cho đặt lịch và tích điểm.</li>
+                <li><strong>Field chính:</strong> <code>username</code>, <code>fullName</code>, <code>phone</code>, <code>email</code>, <code>gender</code>, <code>loyaltyPoints</code>, <code>note</code>.</li>
+                <li><strong>Quan hệ:</strong> được <code>Appointment</code> tham chiếu qua <code>customer</code>.</li>
+                <li><strong>Logic:</strong> lưu thông tin cá nhân và điểm trung thành.</li>
+              </ul>
+            </article>
+
+            <article class="entity-card">
+              <h3>Appointment</h3>
+              <div class="tag-row">
+                <span class="tag accent">Table: <code>appointments</code></span>
+                <span class="tag good">Core flow</span>
+              </div>
+              <ul class="clean">
+                <li><strong>Vai trò:</strong> lịch hẹn trung tâm của hệ thống.</li>
+                <li><strong>Field chính:</strong> <code>appointmentTime</code>, <code>totalAmount</code>, <code>depositAmount</code>, <code>amountPaid</code>, <code>remainingAmount</code>, <code>status</code>, <code>note</code>, <code>createdAt</code>.</li>
+                <li><strong>Quan hệ:</strong> <code>customer</code> bắt buộc, <code>service</code> bắt buộc, <code>room</code> tùy chọn.</li>
+                <li><strong>Logic:</strong> theo dõi toàn bộ vòng đời đặt lịch và trạng thái thanh toán.</li>
+              </ul>
+            </article>
+
+            <article class="entity-card">
+              <h3>Payment</h3>
+              <div class="tag-row">
+                <span class="tag accent">Table: <code>payments</code></span>
+                <span class="tag good">Money flow</span>
+              </div>
+              <ul class="clean">
+                <li><strong>Vai trò:</strong> ghi nhận từng lần thanh toán của một lịch hẹn.</li>
+                <li><strong>Field chính:</strong> <code>amount</code>, <code>paymentStage</code>, <code>paymentMethod</code>, <code>paymentStatus</code>, <code>paidAt</code>.</li>
+                <li><strong>Quan hệ:</strong> thuộc về một <code>Appointment</code>.</li>
+                <li><strong>Logic:</strong> tách rõ thanh toán cọc và thanh toán phần còn lại.</li>
+              </ul>
+            </article>
+
+            <article class="entity-card">
+              <h3>ServiceEntity</h3>
+              <div class="tag-row">
+                <span class="tag accent">Table: <code>services</code></span>
+                <span class="tag">Catalog</span>
+              </div>
+              <ul class="clean">
+                <li><strong>Vai trò:</strong> danh mục dịch vụ mà salon cung cấp.</li>
+                <li><strong>Field chính:</strong> <code>name</code>, <code>price</code>, <code>durationMinutes</code>, <code>description</code>, <code>isActive</code>.</li>
+                <li><strong>Quan hệ:</strong> được <code>Appointment</code> tham chiếu.</li>
+                <li><strong>Logic:</strong> quyết định giá và thời lượng khi đặt lịch.</li>
+              </ul>
+            </article>
+
+            <article class="entity-card">
+              <h3>ServiceRoom</h3>
+              <div class="tag-row">
+                <span class="tag accent">Table: <code>service_rooms</code></span>
+                <span class="tag">Resource</span>
+              </div>
+              <ul class="clean">
+                <li><strong>Vai trò:</strong> phòng phục vụ hoặc không gian thực hiện dịch vụ.</li>
+                <li><strong>Field chính:</strong> <code>name</code>, <code>description</code>, <code>isActive</code>.</li>
+                <li><strong>Quan hệ:</strong> có thể được gán cho <code>Appointment</code>.</li>
+                <li><strong>Logic:</strong> hỗ trợ phân bổ phòng theo ca lịch.</li>
+              </ul>
+            </article>
+
+            <article class="entity-card">
+              <h3>SmsLog</h3>
+              <div class="tag-row">
+                <span class="tag accent">Table: <code>sms_logs</code></span>
+                <span class="tag warn">Notification</span>
+              </div>
+              <ul class="clean">
+                <li><strong>Vai trò:</strong> lưu lịch sử tin nhắn nhắc lịch hoặc thông báo.</li>
+                <li><strong>Field chính:</strong> <code>appointment</code>, <code>phone</code>, <code>message</code>, <code>sentAt</code>, <code>status</code>.</li>
+                <li><strong>Quan hệ:</strong> thuộc về một <code>Appointment</code>.</li>
+                <li><strong>Logic:</strong> theo dõi gửi SMS thành công hay thất bại.</li>
+              </ul>
+            </article>
+          </div>
+
+          <h3 style="margin-top:18px;">Enums liên quan</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Enum</th>
+                  <th>Giá trị</th>
+                  <th>Ý nghĩa trong backend</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>UserRole</code></td>
+                  <td><code>OWNER</code>, <code>STAFF</code>, <code>CUSTOMER</code></td>
+                  <td>Phân quyền tài khoản hệ thống theo vai trò chủ, nhân viên, khách.</td>
+                </tr>
+                <tr>
+                  <td><code>AppointmentStatus</code></td>
+                  <td><code>pending</code>, <code>confirmed</code>, <code>in_progress</code>, <code>awaiting_payment</code>, <code>completed</code>, <code>cancelled</code>, <code>paid</code></td>
+                  <td>Theo dõi tiến trình của lịch hẹn từ lúc chờ đặt cọc đến hoàn tất.</td>
+                </tr>
+                <tr>
+                  <td><code>PaymentStatus</code></td>
+                  <td><code>unpaid</code>, <code>paid</code>, <code>refunded</code></td>
+                  <td>Trạng thái thanh toán của từng bản ghi payment.</td>
+                </tr>
+                <tr>
+                  <td><code>PaymentStage</code></td>
+                  <td><code>deposit</code>, <code>balance</code></td>
+                  <td>Xác định đây là tiền cọc hay tiền thanh toán phần còn lại.</td>
+                </tr>
+                <tr>
+                  <td><code>PaymentMethod</code></td>
+                  <td><code>cash</code>, <code>bank_transfer</code>, <code>momo</code>, <code>card</code></td>
+                  <td>Phương thức thanh toán được ghi nhận trong hệ thống.</td>
+                </tr>
+                <tr>
+                  <td><code>Gender</code></td>
+                  <td><code>male</code>, <code>female</code>, <code>other</code></td>
+                  <td>Thông tin giới tính trong hồ sơ khách hàng.</td>
+                </tr>
+                <tr>
+                  <td><code>SmsStatus</code></td>
+                  <td><code>success</code>, <code>failed</code></td>
+                  <td>Kết quả gửi SMS theo từng log.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="controllers" class="panel section">
+          <div class="section-title">Controllers REST</div>
+          <p class="note">
+            Mỗi API dưới đây được ghi theo đúng <code>method + endpoint + mục đích nghiệp vụ chính</code>.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Controller</th>
+                  <th>Method</th>
+                  <th>Endpoint</th>
+                  <th>Chức năng chính</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td rowspan="6"><code>AuthController</code></td>
+                  <td><code>POST</code></td>
+                  <td class="endpoint"><code>/api/auth/register</code></td>
+                  <td>Đăng ký tài khoản mới.</td>
+                </tr>
+                <tr>
+                  <td><code>POST</code></td>
+                  <td class="endpoint"><code>/api/auth/login</code></td>
+                  <td>Đăng nhập và trả về thông tin user.</td>
+                </tr>
+                <tr>
+                  <td><code>POST</code></td>
+                  <td class="endpoint"><code>/api/auth/logout</code></td>
+                  <td>Đăng xuất, trả message xác nhận.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/auth/users?requesterUsername=...</code></td>
+                  <td>Danh sách user, có kiểm tra người yêu cầu.</td>
+                </tr>
+                <tr>
+                  <td><code>POST</code></td>
+                  <td class="endpoint"><code>/api/auth/users</code></td>
+                  <td>Tạo user mới cho hệ thống.</td>
+                </tr>
+                <tr>
+                  <td><code>PUT/DELETE</code></td>
+                  <td class="endpoint"><code>/api/auth/users/{id}</code>, <code>/api/auth/users/{id}/role</code></td>
+                  <td>Sửa user, đổi role, hoặc xóa user theo quyền.</td>
+                </tr>
+
+                <tr>
+                  <td rowspan="6"><code>CustomerController</code></td>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/customers</code></td>
+                  <td>Danh sách khách hàng.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/customers/{id}</code></td>
+                  <td>Xem chi tiết một khách hàng.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/customers/profile?username=...</code></td>
+                  <td>Lấy profile khách theo username.</td>
+                </tr>
+                <tr>
+                  <td><code>PUT</code></td>
+                  <td class="endpoint"><code>/api/customers/profile</code></td>
+                  <td>Hoàn thiện hoặc cập nhật hồ sơ cá nhân.</td>
+                </tr>
+                <tr>
+                  <td><code>POST</code></td>
+                  <td class="endpoint"><code>/api/customers</code></td>
+                  <td>Tạo khách hàng mới.</td>
+                </tr>
+                <tr>
+                  <td><code>PUT/DELETE</code></td>
+                  <td class="endpoint"><code>/api/customers/{id}</code></td>
+                  <td>Sửa hoặc xóa khách hàng.</td>
+                </tr>
+
+                <tr>
+                  <td rowspan="5"><code>AppointmentController</code></td>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/appointments</code></td>
+                  <td>Danh sách toàn bộ lịch hẹn.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/appointments/mine?username=...</code></td>
+                  <td>Danh sách lịch hẹn của khách theo username.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/appointments/{id}</code></td>
+                  <td>Xem chi tiết lịch hẹn.</td>
+                </tr>
+                <tr>
+                  <td><code>POST/PUT/DELETE</code></td>
+                  <td class="endpoint"><code>/api/appointments</code>, <code>/api/appointments/{id}</code></td>
+                  <td>Tạo mới, cập nhật hoặc xóa lịch hẹn.</td>
+                </tr>
+                <tr>
+                  <td><code>POST</code></td>
+                  <td class="endpoint"><code>/api/appointments/{id}/remind</code></td>
+                  <td>Gửi nhắc lịch cho appointment.</td>
+                </tr>
+
+                <tr>
+                  <td rowspan="5"><code>PaymentController</code></td>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/payments</code></td>
+                  <td>Danh sách giao dịch thanh toán.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/payments/{id}</code></td>
+                  <td>Xem chi tiết một payment.</td>
+                </tr>
+                <tr>
+                  <td><code>POST/PUT/DELETE</code></td>
+                  <td class="endpoint"><code>/api/payments</code>, <code>/api/payments/{id}</code></td>
+                  <td>Tạo mới, cập nhật hoặc xóa payment.</td>
+                </tr>
+                <tr>
+                  <td><code>POST</code></td>
+                  <td class="endpoint"><code>/api/payments/{id}/mark-paid</code></td>
+                  <td>Đánh dấu payment đã thanh toán.</td>
+                </tr>
+                <tr>
+                  <td colspan="2"><span class="small">Ghi nhớ</span></td>
+                  <td>Payment tách rõ <code>stage</code>, <code>method</code> và <code>status</code>.</td>
+                </tr>
+
+                <tr>
+                  <td rowspan="5"><code>ServiceController</code></td>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/services</code></td>
+                  <td>Danh sách toàn bộ dịch vụ.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/services/active</code></td>
+                  <td>Chỉ lấy dịch vụ đang active.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/services/{id}</code></td>
+                  <td>Xem chi tiết dịch vụ.</td>
+                </tr>
+                <tr>
+                  <td><code>POST/PUT/DELETE</code></td>
+                  <td class="endpoint"><code>/api/services</code>, <code>/api/services/{id}</code></td>
+                  <td>Tạo, sửa, xóa dịch vụ.</td>
+                </tr>
+                <tr>
+                  <td colspan="2"><span class="small">Ghi nhớ</span></td>
+                  <td>Dịch vụ quyết định giá, thời lượng và khả năng đặt lịch.</td>
+                </tr>
+
+                <tr>
+                  <td rowspan="4"><code>ServiceRoomController</code></td>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/service-rooms</code></td>
+                  <td>Danh sách phòng dịch vụ.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/service-rooms/active</code></td>
+                  <td>Phòng đang hoạt động.</td>
+                </tr>
+                <tr>
+                  <td><code>POST/PUT/DELETE</code></td>
+                  <td class="endpoint"><code>/api/service-rooms</code>, <code>/api/service-rooms/{id}</code></td>
+                  <td>Tạo, sửa, xóa phòng phục vụ.</td>
+                </tr>
+                <tr>
+                  <td colspan="2"><span class="small">Ghi nhớ</span></td>
+                  <td>Room là tài nguyên được gán vào appointment nếu cần.</td>
+                </tr>
+
+                <tr>
+                  <td rowspan="4"><code>ScheduleController</code></td>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/schedules/available-slots?date=...&amp;serviceId=...</code></td>
+                  <td>Lấy khung giờ còn trống theo ngày và dịch vụ.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/schedules/by-date?date=...</code></td>
+                  <td>Lấy các lịch hẹn theo ngày.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/schedules/week?startDate=...</code></td>
+                  <td>Xem lịch theo tuần bắt đầu từ ngày chỉ định.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/schedules/month?startOfMonth=...</code></td>
+                  <td>Xem lịch theo tháng.</td>
+                </tr>
+
+                <tr>
+                  <td rowspan="2"><code>DashboardController</code></td>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/dashboard</code></td>
+                  <td>Lấy dữ liệu dashboard tổng hợp.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/dashboard/quick-stats</code></td>
+                  <td>Lấy số liệu nhanh để hiển thị tổng quan.</td>
+                </tr>
+
+                <tr>
+                  <td rowspan="4"><code>AnalyticsController</code></td>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/analytics/customers</code></td>
+                  <td>Phân tích dữ liệu khách hàng.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/analytics/appointment-trends?startDate=...&amp;endDate=...</code></td>
+                  <td>Xu hướng lịch hẹn trong khoảng thời gian.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/analytics/service-performance</code></td>
+                  <td>Hiệu suất từng dịch vụ.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/analytics/peak-hours</code></td>
+                  <td>Phân tích khung giờ cao điểm.</td>
+                </tr>
+
+                <tr>
+                  <td rowspan="4"><code>ReportController</code></td>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/reports/daily-revenue?startDate=...&amp;endDate=...</code></td>
+                  <td>Báo cáo doanh thu theo ngày.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/reports/service-revenue</code></td>
+                  <td>Báo cáo doanh thu theo dịch vụ.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/reports/payment-methods</code></td>
+                  <td>Thống kê theo phương thức thanh toán.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/reports/appointment-stats</code></td>
+                  <td>Thống kê tổng quan về appointment.</td>
+                </tr>
+
+                <tr>
+                  <td rowspan="5"><code>SmsLogController</code></td>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/sms-logs</code></td>
+                  <td>Danh sách log SMS.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/sms-logs/{id}</code></td>
+                  <td>Xem chi tiết một log.</td>
+                </tr>
+                <tr>
+                  <td><code>POST</code></td>
+                  <td class="endpoint"><code>/api/sms-logs</code></td>
+                  <td>Tạo bản ghi SMS log mới.</td>
+                </tr>
+                <tr>
+                  <td><code>PUT/DELETE</code></td>
+                  <td class="endpoint"><code>/api/sms-logs/{id}</code></td>
+                  <td>Cập nhật hoặc xóa log.</td>
+                </tr>
+                <tr>
+                  <td colspan="2"><span class="small">Ghi nhớ</span></td>
+                  <td>Mỗi log bám theo <code>Appointment</code> để truy vết tin nhắn.</td>
+                </tr>
+
+                <tr>
+                  <td rowspan="3"><code>SystemController</code></td>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/system/health</code></td>
+                  <td>Kiểm tra trạng thái chạy của hệ thống.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/system/info</code></td>
+                  <td>Lấy thông tin app, version, Java, profile, uptime.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td class="endpoint"><code>/api/system/db-status</code></td>
+                  <td>Kiểm tra trạng thái kết nối cơ sở dữ liệu.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="quick-remember" class="panel section">
+          <div class="section-title">Mẹo nhớ nhanh</div>
+          <div class="entity-grid">
+            <div class="entity-card">
+              <h3>Nhóm dữ liệu lõi</h3>
+              <ul class="clean">
+                <li><code>Appointment</code> là trung tâm.</li>
+                <li><code>Customer</code> + <code>ServiceEntity</code> là dữ liệu bắt buộc cho lịch hẹn.</li>
+                <li><code>Payment</code> và <code>SmsLog</code> là dữ liệu phát sinh từ appointment.</li>
+              </ul>
+            </div>
+            <div class="entity-card">
+              <h3>Nhóm nghiệp vụ chính</h3>
+              <ul class="clean">
+                <li><code>AuthController</code>: tài khoản và role.</li>
+                <li><code>AppointmentController</code>: đặt lịch và nhắc lịch.</li>
+                <li><code>PaymentController</code>: thanh toán.</li>
+                <li><code>Dashboard</code> / <code>Analytics</code> / <code>Report</code>: thống kê.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="note" style="margin-top:14px;">
+            File này cố ý không mô tả giao diện FE, không nêu request body hay response sample,
+            để phù hợp kiểu ôn thi nhanh và đọc lướt trên trình duyệt.
+          </p>
+        </section>
+
+        <div class="footer">
+          Tạo cho mục đích ôn thi backend Salon Manager. Nếu cần, có thể tách tiếp thành bản "siêu ngắn" 1 trang in ra giấy.
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
