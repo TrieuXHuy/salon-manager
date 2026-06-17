@@ -86,7 +86,9 @@ public class AppointmentService {
 				.orElseThrow(() -> new ResourceNotFoundException("Service not found with id: " + serviceId));
 		validateBasicTime(service, req.appointmentTime());
 
+		// Nếu client không gửi status thì mặc định là pending.
 		AppointmentStatus status = req.status() == null ? AppointmentStatus.pending : req.status();
+		// Chặn các trạng thái không được phép tạo trực tiếp.
 		validateCreateStatus(status);
 
 		Appointment appointment = new Appointment();
@@ -96,6 +98,7 @@ public class AppointmentService {
 		appointment.setAppointmentTime(req.appointmentTime());
 		appointment.setStatus(status);
 		appointment.setNote(req.note());
+		// Tính lại tổng tiền, tiền cọc, đã trả và còn lại trước khi lưu.
 		recalculateFinancialSnapshot(appointment);
 		return appointmentRepository.save(appointment);
 	}
@@ -269,16 +272,21 @@ public class AppointmentService {
 	}
 
 	private void recalculateFinancialSnapshot(Appointment appointment) {
+		// Tổng tiền của lịch hẹn dựa trên giá service.
 		BigDecimal total = safeAmount(appointment.getService() == null ? BigDecimal.ZERO : appointment.getService().getPrice());
+		// Tiền cọc mặc định bằng 20% tổng tiền.
 		BigDecimal deposit = total.multiply(BigDecimal.valueOf(0.2)).setScale(2, RoundingMode.HALF_UP);
+		// Cộng tất cả payment đã thanh toán cho lịch hẹn này.
 		BigDecimal amountPaid = paymentRepository.findByAppointmentId(appointment.getId()).stream()
 				.filter(payment -> payment.getPaymentStatus() == PaymentStatus.paid)
 				.map(payment -> payment.getAmount() == null ? BigDecimal.ZERO : payment.getAmount())
 				.reduce(BigDecimal.ZERO, BigDecimal::add)
 				.setScale(2, RoundingMode.HALF_UP);
+		// Số tiền còn lại không được âm.
 		BigDecimal remaining = total.subtract(amountPaid).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
 		appointment.setTotalAmount(total);
 		appointment.setDepositAmount(deposit);
+		// Không cho amountPaid vượt quá total.
 		appointment.setAmountPaid(amountPaid.min(total).setScale(2, RoundingMode.HALF_UP));
 		appointment.setRemainingAmount(remaining);
 	}
