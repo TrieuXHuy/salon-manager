@@ -29,13 +29,14 @@ public class AppointmentReminderScheduler {
 	public void remindUpcomingConfirmedAppointments() {
 		LocalDateTime now = LocalDateTime.now();
 		LocalDateTime windowEnd = now.plusMinutes(REMINDER_WINDOW_MINUTES);
+		// Lấy các lịch hẹn đã xác nhận và sắp diễn ra trong khoảng thời gian nhắc nhở.
 		List<Appointment> appointments = appointmentRepository.findByStatusAndAppointmentTimeBetween(
 				AppointmentStatus.confirmed,
 				now,
 				windowEnd);
 
 		if (appointments.isEmpty()) {
-			log.info("No confirmed appointments to remind between {} and {}", now, windowEnd);
+			log.info("No confirmed appointments to remind between {} and {}", now, windowEnd);   
 			return;
 		}
 
