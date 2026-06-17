@@ -78,17 +78,23 @@ public class ReportService {
 	}
 
 	public List<ReportRequests.ServiceRevenueResponse> getServiceRevenueReport() {
+		// Lấy toàn bộ lịch hẹn để gom theo từng dịch vụ.
 		List<Appointment> allAppointments = appointmentRepository.findAll();
 
+		// Gom các lịch hẹn theo serviceId.
 		Map<Integer, List<Appointment>> groupedByService = allAppointments.stream()
 				.collect(Collectors.groupingBy(a -> a.getService().getId()));
 
+		// Danh sách kết quả báo cáo.
 		List<ReportRequests.ServiceRevenueResponse> reports = new ArrayList<>();
 
+		// Tính doanh thu riêng cho từng dịch vụ.
 		for (Map.Entry<Integer, List<Appointment>> entry : groupedByService.entrySet()) {
 			List<Appointment> serviceAppointments = entry.getValue();
+			// Số lượng lịch hẹn của dịch vụ này.
 			int appointmentCount = serviceAppointments.size();
 
+			// Cộng doanh thu từ các payment đã thanh toán.
 			BigDecimal totalRevenue = BigDecimal.ZERO;
 			for (Appointment apt : serviceAppointments) {
 				List<Payment> payments = paymentRepository.findByAppointmentId(apt.getId());
@@ -99,10 +105,12 @@ public class ReportService {
 				}
 			}
 
+			// Doanh thu trung bình trên mỗi lịch hẹn.
 			BigDecimal avgRevenue = appointmentCount > 0
 					? totalRevenue.divide(BigDecimal.valueOf(appointmentCount), 2, java.math.RoundingMode.HALF_UP)
 					: BigDecimal.ZERO;
 
+			// Tạo một dòng report cho dịch vụ hiện tại.
 			reports.add(new ReportRequests.ServiceRevenueResponse(
 					entry.getKey(),
 					serviceAppointments.get(0).getService().getName(),
@@ -111,43 +119,54 @@ public class ReportService {
 					avgRevenue));
 		}
 
+		// Sắp xếp dịch vụ có doanh thu cao nhất lên trước.
 		return reports.stream()
 				.sorted((a, b) -> b.totalRevenue().compareTo(a.totalRevenue()))
 				.collect(Collectors.toList());
 	}
 
 	public List<ReportRequests.PaymentMethodResponse> getPaymentMethodReport() {
+		// Lấy toàn bộ payment để thống kê theo phương thức.
 		List<Payment> allPayments = paymentRepository.findAll();
 
+		// Chỉ lấy các payment đã thanh toán và gom theo paymentMethod.
 		Map<PaymentMethod, List<Payment>> groupedByMethod = allPayments.stream()
 				.filter(p -> p.getPaymentStatus() == PaymentStatus.paid)
 				.collect(Collectors.groupingBy(Payment::getPaymentMethod));
 
+		// Tổng số payment đã thanh toán.
 		int totalPayments = allPayments.stream()
 				.filter(p -> p.getPaymentStatus() == PaymentStatus.paid)
 				.toList()
 				.size();
 
+		// Tổng số tiền đã thu.
 		BigDecimal totalAmount = allPayments.stream()
 				.filter(p -> p.getPaymentStatus() == PaymentStatus.paid)
 				.map(Payment::getAmount)
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 
+		// Danh sách kết quả báo cáo.
 		List<ReportRequests.PaymentMethodResponse> reports = new ArrayList<>();
 
+		// Tính số lượng, tổng tiền và tỷ lệ cho từng phương thức.
 		for (Map.Entry<PaymentMethod, List<Payment>> entry : groupedByMethod.entrySet()) {
 			List<Payment> methodPayments = entry.getValue();
+			// Số payment của phương thức này.
 			int count = methodPayments.size();
 
+			// Tổng tiền thu được từ phương thức này.
 			BigDecimal methodTotal = methodPayments.stream()
 					.map(Payment::getAmount)
 					.reduce(BigDecimal.ZERO, BigDecimal::add);
 
+			// Tỷ lệ đóng góp của phương thức này trên tổng doanh thu.
 			BigDecimal percentage = totalPayments > 0
 					? methodTotal.divide(totalAmount, 2, java.math.RoundingMode.HALF_UP)
 							.multiply(BigDecimal.valueOf(100))
 					: BigDecimal.ZERO;
 
+			// Tạo một dòng report cho phương thức thanh toán hiện tại.
 			reports.add(new ReportRequests.PaymentMethodResponse(
 					entry.getKey().toString(),
 					count,
@@ -159,8 +178,10 @@ public class ReportService {
 	}
 
 	public ReportRequests.AppointmentStatsResponse getAppointmentStats() {
+		// Lấy toàn bộ lịch hẹn để đếm theo trạng thái.
 		List<Appointment> allAppointments = appointmentRepository.findAll();
 
+		// Trả về số lượng lịch hẹn tổng và số lượng theo từng trạng thái chính.
 		return new ReportRequests.AppointmentStatsResponse(
 				allAppointments.size(),
 				(int) allAppointments.stream().filter(a -> a.getStatus() == AppointmentStatus.pending).count(),
