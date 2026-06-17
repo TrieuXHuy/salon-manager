@@ -104,7 +104,9 @@ public class AppointmentService {
 	}
 
 	public Appointment update(Integer id, AppointmentRequests.Update req) {
+		// Lấy lịch hẹn hiện tại để cập nhật.
 		Appointment appointment = findById(id);
+		// Customer mới sẽ được gắn vào lịch hẹn.
 		Customer customer = customerRepository.findById(req.customerId())
 				.orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + req.customerId()));
 
@@ -117,19 +119,23 @@ public class AppointmentService {
 				.orElseThrow(() -> new ResourceNotFoundException("Service not found with id: " + serviceId));
 		validateBasicTime(service, req.appointmentTime());
 
+		// Nếu đã có payment paid thì không cho đổi các thông tin cốt lõi.
 		boolean hasPaidPayment = paymentRepository.existsByAppointmentIdAndPaymentStatus(id, PaymentStatus.paid);
 		if (hasPaidPayment && hasCoreFieldChanged(appointment, customer, service, req.appointmentTime(), req.roomId())) {
 			throw new IllegalArgumentException("Confirmed appointment cannot be rescheduled after payment");
 		}
 
+		// Kiểm tra status mới có hợp lệ không.
 		validateUpdateStatus(appointment, req.status(), hasPaidPayment);
 
+		// Cập nhật các field chính của appointment.
 		appointment.setCustomer(customer);
 		appointment.setService(service);
 		appointment.setRoom(resolveRoomOnUpdate(id, req.status(), req.roomId(), customer, service, req.appointmentTime()));
 		appointment.setAppointmentTime(req.appointmentTime());
 		appointment.setStatus(req.status());
 		appointment.setNote(req.note());
+		// Tính lại tiền trước khi lưu.
 		recalculateFinancialSnapshot(appointment);
 		return appointmentRepository.save(appointment);
 	}
@@ -143,6 +149,7 @@ public class AppointmentService {
 
 	public void sendReminder(Integer id) {
 		Appointment appointment = findById(id);
+		// nếu lịch vẫn đang pending thì không cho gửi nhắc vì có thể khách vẫn đang trong quá trình thanh toán cọc.
 		if (appointment.getStatus() == AppointmentStatus.pending) {
 			throw new IllegalArgumentException("Cannot send reminder before deposit is confirmed");
 		}

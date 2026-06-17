@@ -51,6 +51,7 @@ public class EmailService {
 		}
 
 		String toEmail = appointment.getCustomer().getEmail();
+		// nếu customer chưa có email thì không gửi
 		if (toEmail == null || toEmail.trim().isEmpty()) {
 			log.info("Skipping reminder, customer has no email. appointmentId={}", appointment.getId());
 			return;
@@ -62,11 +63,15 @@ public class EmailService {
 
 	private void sendEmail(String toEmail, Integer appointmentId, String subject, String html) {
 		try {
+			// Tạo email message dạng MIME để hỗ trợ HTML.
 			MimeMessage message = mailSender.createMimeMessage();
+			// Helper để set người gửi, người nhận, tiêu đề và nội dung.
 			MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 			if (fromEmail != null && !fromEmail.isBlank()) {
+				// Nếu có cấu hình fromEmail thì dùng làm địa chỉ gửi.
 				helper.setFrom(fromEmail);
 			}
+			// Set người nhận, tiêu đề và nội dung email.
 			helper.setTo(toEmail);
 			helper.setSubject(subject);
 			helper.setText(html, true);
@@ -74,6 +79,7 @@ public class EmailService {
 			mailSender.send(message);
 			log.info("Email sent successfully. appointmentId={}, to={}", appointmentId, toEmail);
 		} catch (Exception e) {
+			// Ghi log lỗi rồi ném exception ra ngoài để biết gửi mail thất bại.
 			log.error("Failed to send email. appointmentId={}", appointmentId, e);
 			throw new IllegalStateException("Failed to send email", e);
 		}
