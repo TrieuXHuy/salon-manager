@@ -73,13 +73,19 @@ public class PaymentService {
 	}
 
 	public Payment update(Integer id, PaymentRequests.Update req) {
+		// Lấy payment hiện tại để sửa.
 		Payment payment = findById(id);
+		// Lấy appointment mới mà payment sẽ gắn vào.
 		Appointment appointment = appointmentRepository.findById(req.appointmentId())
 				.orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + req.appointmentId()));
+		// Xác định stage thanh toán nếu client không gửi lên.
 		PaymentStage stage = req.paymentStage() == null ? inferStage(appointment, normalize(req.amount())) : req.paymentStage();
+		// Tính số tiền đúng cần có cho stage này.
 		BigDecimal expectedAmount = expectedAmount(appointment, stage);
+		// Chặn nếu amount không khớp với số tiền hệ thống mong đợi.
 		validateAmount(stage, req.amount(), expectedAmount);
 
+		// Cập nhật lại các field của payment.
 		payment.setAppointment(appointment);
 		payment.setAmount(normalize(req.amount()));
 		payment.setPaymentMethod(req.paymentMethod());
@@ -87,6 +93,7 @@ public class PaymentService {
 		payment.setPaymentStatus(req.paymentStatus());
 		payment.setPaidAt(req.paidAt());
 
+		// Lưu payment rồi đồng bộ lại appointment phía sau.
 		Payment saved = paymentRepository.save(payment);
 		recalculateAppointmentFinancials(appointment);
 		updateAppointmentStatusAfterPayment(appointment);
@@ -168,18 +175,25 @@ public class PaymentService {
 	}
 
 	private PaymentStage inferStage(Appointment appointment, BigDecimal amount) {
+		// Tổng tiền của lịch hẹn dựa trên giá service.
 		BigDecimal total = normalize(appointment.getService() == null ? BigDecimal.ZERO : appointment.getService().getPrice());
+		// Tiền cọc mặc định bằng 20% tổng tiền.
 		BigDecimal deposit = total.multiply(BigDecimal.valueOf(0.2)).setScale(2, RoundingMode.HALF_UP);
+		// Số tiền còn lại sau khi trừ phần đã trả.
 		BigDecimal remaining = normalize(total.subtract(normalize(appointment.getAmountPaid())));
+		// Nếu amount đúng bằng tiền cọc thì coi là thanh toán deposit.
 		if (amount.compareTo(deposit) == 0) {
 			return PaymentStage.deposit;
 		}
+		// Nếu amount bằng tổng tiền hoặc bằng phần còn lại thì coi là thanh toán balance.
 		if (amount.compareTo(total) == 0 || amount.compareTo(remaining) == 0) {
 			return PaymentStage.balance;
 		}
+		// Nếu appointment đã có tiền trả trước đó thì thường đang ở luồng balance.
 		if (normalize(appointment.getAmountPaid()).compareTo(BigDecimal.ZERO) > 0) {
 			return PaymentStage.balance;
 		}
+		// Còn lại thì amount lớn hơn cọc -> balance, nhỏ hơn hoặc bằng cọc -> deposit.
 		return amount.compareTo(deposit) > 0 ? PaymentStage.balance : PaymentStage.deposit;
 	}
 
