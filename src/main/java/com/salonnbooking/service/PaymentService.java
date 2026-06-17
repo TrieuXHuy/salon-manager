@@ -111,27 +111,35 @@ public class PaymentService {
 	}
 
 	private void applyPaymentEffects(Appointment appointment, Payment payment) {
+		// Cập nhật lại tiền của appointment sau khi thêm payment mới.
 		recalculateAppointmentFinancials(appointment);
 		if (payment.getPaymentStage() == PaymentStage.deposit) {
+			// Thu cọc thì giữ phòng và xác nhận lịch.
 			lockRoomForAppointment(appointment);
 			if (appointment.getStatus() == AppointmentStatus.pending) {
 				appointment.setStatus(AppointmentStatus.confirmed);
 			}
+			// Gửi email xác nhận booking sau khi cọc thành công.
 			emailService.sendBookingConfirmation(appointment);
 		}
+		// Đồng bộ trạng thái appointment sau thanh toán.
 		updateAppointmentStatusAfterPayment(appointment);
 		appointmentRepository.save(appointment);
 	}
 
 	private void updateAppointmentStatusAfterPayment(Appointment appointment) {
+		// Tính lại tiền trước khi quyết định đổi trạng thái.
 		recalculateAppointmentFinancials(appointment);
+		// Nếu đã thanh toán đủ và có phát sinh tiền đã trả thì chuyển sang completed.
 		if (safeAmount(appointment.getRemainingAmount()).compareTo(BigDecimal.ZERO) <= 0
 				&& appointment.getAmountPaid() != null
 				&& appointment.getAmountPaid().compareTo(BigDecimal.ZERO) > 0) {
 			AppointmentStatus previousStatus = appointment.getStatus();
 			appointment.setStatus(AppointmentStatus.completed);
+			// Chỉ cộng điểm khi đây là lần hoàn tất thực sự, không phải trạng thái đã hoàn tất trước đó.
 			if (previousStatus != AppointmentStatus.completed && previousStatus != AppointmentStatus.paid) {
 				int earnedPoints = calculateLoyaltyPoints(appointment);
+				// Cộng điểm tích lũy cho customer.
 				appointment.getCustomer().setLoyaltyPoints(
 						appointment.getCustomer().getLoyaltyPoints() + earnedPoints);
 			}
@@ -233,14 +241,19 @@ public class PaymentService {
 	}
 
 	private void recalculateAppointmentFinancials(Appointment appointment) {
+		// Tổng tiền của lịch hẹn dựa trên giá service.
 		BigDecimal total = normalize(appointment.getService() == null ? BigDecimal.ZERO : appointment.getService().getPrice());
+		// Tiền cọc mặc định bằng 20% tổng tiền.
 		BigDecimal deposit = total.multiply(BigDecimal.valueOf(0.2)).setScale(2, RoundingMode.HALF_UP);
+		// Cộng tất cả payment đã thanh toán của lịch hẹn này.
 		BigDecimal paid = paymentRepository.findByAppointmentId(appointment.getId()).stream()
 				.filter(payment -> payment.getPaymentStatus() == PaymentStatus.paid)
 				.map(payment -> normalize(payment.getAmount()))
 				.reduce(BigDecimal.ZERO, BigDecimal::add)
 				.setScale(2, RoundingMode.HALF_UP);
+		// Không cho tiền đã trả vượt quá tổng tiền.
 		paid = paid.min(total).setScale(2, RoundingMode.HALF_UP);
+		// Cập nhật lại snapshot tiền vào appointment.
 		appointment.setTotalAmount(total);
 		appointment.setDepositAmount(deposit);
 		appointment.setAmountPaid(paid);
