@@ -11,6 +11,10 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import com.salonnbooking.domain.Appointment;
+import com.salonnbooking.domain.SmsLog;
+import com.salonnbooking.domain.SmsStatus;
+import com.salonnbooking.repository.AppointmentRepository;
+import com.salonnbooking.repository.SmsLogRepository;
 
 import jakarta.mail.internet.MimeMessage;
 
@@ -20,10 +24,17 @@ public class EmailService {
 
 	private final JavaMailSender mailSender;
 	private final String fromEmail;
+	private final AppointmentRepository appointmentRepository;
+	private final SmsLogRepository smsLogRepository;
 
-	public EmailService(JavaMailSender mailSender, @Value("${spring.mail.username:}") String fromEmail) {
+	public EmailService(JavaMailSender mailSender, 
+		@Value("${spring.mail.username:}") String fromEmail,
+		AppointmentRepository appointmentRepository,
+		SmsLogRepository smsLogRepository) {
 		this.mailSender = mailSender;
 		this.fromEmail = fromEmail;
+		this.appointmentRepository = appointmentRepository;
+		this.smsLogRepository = smsLogRepository;
 	}
 
 	public void sendBookingConfirmation(Appointment appointment) {
@@ -63,6 +74,8 @@ public class EmailService {
 
 	private void sendEmail(String toEmail, Integer appointmentId, String subject, String html) {
 		try {
+			Appointment appointment = appointmentRepository.findById(appointmentId)
+					.orElseThrow(() -> new IllegalArgumentException("Appointment not found: " + appointmentId));
 			// Tạo email message dạng MIME để hỗ trợ HTML.
 			MimeMessage message = mailSender.createMimeMessage();
 			// Helper để set người gửi, người nhận, tiêu đề và nội dung.
@@ -75,7 +88,13 @@ public class EmailService {
 			helper.setTo(toEmail);
 			helper.setSubject(subject);
 			helper.setText(html, true);
-
+			
+			SmsLog smsLog = new SmsLog();
+			smsLog.setAppointment(appointment);
+			smsLog.setPhone(appointment.getCustomer().getPhone());
+			smsLog.setStatus(SmsStatus.success);
+			
+			smsLogRepository.save(smsLog);
 			mailSender.send(message);
 			log.info("Email sent successfully. appointmentId={}, to={}", appointmentId, toEmail);
 		} catch (Exception e) {
