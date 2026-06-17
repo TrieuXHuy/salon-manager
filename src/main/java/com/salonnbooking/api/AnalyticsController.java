@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.salonnbooking.api.dto.AnalyticsRequests;
 import com.salonnbooking.service.AnalyticsService;
 
+/** API thống kê, hiện chưa thấy UI/client gọi tới trong code. */
 @RestController
 @RequestMapping("/api/analytics")
 public class AnalyticsController {
@@ -23,12 +24,15 @@ public class AnalyticsController {
 		this.analyticsService = analyticsService;
 	}
 
+	
+	/** Lấy thống kê tổng quan về khách hàng. */
 	@GetMapping("/customers")
 	@ResponseStatus(HttpStatus.OK)
 	public AnalyticsRequests.CustomerAnalyticsResponse getCustomerAnalytics() {
 		return analyticsService.getCustomerAnalytics();
 	}
 
+	/** Lấy xu hướng lịch hẹn trong khoảng thời gian truyền vào. */
 	@GetMapping("/appointment-trends")
 	@ResponseStatus(HttpStatus.OK)
 	public List<AnalyticsRequests.AppointmentTrendResponse> getAppointmentTrends(
@@ -37,12 +41,14 @@ public class AnalyticsController {
 		return analyticsService.getAppointmentTrends(startDate, endDate);
 	}
 
+	/** Lấy hiệu suất của từng dịch vụ. */
 	@GetMapping("/service-performance")
 	@ResponseStatus(HttpStatus.OK)
 	public List<AnalyticsRequests.ServicePerformanceResponse> getServicePerformance() {
 		return analyticsService.getServicePerformance();
 	}
 
+	/** Lấy thống kê các khung giờ cao điểm. */
 	@GetMapping("/peak-hours")
 	@ResponseStatus(HttpStatus.OK)
 	public List<AnalyticsRequests.PeakHoursResponse> getPeakHours() {
