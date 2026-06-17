@@ -171,9 +171,11 @@ public class ScheduleService {
 	}
 
 	private boolean isRoomConflict(Appointment apt, ServiceRoom room, LocalDateTime slotTime, Integer serviceDuration) {
+		// Bo qua cac appointment khong chiem phong thuc su.
 		if (apt.getStatus() == AppointmentStatus.pending || apt.getStatus() == AppointmentStatus.cancelled) {
 			return false;
 		}
+		// Chi cac trang thai nay moi duoc tinh la dang giu phong.
 		if (apt.getStatus() != AppointmentStatus.confirmed
 				&& apt.getStatus() != AppointmentStatus.in_progress
 				&& apt.getStatus() != AppointmentStatus.awaiting_payment
@@ -181,12 +183,15 @@ public class ScheduleService {
 				&& apt.getStatus() != AppointmentStatus.paid) {
 			return false;
 		}
+		// Chi so sanh neu cung phong.
 		if (apt.getRoom() == null || !apt.getRoom().getId().equals(room.getId())) {
 			return false;
 		}
+		// Tinh khoang thoi gian cua appointment hien tai va slot moi.
 		LocalDateTime aptEnd = apt.getAppointmentTime().plusMinutes(roundedDuration(apt.getService().getDurationMinutes()));
 		LocalDateTime slotEnd = slotTime.plusMinutes(serviceDuration);
 
+		// Hai khoang thoi gian giao nhau thi xem la conflict.
 		return slotTime.isBefore(aptEnd) && slotEnd.isAfter(apt.getAppointmentTime());
 	}
 
