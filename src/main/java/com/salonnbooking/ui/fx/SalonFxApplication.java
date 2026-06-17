@@ -92,6 +92,7 @@ public class SalonFxApplication extends Application {
             status.setText(isLogin ? "Đang đăng nhập..." : "Đang tạo tài khoản...");
             runAsync(() -> isLogin ? ApiClient.login(user, password) : ApiClient.register(user, password), response -> {
                 this.username = response.username();
+                //[Phân Quyền] Nếu API không trả về vai trò, mặc định gán là CUSTOMER để đảm bảo người dùng mới có thể tiếp tục hoàn thiện hồ sơ.
                 this.role = response.role() == null ? UserRole.CUSTOMER : response.role();
                 afterAuthenticated();
             }, ex -> {
@@ -223,7 +224,8 @@ public class SalonFxApplication extends Application {
         HBox brand = new HBox(12, logo, brandText);
         brand.setAlignment(Pos.CENTER_LEFT);
         brand.getStyleClass().add("brand");
-
+        
+        //[Phân Quyền] Xây dựng menu điều hướng dựa trên vai trò người dùng.
         VBox menu = new VBox(6);
         if (role == UserRole.OWNER) {
             addNav(menu, "Tổng quan", "dashboard");
