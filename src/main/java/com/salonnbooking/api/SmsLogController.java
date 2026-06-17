@@ -29,12 +29,14 @@ public class SmsLogController {
 		this.smsLogService = smsLogService;
 	}
 
+	/** Lấy toàn bộ danh sách log SMS. */
 	@GetMapping
 	@Transactional(readOnly = true)
 	public List<SmsLogRequests.Response> list() {
 		return smsLogService.findAll().stream().map(SmsLogRequests.Response::from).toList();
 	}
 
+	/** Lấy chi tiết log SMS theo id. */
 	@GetMapping("/{id}")
 	@Transactional(readOnly = true)
 	public SmsLogRequests.Response get(@PathVariable Integer id) {
@@ -42,6 +44,7 @@ public class SmsLogController {
 		return SmsLogRequests.Response.from(log);
 	}
 
+	/** Tạo mới một log SMS. */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public SmsLogRequests.Response create(@Valid @RequestBody SmsLogRequests.Create req) {
@@ -49,12 +52,14 @@ public class SmsLogController {
 		return SmsLogRequests.Response.from(log);
 	}
 
+	/** Cập nhật log SMS theo id. */
 	@PutMapping("/{id}")
 	public SmsLogRequests.Response update(@PathVariable Integer id, @Valid @RequestBody SmsLogRequests.Update req) {
 		SmsLog log = smsLogService.update(id, req);
 		return SmsLogRequests.Response.from(log);
 	}
 
+	/** Xóa log SMS theo id. */
 	@DeleteMapping("/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(@PathVariable Integer id) {
