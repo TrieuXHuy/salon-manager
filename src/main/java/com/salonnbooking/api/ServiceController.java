@@ -28,22 +28,26 @@ public class ServiceController {
 		this.serviceService = serviceService;
 	}
 
+	/** Lấy toàn bộ danh sách dịch vụ. */
 	@GetMapping
 	public List<ServiceRequests.Response> list() {
 		return serviceService.findAll().stream().map(ServiceRequests.Response::from).toList();
 	}
 
+	/** Lấy danh sách dịch vụ đang hoạt động. */
 	@GetMapping("/active")
 	public List<ServiceRequests.Response> listActive() {
 		return serviceService.findAllActive().stream().map(ServiceRequests.Response::from).toList();
 	}
 
+	/** Lấy chi tiết dịch vụ theo id. */
 	@GetMapping("/{id}")
 	public ServiceRequests.Response get(@PathVariable Integer id) {
 		ServiceEntity service = serviceService.findById(id);
 		return ServiceRequests.Response.from(service);
 	}
 
+	/** Tạo mới một dịch vụ. */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public ServiceRequests.Response create(@Valid @RequestBody ServiceRequests.Create req) {
@@ -51,12 +55,14 @@ public class ServiceController {
 		return ServiceRequests.Response.from(service);
 	}
 
+	/** Cập nhật thông tin dịch vụ theo id. */
 	@PutMapping("/{id}")
 	public ServiceRequests.Response update(@PathVariable Integer id, @Valid @RequestBody ServiceRequests.Update req) {
 		ServiceEntity service = serviceService.update(id, req);
 		return ServiceRequests.Response.from(service);
 	}
 
+	/** Xóa dịch vụ theo id. */
 	@DeleteMapping("/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(@PathVariable Integer id) {

@@ -28,16 +28,19 @@ public class ServiceRoomController {
 		this.serviceRoomService = serviceRoomService;
 	}
 
+	/** Lấy toàn bộ danh sách phòng dịch vụ. */
 	@GetMapping
 	public List<ServiceRoomRequests.Response> list() {
 		return serviceRoomService.findAll().stream().map(ServiceRoomRequests.Response::from).toList();
 	}
 
+	/** Lấy danh sách phòng dịch vụ đang hoạt động. */
 	@GetMapping("/active")
 	public List<ServiceRoomRequests.Response> active() {
 		return serviceRoomService.findActive().stream().map(ServiceRoomRequests.Response::from).toList();
 	}
 
+	/** Tạo mới một phòng dịch vụ. */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public ServiceRoomRequests.Response create(@Valid @RequestBody ServiceRoomRequests.Create req) {
@@ -45,6 +48,7 @@ public class ServiceRoomController {
 		return ServiceRoomRequests.Response.from(room);
 	}
 
+	/** Cập nhật thông tin phòng dịch vụ theo id. */
 	@PutMapping("/{id}")
 	public ServiceRoomRequests.Response update(@PathVariable Integer id,
 			@Valid @RequestBody ServiceRoomRequests.Update req) {
@@ -52,6 +56,7 @@ public class ServiceRoomController {
 		return ServiceRoomRequests.Response.from(room);
 	}
 
+	/** Xóa phòng dịch vụ theo id. */
 	@DeleteMapping("/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(@PathVariable Integer id) {
