@@ -3525,6 +3525,7 @@ public class SalonFxApplication extends Application {
         return value == null ? "" : value;
     }
 
+    // Xếp hạng khách hàng dựa trên điểm tích lũy.
     private String customerTier(Integer points) {
         int value = points == null ? 0 : points;
         if (value >= 100) {
