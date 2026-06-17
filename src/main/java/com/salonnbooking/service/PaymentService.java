@@ -310,6 +310,7 @@ public class PaymentService {
 		return ((duration + 29) / 30) * 30;
 	}
 
+	// Tính điểm tích lũy dựa trên giá dịch vụ của lịch hẹn. Mỗi 10,000 VND sẽ được 1 điểm.
 	private int calculateLoyaltyPoints(Appointment appointment) {
 		ServiceEntity service = appointment.getService();
 		BigDecimal price = service == null ? BigDecimal.ZERO : service.getPrice();
