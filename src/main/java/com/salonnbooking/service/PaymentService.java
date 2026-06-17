@@ -51,9 +51,12 @@ public class PaymentService {
 	public Payment save(PaymentRequests.Create req) {
 		Appointment appointment = appointmentRepository.findById(req.appointmentId())
 				.orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + req.appointmentId()));
+		// Nếu paymentStage không được cung cấp, tự động suy luận dựa trên số tiền và trạng thái của lịch hẹn.
 		PaymentStage stage = req.paymentStage() == null ? inferStage(appointment, normalize(req.amount())) : req.paymentStage();
+		// Xác định số tiền dự kiến dựa trên stage.
 		BigDecimal expectedAmount = expectedAmount(appointment, stage);
 		validateAmount(stage, req.amount(), expectedAmount);
+		// Kiểm tra tính hợp lệ của lịch hẹn đối với stage thanh toán hiện tại.
 		validateAppointmentForStage(appointment, stage);
 
 		Payment payment = new Payment();
@@ -137,15 +140,18 @@ public class PaymentService {
 
 	private void validateAppointmentForStage(Appointment appointment, PaymentStage stage) {
 		if (stage == PaymentStage.deposit) {
+			// Thu cọc: lịch hẹn phải còn ở trạng thái pending.
 			if (appointment.getStatus() != AppointmentStatus.pending) {
 				throw new IllegalArgumentException("Appointment has already been deposited");
 			}
 			return;
 		}
 		if (stage == PaymentStage.balance) {
+			// Thu phần còn lại: lịch hẹn phải đang chờ thanh toán.
 			if (appointment.getStatus() != AppointmentStatus.awaiting_payment) {
 				throw new IllegalArgumentException("The appointment must be waiting for payment before collecting the remaining balance");
 			}
+			// Nếu đã trả đủ thì không cho thu tiếp.
 			BigDecimal remaining = safeAmount(appointment.getRemainingAmount());
 			if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
 				throw new IllegalArgumentException("Appointment has already been fully paid");
@@ -242,16 +248,23 @@ public class PaymentService {
 	}
 
 	private BigDecimal expectedAmount(Appointment appointment, PaymentStage stage) {
+		// Tổng tiền của lịch hẹn dựa trên giá service.
 		BigDecimal total = normalize(appointment.getService() == null ? BigDecimal.ZERO : appointment.getService().getPrice());
+		// Tiền cọc mặc định là 20% tổng tiền.
 		BigDecimal deposit = total.multiply(BigDecimal.valueOf(0.2)).setScale(2, RoundingMode.HALF_UP);
+		// Số tiền đã trả trước đó.
 		BigDecimal paid = normalize(appointment.getAmountPaid());
+		// Phần tiền còn lại chưa thanh toán.
 		BigDecimal remaining = normalize(total.subtract(paid));
+		// Nếu đang thu cọc thì trả về deposit, ngược lại trả về phần còn lại.
 		return stage == PaymentStage.deposit ? deposit : remaining;
 	}
 
 	private void validateAmount(PaymentStage stage, BigDecimal amount, BigDecimal expectedAmount) {
+		// Chuẩn hóa số tiền trước khi so sánh.
 		BigDecimal normalizedAmount = normalize(amount);
 		BigDecimal normalizedExpected = normalize(expectedAmount);
+		// Nếu amount khác số tiền hệ thống mong đợi thì chặn lại.
 		if (normalizedAmount.compareTo(normalizedExpected) != 0) {
 			throw new IllegalArgumentException("Invalid " + stage + " amount. Expected " + normalizedExpected);
 		}

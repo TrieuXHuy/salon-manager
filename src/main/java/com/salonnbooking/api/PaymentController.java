@@ -29,12 +29,14 @@ public class PaymentController {
 		this.paymentService = paymentService;
 	}
 
+	/** Lấy toàn bộ danh sách payment. */
 	@GetMapping
 	@Transactional(readOnly = true)
 	public List<PaymentRequests.Response> list() {
 		return paymentService.findAll().stream().map(PaymentRequests.Response::from).toList();
 	}
 
+	/** Lấy chi tiết payment theo id. */
 	@GetMapping("/{id}")
 	@Transactional(readOnly = true)
 	public PaymentRequests.Response get(@PathVariable Integer id) {
@@ -42,6 +44,7 @@ public class PaymentController {
 		return PaymentRequests.Response.from(payment);
 	}
 
+	/** Tạo mới một payment. */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public PaymentRequests.Response create(@Valid @RequestBody PaymentRequests.Create req) {
@@ -49,18 +52,21 @@ public class PaymentController {
 		return PaymentRequests.Response.from(payment);
 	}
 
+	/** Cập nhật payment theo id. */
 	@PutMapping("/{id}")
 	public PaymentRequests.Response update(@PathVariable Integer id, @Valid @RequestBody PaymentRequests.Update req) {
 		Payment payment = paymentService.update(id, req);
 		return PaymentRequests.Response.from(payment);
 	}
 
+	/** Xóa payment theo id. */
 	@DeleteMapping("/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(@PathVariable Integer id) {
 		paymentService.delete(id);
 	}
 
+	/** Đánh dấu payment đã thanh toán. */
 	@PostMapping("/{id}/mark-paid")
 	public PaymentRequests.Response markAsPaid(@PathVariable Integer id) {
 		Payment payment = paymentService.markAsPaid(id);
