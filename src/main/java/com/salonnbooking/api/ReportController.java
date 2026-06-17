@@ -23,6 +23,7 @@ public class ReportController {
 		this.reportService = reportService;
 	}
 
+	/** Báo cáo doanh thu theo ngày trong khoảng thời gian truyền vào. */
 	@GetMapping("/daily-revenue")
 	@ResponseStatus(HttpStatus.OK)
 	public List<ReportRequests.DailyRevenueResponse> getDailyRevenueReport(
@@ -31,18 +32,21 @@ public class ReportController {
 		return reportService.getDailyRevenueReport(startDate, endDate);
 	}
 
+	/** Báo cáo doanh thu theo dịch vụ. */
 	@GetMapping("/service-revenue")
 	@ResponseStatus(HttpStatus.OK)
 	public List<ReportRequests.ServiceRevenueResponse> getServiceRevenueReport() {
 		return reportService.getServiceRevenueReport();
 	}
 
+	/** Báo cáo doanh thu theo phương thức thanh toán. */
 	@GetMapping("/payment-methods")
 	@ResponseStatus(HttpStatus.OK)
 	public List<ReportRequests.PaymentMethodResponse> getPaymentMethodReport() {
 		return reportService.getPaymentMethodReport();
 	}
 
+	/** Báo cáo thống kê tổng hợp về lịch hẹn. */
 	@GetMapping("/appointment-stats")
 	@ResponseStatus(HttpStatus.OK)
 	public ReportRequests.AppointmentStatsResponse getAppointmentStats() {

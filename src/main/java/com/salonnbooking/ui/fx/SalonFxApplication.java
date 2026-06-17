@@ -2039,8 +2039,12 @@ public class SalonFxApplication extends Application {
 
         private void addCustomerActions(AppointmentRequests.Response appointment) {
             AppointmentStatus currentStatus = appointment.status() == null ? AppointmentStatus.pending : appointment.status();
-            if (currentStatus == AppointmentStatus.pending) {
-                actionRow.getChildren().addAll(editButton, cancelButton, customerDepositButton);
+            switch (currentStatus) {
+                case pending -> actionRow.getChildren().addAll(editButton, cancelButton, customerDepositButton);
+                case awaiting_payment -> actionRow.getChildren().addAll(balanceButton);
+                default -> {
+                    // Customer chỉ được thao tác thanh toán ở 2 trạng thái này.
+                }
             }
         }
 

@@ -33,22 +33,29 @@ public class ReportService {
 	}
 
 	public List<ReportRequests.DailyRevenueResponse> getDailyRevenueReport(LocalDate startDate, LocalDate endDate) {
+		// Lấy tất cả lịch hẹn trong khoảng ngày cần báo cáo.
 		List<Appointment> appointments = appointmentRepository
 				.findAppointmentsBetween(
 						startDate.atStartOfDay(),
 						endDate.atTime(23, 59, 59));
 
+		// Gom lịch hẹn theo từng ngày để tính báo cáo riêng.
 		Map<LocalDate, List<Appointment>> groupedByDate = appointments.stream()
 				.collect(Collectors.groupingBy(a -> a.getAppointmentTime().toLocalDate()));
 
+		// Danh sách kết quả trả về cho report.
 		List<ReportRequests.DailyRevenueResponse> reports = new ArrayList<>();
 
+		// Duyệt từng ngày trong khoảng báo cáo.
 		for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+			// Lấy các lịch hẹn của riêng ngày đó.
 			List<Appointment> dayAppointments = groupedByDate.getOrDefault(date, new ArrayList<>());
+			// Đếm số lịch đã hoàn thành.
 			int completedCount = (int) dayAppointments.stream()
 					.filter(a -> a.getStatus() == AppointmentStatus.completed)
 					.count();
 
+			// Cộng doanh thu từ tất cả payment đã thanh toán trong ngày.
 			BigDecimal totalRevenue = BigDecimal.ZERO;
 			for (Appointment apt : dayAppointments) {
 				List<Payment> payments = paymentRepository.findByAppointmentId(apt.getId());
@@ -59,6 +66,7 @@ public class ReportService {
 				}
 			}
 
+			// Tạo một dòng report cho ngày hiện tại.
 			reports.add(new ReportRequests.DailyRevenueResponse(
 					date,
 					totalRevenue,
