@@ -29,6 +29,7 @@ public class AuthController {
 		this.authService = authService;
 	}
 
+	/** Đăng ký tài khoản mới cho customer. */
 	@PostMapping("/register")
 	@ResponseStatus(HttpStatus.CREATED)
 	public AuthRequests.Response register(@Valid @RequestBody AuthRequests.Register req) {
@@ -36,40 +37,47 @@ public class AuthController {
 		return AuthRequests.Response.from(user, "Register successful");
 	}
 
+	/** Đăng nhập hệ thống. */
 	@PostMapping("/login")
 	public AuthRequests.Response login(@Valid @RequestBody AuthRequests.Login req) {
 		User user = authService.login(req);
 		return AuthRequests.Response.from(user, "Login successful");
 	}
 
+	/** Đăng xuất khỏi hệ thống. */
 	@PostMapping("/logout")
 	public AuthRequests.Message logout() {
 		return new AuthRequests.Message("Logout successful");
 	}
 
+	/** Lấy danh sách user, chỉ owner mới được phép. */
 	@GetMapping("/users")
 	public List<AuthRequests.UserResponse> listUsers(@RequestParam String requesterUsername) {
 		return authService.findAllUsers(requesterUsername).stream().map(AuthRequests.UserResponse::from).toList();
 	}
 
+	/** Tạo user mới, có thể kèm role tùy theo quyền người tạo. */
 	@PostMapping("/users")
 	@ResponseStatus(HttpStatus.CREATED)
 	public AuthRequests.UserResponse createUser(@Valid @RequestBody AuthRequests.CreateUser req) {
 		return AuthRequests.UserResponse.from(authService.createUser(req));
 	}
 
+	/** Cập nhật thông tin user theo id. */
 	@PutMapping("/users/{id}")
 	public AuthRequests.UserResponse updateUser(@PathVariable Integer id,
 			@Valid @RequestBody AuthRequests.UpdateUser req) {
 		return AuthRequests.UserResponse.from(authService.updateUser(id, req));
 	}
 
+	/** Đổi role của user theo id. */
 	@PutMapping("/users/{id}/role")
 	public AuthRequests.UserResponse changeRole(@PathVariable Integer id,
 			@Valid @RequestBody AuthRequests.ChangeRole req) {
 		return AuthRequests.UserResponse.from(authService.changeRole(id, req));
 	}
 
+	/** Xóa user theo id. */
 	@DeleteMapping("/users/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteUser(@PathVariable Integer id, @RequestParam String requesterUsername) {

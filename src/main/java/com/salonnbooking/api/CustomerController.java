@@ -29,27 +29,32 @@ public class CustomerController {
 		this.customerService = customerService;
 	}
 
+	/** Lấy toàn bộ danh sách customer. */
 	@GetMapping
 	public List<CustomerRequests.Response> list() {
 		return customerService.findAll().stream().map(CustomerRequests.Response::from).toList();
 	}
 
+	/** Lấy chi tiết customer theo id. */
 	@GetMapping("/{id}")
 	public CustomerRequests.Response get(@PathVariable Integer id) {
 		Customer customer = customerService.findById(id);
 		return CustomerRequests.Response.from(customer);
 	}
 
+	/** Lấy profile customer theo username. */
 	@GetMapping("/profile")
 	public CustomerRequests.Response profile(@RequestParam String username) {
 		return CustomerRequests.Response.from(customerService.findProfile(username));
 	}
 
+	/** Hoàn thiện profile customer theo username và số điện thoại. */
 	@PutMapping("/profile")
 	public CustomerRequests.Response completeProfile(@Valid @RequestBody CustomerRequests.CompleteProfile req) {
 		return CustomerRequests.Response.from(customerService.completeProfile(req));
 	}
 
+	/** Tạo customer mới kèm user đăng nhập tương ứng. */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public CustomerRequests.Response create(@Valid @RequestBody CustomerRequests.Create req) {
@@ -57,12 +62,14 @@ public class CustomerController {
 		return CustomerRequests.Response.from(customer);
 	}
 
+	/** Cập nhật thông tin customer theo id. */
 	@PutMapping("/{id}")
 	public CustomerRequests.Response update(@PathVariable Integer id, @Valid @RequestBody CustomerRequests.Update req) {
 		Customer customer = customerService.update(id, req);
 		return CustomerRequests.Response.from(customer);
 	}
 
+	/** Xóa customer theo id. */
 	@DeleteMapping("/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(@PathVariable Integer id) {

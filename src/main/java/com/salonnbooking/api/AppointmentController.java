@@ -30,18 +30,21 @@ public class AppointmentController {
 		this.appointmentService = appointmentService;
 	}
 
+	/** Lấy toàn bộ danh sách lịch hẹn. */
 	@GetMapping
 	@Transactional(readOnly = true)
 	public List<AppointmentRequests.Response> list() {
 		return appointmentService.findAll().stream().map(AppointmentRequests.Response::from).toList();
 	}
 
+	/** Lấy danh sách lịch hẹn của customer theo username. */
 	@GetMapping("/mine")
 	@Transactional(readOnly = true)
 	public List<AppointmentRequests.Response> mine(@RequestParam String username) {
 		return appointmentService.findByCustomerUsername(username).stream().map(AppointmentRequests.Response::from).toList();
 	}
 
+	/** Lấy chi tiết lịch hẹn theo id. */
 	@GetMapping("/{id}")
 	@Transactional(readOnly = true)
 	public AppointmentRequests.Response get(@PathVariable Integer id) {
@@ -49,6 +52,7 @@ public class AppointmentController {
 		return AppointmentRequests.Response.from(appointment);
 	}
 
+	/** Tạo mới một lịch hẹn. */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public AppointmentRequests.Response create(@Valid @RequestBody AppointmentRequests.Create req) {
@@ -56,6 +60,7 @@ public class AppointmentController {
 		return AppointmentRequests.Response.from(appointment);
 	}
 
+	/** Cập nhật thông tin một lịch hẹn theo id. */
 	@PutMapping("/{id}")
 	public AppointmentRequests.Response update(@PathVariable Integer id,
 			@Valid @RequestBody AppointmentRequests.Update req) {
@@ -63,12 +68,14 @@ public class AppointmentController {
 		return AppointmentRequests.Response.from(appointment);
 	}
 
+	/** Xóa một lịch hẹn theo id. */
 	@DeleteMapping("/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(@PathVariable Integer id) {
 		appointmentService.delete(id);
 	}
 
+	/** Gửi nhắc lịch hẹn qua email. */
 	@PostMapping("/{id}/remind")
 	@ResponseStatus(HttpStatus.OK)
 	public void remind(@PathVariable Integer id) {
