@@ -43,30 +43,41 @@ public class ScheduleService {
 	}
 
 	public List<ScheduleRequests.AvailableSlotResponse> getAvailableSlots(LocalDate date, Integer serviceId) {
+		// Lấy service để biết thời lượng và tính slot trống.
 		ServiceEntity service = serviceRepository.findById(serviceId)
 				.orElseThrow(() -> new RuntimeException("Service not found"));
 
+		// Danh sách kết quả trả về cho UI.
 		List<ScheduleRequests.AvailableSlotResponse> availableSlots = new ArrayList<>();
+		// Lấy tất cả lịch hẹn trong ngày để kiểm tra xung đột.
 		List<Appointment> dayAppointments = appointmentRepository
 				.findAppointmentsBetween(
 						date.atStartOfDay(),
 						date.atTime(23, 59, 59));
+		// Chỉ xét các phòng đang hoạt động.
 		List<ServiceRoom> rooms = serviceRoomRepository.findByIsActiveTrueOrderByIdAsc();
+		// Làm tròn thời lượng service theo slot.
 		int duration = roundedDuration(service.getDurationMinutes());
+		// Không cho đặt slot trong quá khứ.
 		LocalDateTime now = LocalDateTime.now();
 
+		// Quét từng khung giờ trong giờ làm việc.
 		for (int hour = BUSINESS_HOURS_START; hour < BUSINESS_HOURS_END; hour++) {
 			for (int minute = 0; minute < 60; minute += SLOT_DURATION_MINUTES) {
 				LocalDateTime slotTime = date.atTime(hour, minute);
+				// Bỏ qua slot đã qua thời điểm hiện tại.
 				if (slotTime.isBefore(now)) {
 					continue;
 				}
+				// Bỏ qua slot nếu service kết thúc sau giờ đóng cửa.
 				if (slotTime.plusMinutes(duration).toLocalTime().isAfter(LocalTime.of(BUSINESS_HOURS_END, 0))) {
 					continue;
 				}
+				// Kiểm tra từng phòng xem có bị trùng lịch hay không.
 				for (ServiceRoom room : rooms) {
 					boolean isAvailable = dayAppointments.stream()
 							.noneMatch(apt -> isRoomConflict(apt, room, slotTime, duration));
+					// Tạo response slot cho UI hiển thị.
 					availableSlots.add(new ScheduleRequests.AvailableSlotResponse(
 							slotTime,
 							isAvailable,

@@ -23,6 +23,7 @@ public class ScheduleController {
 		this.scheduleService = scheduleService;
 	}
 
+	/** Lấy danh sách khung giờ còn trống cho một ngày và dịch vụ cụ thể. */
 	@GetMapping("/available-slots")
 	@ResponseStatus(HttpStatus.OK)
 	public List<ScheduleRequests.AvailableSlotResponse> getAvailableSlots(
@@ -31,6 +32,7 @@ public class ScheduleController {
 		return scheduleService.getAvailableSlots(date, serviceId);
 	}
 
+	/** Lấy danh sách lịch hẹn theo một ngày cụ thể. */
 	@GetMapping("/by-date")
 	@ResponseStatus(HttpStatus.OK)
 	public List<ScheduleRequests.AppointmentScheduleResponse> getAppointmentsByDate(
@@ -38,6 +40,7 @@ public class ScheduleController {
 		return scheduleService.getAppointmentsByDate(date);
 	}
 
+	/** Lấy lịch của cả tuần, tính từ ngày bắt đầu truyền vào. */
 	@GetMapping("/week")
 	@ResponseStatus(HttpStatus.OK)
 	public List<ScheduleRequests.DayScheduleResponse> getWeekSchedule(
@@ -45,6 +48,7 @@ public class ScheduleController {
 		return scheduleService.getWeekSchedule(startDate);
 	}
 
+	/** Lấy lịch của cả tháng, tính từ ngày đầu tháng truyền vào. */
 	@GetMapping("/month")
 	@ResponseStatus(HttpStatus.OK)
 	public List<ScheduleRequests.DayScheduleResponse> getMonthSchedule(
