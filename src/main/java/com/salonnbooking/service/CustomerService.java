@@ -112,13 +112,16 @@ public class CustomerService {
 
 		Customer target = profile;
 		if (byPhone != null && byPhone.getUsername() == null) {
+			// Dùng lại record theo số điện thoại để không tạo trùng customer.
 			target = byPhone;
 			target.setUsername(username);
 			if (profile != null && !profile.getId().equals(byPhone.getId())) {
+				// Xóa record placeholder theo username sau khi đã gộp xong.
 				customerRepository.delete(profile);
 			}
 		}
 		if (target == null) {
+			// Không có record nào khớp thì tạo customer mới.
 			target = new Customer();
 			target.setUsername(username);
 		}
