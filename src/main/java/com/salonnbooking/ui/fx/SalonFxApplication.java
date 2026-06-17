@@ -3399,6 +3399,7 @@ public class SalonFxApplication extends Application {
         return alert.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK;
     }
 
+    // Giả lập thanh toán bằng QR code.
     private boolean showPaymentQrSimulation(Integer appointmentId, String customerName, String serviceName,
                                             BigDecimal amount, String methodLabel) {
         ButtonType paidButtonType = new ButtonType("Hoàn tất thanh toán", ButtonBar.ButtonData.OK_DONE);
